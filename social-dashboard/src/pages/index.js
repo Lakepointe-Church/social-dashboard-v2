@@ -16,35 +16,40 @@ import AIChatPanel from '../components/AIChatPanel';
 import CustomViewBuilder, { useWidgetConfig } from '../components/CustomViewBuilder';
 import {
   platforms, totals, followerHistory, engagementHistory, reachHistory,
-  topPosts, geoData, contentTypeData, ageData, milestones, bestTimeData, DAYS,
+  topPosts, geoData, contentTypeData, ageData, milestones, bestTimeData,
+  filterHistory, DATA_START_DATE, DATA_END_DATE,
 } from '../data/demoData';
 import { Users, TrendingUp, Eye, Heart } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
 
 const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok'];
 
-// Map date range label → number of days
-const RANGE_DAYS = {
-  '7 days':       7,
-  '30 days':      30,
-  '90 days':      90,
-  'Last Quarter': 91,
-  '1 Year':       365,
-};
+function daysAgo(n) {
+  const d = new Date(DATA_END_DATE);
+  d.setDate(d.getDate() - n + 1);
+  return d.toISOString().split('T')[0];
+}
 
 export default function Dashboard() {
-  const [activeTab,     setActiveTab]     = useState('All');
-  const [dateRange,     setDateRange]     = useState('90 days');
-  const [showAI,        setShowAI]        = useState(false);
-  const [showBuilder,   setShowBuilder]   = useState(false);
-  const [chartType,     setChartType]     = useState('followers');
+  const [activeTab,   setActiveTab]   = useState('All');
+  const [dateRange,   setDateRange]   = useState('90 Days');
+  const [startISO,    setStartISO]    = useState(daysAgo(90));
+  const [endISO,      setEndISO]      = useState(DATA_END_DATE);
+  const [showAI,      setShowAI]      = useState(false);
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [chartType,   setChartType]   = useState('followers');
 
   const { enabled, toggle, resetAll } = useWidgetConfig();
 
-  const days          = RANGE_DAYS[dateRange] ?? 90;
-  const followerSlice = followerHistory.slice(-days);
-  const engageSlice   = engagementHistory.slice(-days);
-  const reachSlice    = reachHistory.slice(-days);
+  function handleDateRangeChange({ startISO: s, endISO: e, label }) {
+    setStartISO(s);
+    setEndISO(e);
+    setDateRange(label);
+  }
+
+  const followerSlice = filterHistory(followerHistory,    startISO, endISO);
+  const engageSlice   = filterHistory(engagementHistory,  startISO, endISO);
+  const reachSlice    = filterHistory(reachHistory,        startISO, endISO);
 
   const chartData = chartType === 'followers' ? followerSlice
                   : chartType === 'reach'     ? reachSlice
@@ -70,7 +75,9 @@ export default function Dashboard() {
       <div className="min-h-screen bg-slate-50">
         <Header
           dateRange={dateRange}
-          onDateRangeChange={setDateRange}
+          startISO={startISO}
+          endISO={endISO}
+          onDateRangeChange={handleDateRangeChange}
           onToggleAI={() => setShowAI(v => !v)}
           aiActive={showAI}
           onOpenBuilder={() => setShowBuilder(true)}
@@ -133,7 +140,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="font-bold text-slate-900 text-lg">Growth Over Time</h2>
-                    <p className="text-slate-500 text-sm">{dateRange} • All platforms</p>
+                    <p className="text-slate-500 text-sm">{dateRange} · {followerSlice.length} days · All platforms</p>
                   </div>
                   <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
                     {[['followers','Followers'],['reach','Reach'],['engagement','Engagement']].map(([k,l]) => (

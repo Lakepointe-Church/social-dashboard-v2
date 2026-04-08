@@ -8,12 +8,30 @@ function seededRand(seed) {
   return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
 }
 
+// Anchor dates for the demo dataset
+export const DATA_END_DATE   = '2026-04-07';
+export const DATA_START_DATE = '2025-04-07';
+
 function generateDates(days) {
   return Array.from({ length: days }, (_, i) => {
-    const d = new Date('2026-04-07');
+    const d = new Date(DATA_END_DATE);
     d.setDate(d.getDate() - (days - 1 - i));
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   });
+}
+
+function generateISODates(days) {
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(DATA_END_DATE);
+    d.setDate(d.getDate() - (days - 1 - i));
+    return d.toISOString().split('T')[0];
+  });
+}
+
+// Filter any history array to an ISO date range ('YYYY-MM-DD')
+export function filterHistory(history, startISO, endISO) {
+  if (!startISO || !endISO) return history;
+  return history.filter(item => item.dateISO >= startISO && item.dateISO <= endISO);
 }
 
 function generateTrend(start, end, days, volatility = 0.025, seed = 42) {
@@ -27,7 +45,8 @@ function generateTrend(start, end, days, volatility = 0.025, seed = 42) {
 }
 
 export const DAYS = 365;
-const dates = generateDates(DAYS);
+const dates    = generateDates(DAYS);
+const isoDates = generateISODates(DAYS);
 
 // ── Platform definitions ──────────────────────────────────────────────────────
 export const platforms = {
@@ -70,7 +89,7 @@ const ytF  = generateTrend(52000, 89234, DAYS, 0.015, 33);
 const ttF  = generateTrend(3200,  15672, DAYS, 0.025, 44);
 
 export const followerHistory = dates.map((date, i) => ({
-  date, Facebook: fbF[i], Instagram: igF[i], YouTube: ytF[i], TikTok: ttF[i],
+  date, dateISO: isoDates[i], Facebook: fbF[i], Instagram: igF[i], YouTube: ytF[i], TikTok: ttF[i],
 }));
 
 const fbR = generateTrend(155000, 234567, DAYS, 0.06, 66);
@@ -79,7 +98,7 @@ const ytR = generateTrend(210000, 423891, DAYS, 0.08, 88);
 const ttR = generateTrend( 50000, 287456, DAYS, 0.10, 99);
 
 export const reachHistory = dates.map((date, i) => ({
-  date, Facebook: fbR[i], Instagram: igR[i], YouTube: ytR[i], TikTok: ttR[i],
+  date, dateISO: isoDates[i], Facebook: fbR[i], Instagram: igR[i], YouTube: ytR[i], TikTok: ttR[i],
 }));
 
 const fbE = generateTrend( 9000, 18432, DAYS, 0.07, 111);
@@ -88,7 +107,7 @@ const ytE = generateTrend(12000, 31245, DAYS, 0.08, 333);
 const ttE = generateTrend( 2500, 23456, DAYS, 0.12, 444);
 
 export const engagementHistory = dates.map((date, i) => ({
-  date, Facebook: fbE[i], Instagram: igE[i], YouTube: ytE[i], TikTok: ttE[i],
+  date, dateISO: isoDates[i], Facebook: fbE[i], Instagram: igE[i], YouTube: ytE[i], TikTok: ttE[i],
 }));
 
 // ── Weekly summary ────────────────────────────────────────────────────────────
