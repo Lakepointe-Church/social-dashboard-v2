@@ -1,227 +1,191 @@
 import { useState } from 'react';
 import Head from 'next/head';
-import Header from '../components/Header';
+import Header, { DATE_RANGES } from '../components/Header';
 import MetricCard from '../components/MetricCard';
 import PlatformCard from '../components/PlatformCard';
+import PlatformIcon from '../components/PlatformIcon';
 import FollowerGrowthChart from '../components/FollowerGrowthChart';
 import EngagementChart from '../components/EngagementChart';
 import TopContent from '../components/TopContent';
 import GeoBreakdown from '../components/GeoBreakdown';
 import ContentTypeChart from '../components/ContentTypeChart';
+import AgeBreakdown from '../components/AgeBreakdown';
+import MilestoneTracker from '../components/MilestoneTracker';
+import BestTimeToPost from '../components/BestTimeToPost';
 import AIChatPanel from '../components/AIChatPanel';
+import CustomViewBuilder, { useWidgetConfig } from '../components/CustomViewBuilder';
 import {
-  platforms, totals, followerHistory, engagementHistory,
-  reachHistory, topPosts, geoData, contentTypeData, weeklyStats,
+  platforms, totals, followerHistory, engagementHistory, reachHistory,
+  topPosts, geoData, contentTypeData, ageData, milestones, bestTimeData, DAYS,
 } from '../data/demoData';
-import {
-  Users, TrendingUp, Eye, Heart, BarChart2, Sparkles,
-} from 'lucide-react';
+import { Users, TrendingUp, Eye, Heart } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
-const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok', 'LinkedIn'];
-const DATE_RANGES   = ['7 days', '30 days', '90 days'];
+const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok'];
+
+// Map date range label → number of days
+const RANGE_DAYS = {
+  '7 days':       7,
+  '30 days':      30,
+  '90 days':      90,
+  'Last Quarter': 91,
+  '1 Year':       365,
+};
 
 export default function Dashboard() {
-  const [activeTab,       setActiveTab]       = useState('All');
-  const [dateRange,       setDateRange]       = useState('90 days');
-  const [showAI,          setShowAI]          = useState(false);
-  const [chartDataType,   setChartDataType]   = useState('followers'); // followers | reach | engagement
+  const [activeTab,     setActiveTab]     = useState('All');
+  const [dateRange,     setDateRange]     = useState('90 days');
+  const [showAI,        setShowAI]        = useState(false);
+  const [showBuilder,   setShowBuilder]   = useState(false);
+  const [chartType,     setChartType]     = useState('followers');
 
-  // Filter history based on date range
-  const rangeMap = { '7 days': 7, '30 days': 30, '90 days': 90 };
-  const days = rangeMap[dateRange];
-  const followerSlice    = followerHistory.slice(-days);
-  const engagementSlice  = engagementHistory.slice(-days);
-  const reachSlice       = reachHistory.slice(-days);
+  const { enabled, toggle, resetAll } = useWidgetConfig();
 
-  // Which chart data to show
-  const chartData = chartDataType === 'followers'
-    ? followerSlice
-    : chartDataType === 'reach'
-    ? reachSlice
-    : engagementSlice;
+  const days          = RANGE_DAYS[dateRange] ?? 90;
+  const followerSlice = followerHistory.slice(-days);
+  const engageSlice   = engagementHistory.slice(-days);
+  const reachSlice    = reachHistory.slice(-days);
 
-  // Active platforms to show
+  const chartData = chartType === 'followers' ? followerSlice
+                  : chartType === 'reach'     ? reachSlice
+                  : engageSlice;
+
   const activePlatforms = activeTab === 'All'
     ? Object.values(platforms)
     : [platforms[activeTab.toLowerCase()]].filter(Boolean);
 
-  // Filtered top posts
   const filteredPosts = activeTab === 'All'
     ? topPosts
     : topPosts.filter(p => p.platformName === activeTab);
+
+  const show = (id) => enabled[id] !== false;
 
   return (
     <>
       <Head>
         <title>Lake Pointe Social Dashboard</title>
-        <meta name="description" content="Lake Pointe Church Social Media Analytics Dashboard" />
-        <link rel="icon" href="/favicon.ico" />
+        <meta name="description" content="Lake Pointe Church Social Media Analytics" />
       </Head>
 
       <div className="min-h-screen bg-slate-50">
-        {/* ── Header ── */}
         <Header
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
-          dateRanges={DATE_RANGES}
           onToggleAI={() => setShowAI(v => !v)}
           aiActive={showAI}
+          onOpenBuilder={() => setShowBuilder(true)}
         />
 
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-          {/* ── Platform Tabs ── */}
+          {/* Platform Tabs */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-1.5 flex gap-1 overflow-x-auto">
             {PLATFORM_TABS.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
+                className={`flex items-center gap-2 flex-shrink-0 px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
                   activeTab === tab ? 'tab-active' : 'tab-inactive'
                 }`}
               >
-                {tab !== 'All' && (
-                  <span className="mr-1.5">{platforms[tab.toLowerCase()]?.emoji}</span>
-                )}
+                {tab !== 'All' && <PlatformIcon platform={tab.toLowerCase()} size={16} />}
                 {tab}
               </button>
             ))}
           </div>
 
-          {/* ── Summary Metric Cards ── */}
-          {activeTab === 'All' && (
+          {/* Summary Metric Cards */}
+          {show('summary_metrics') && activeTab === 'All' && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard
-                label="Total Followers"
-                value={totals.totalFollowers.toLocaleString()}
-                change={`+${totals.followerGrowthPct}%`}
-                changePositive
-                subtext={`+${totals.followerGrowth.toLocaleString()} this period`}
-                icon={<Users size={20} />}
-                iconBg="bg-blue-100"
-                iconColor="text-blue-600"
-              />
-              <MetricCard
-                label="Total Reach"
-                value={totals.totalReach.toLocaleString()}
-                change="+15.3%"
-                changePositive
-                subtext="Across all platforms"
-                icon={<Eye size={20} />}
-                iconBg="bg-purple-100"
-                iconColor="text-purple-600"
-              />
-              <MetricCard
-                label="Total Engagement"
-                value={totals.totalEngagement.toLocaleString()}
-                change="+18.7%"
-                changePositive
-                subtext={`${totals.avgEngagementRate}% avg rate`}
-                icon={<Heart size={20} />}
-                iconBg="bg-pink-100"
-                iconColor="text-pink-600"
-              />
-              <MetricCard
-                label="Video Views"
-                value={totals.totalVideoViews.toLocaleString()}
-                change="+31.2%"
-                changePositive
-                subtext={`${totals.totalPosts} posts published`}
-                icon={<TrendingUp size={20} />}
-                iconBg="bg-emerald-100"
-                iconColor="text-emerald-600"
-              />
+              <MetricCard label="Total Followers"  value={totals.totalFollowers.toLocaleString()}
+                change={`+${totals.followerGrowthPct}%`} changePositive subtext={`+${totals.followerGrowth.toLocaleString()} this period`}
+                icon={<Users size={20}/>} iconBg="bg-blue-100" iconColor="text-blue-600" />
+              <MetricCard label="Total Reach"      value={totals.totalReach.toLocaleString()}
+                change="+22.4%" changePositive subtext="Across all platforms"
+                icon={<Eye size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+              <MetricCard label="Total Engagement" value={totals.totalEngagement.toLocaleString()}
+                change="+31.2%" changePositive subtext={`${totals.avgEngagementRate}% avg rate`}
+                icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+              <MetricCard label="Video Views"      value={totals.totalVideoViews.toLocaleString()}
+                change="+45.8%" changePositive subtext={`${totals.totalPosts} posts published`}
+                icon={<TrendingUp size={20}/>} iconBg="bg-emerald-100" iconColor="text-emerald-600" />
             </div>
           )}
 
-          {/* ── Platform Cards ── */}
-          <div className={`grid gap-4 ${
-            activeTab === 'All'
-              ? 'grid-cols-2 lg:grid-cols-5'
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-          }`}>
-            {activePlatforms.map(p => (
-              <PlatformCard
-                key={p.id}
-                platform={p}
-                compact={activeTab === 'All'}
-                onClick={() => setActiveTab(p.name)}
-              />
-            ))}
-          </div>
+          {/* Platform Cards */}
+          {show('platform_cards') && (
+            <div className={`grid gap-4 ${
+              activeTab === 'All' ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+            }`}>
+              {activePlatforms.map(p => (
+                <PlatformCard key={p.id} platform={p} compact={activeTab === 'All'} onClick={() => setActiveTab(p.name)} />
+              ))}
+            </div>
+          )}
 
-          {/* ── Charts Section ── */}
+          {/* Milestones */}
+          {show('milestones') && <MilestoneTracker milestones={milestones} />}
+
+          {/* Growth + Engagement Charts */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-
-            {/* Growth Chart (wider) */}
-            <div className="xl:col-span-2 card">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="font-bold text-slate-900 text-lg">Growth Over Time</h2>
-                  <p className="text-slate-500 text-sm">{dateRange} • All platforms</p>
+            {show('growth_chart') && (
+              <div className="xl:col-span-2 card">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-bold text-slate-900 text-lg">Growth Over Time</h2>
+                    <p className="text-slate-500 text-sm">{dateRange} • All platforms</p>
+                  </div>
+                  <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                    {[['followers','Followers'],['reach','Reach'],['engagement','Engagement']].map(([k,l]) => (
+                      <button key={k} onClick={() => setChartType(k)}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                          chartType === k ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                        }`}>{l}</button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-                  {[
-                    { key: 'followers',  label: 'Followers'  },
-                    { key: 'reach',      label: 'Reach'      },
-                    { key: 'engagement', label: 'Engagement' },
-                  ].map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setChartDataType(opt.key)}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                        chartDataType === opt.key
-                          ? 'bg-white shadow-sm text-slate-900'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                <FollowerGrowthChart data={chartData} activePlatform={activeTab === 'All' ? null : activeTab} dataType={chartType} />
               </div>
-              <FollowerGrowthChart
-                data={chartData}
-                activePlatform={activeTab === 'All' ? null : activeTab}
-                dataType={chartDataType}
-              />
-            </div>
+            )}
+            {show('engagement_chart') && (
+              <div className={show('growth_chart') ? 'card' : 'card xl:col-span-3'}>
+                <h2 className="font-bold text-slate-900 text-lg mb-1">Engagement Rate</h2>
+                <p className="text-slate-500 text-sm mb-4">% by platform</p>
+                <EngagementChart activePlatform={activeTab === 'All' ? null : activeTab} />
+              </div>
+            )}
+          </div>
 
-            {/* Engagement Rate Bars */}
+          {/* Content Type Performance */}
+          {show('content_type') && (
             <div className="card">
-              <h2 className="font-bold text-slate-900 text-lg mb-1">Engagement Rate</h2>
-              <p className="text-slate-500 text-sm mb-4">% by platform</p>
-              <EngagementChart
-                activePlatform={activeTab === 'All' ? null : activeTab}
-              />
-            </div>
-          </div>
-
-          {/* ── Content Type Performance ── */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="mb-4">
                 <h2 className="font-bold text-slate-900 text-lg">Content Type Performance</h2>
-                <p className="text-slate-500 text-sm">Avg reach & engagement rate by content format</p>
+                <p className="text-slate-500 text-sm">Avg reach & engagement rate by format</p>
               </div>
+              <ContentTypeChart data={contentTypeData} />
             </div>
-            <ContentTypeChart data={contentTypeData} />
-          </div>
+          )}
 
-          {/* ── Bottom Section: Top Content + Geo ── */}
+          {/* Best Time to Post */}
+          {show('best_time') && <BestTimeToPost data={bestTimeData} />}
+
+          {/* Top Content + Geo */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <TopContent posts={filteredPosts} />
-            <GeoBreakdown geoData={geoData} activeTab={activeTab} />
+            {show('top_content') && <TopContent posts={filteredPosts} />}
+            {show('geo_breakdown') && <GeoBreakdown geoData={geoData} activeTab={activeTab} />}
           </div>
 
-          {/* AI Chat spacer so content doesn't hide behind panel */}
+          {/* Age & Gender */}
+          {show('age_breakdown') && <AgeBreakdown ageData={ageData} />}
+
           {showAI && <div className="h-80" />}
         </main>
 
-        {/* ── AI Chat Panel (slide-up) ── */}
+        {/* AI Panel */}
         <AIChatPanel open={showAI} onClose={() => setShowAI(false)} />
 
-        {/* AI Floating Button (when panel is closed) */}
+        {/* AI Floating Button */}
         {!showAI && (
           <button
             onClick={() => setShowAI(true)}
@@ -234,6 +198,15 @@ export default function Dashboard() {
             Ask AI Analyst
           </button>
         )}
+
+        {/* Custom View Builder Modal */}
+        <CustomViewBuilder
+          open={showBuilder}
+          onClose={() => setShowBuilder(false)}
+          enabled={enabled}
+          toggle={toggle}
+          resetAll={resetAll}
+        />
       </div>
     </>
   );

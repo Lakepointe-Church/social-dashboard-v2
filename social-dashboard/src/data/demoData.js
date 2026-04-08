@@ -1,472 +1,394 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Lake Pointe Church — Social Media Demo Data
-// Replace with real API data when credentials are configured
+// Lake Pointe Church — Social Media Demo Data (v2)
+// 365 days of data · Facebook, Instagram, YouTube, TikTok
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function seededRand(seed) {
   let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
+  return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
 }
 
 function generateDates(days) {
-  const dates = [];
-  for (let i = days - 1; i >= 0; i--) {
+  return Array.from({ length: days }, (_, i) => {
     const d = new Date('2026-04-07');
-    d.setDate(d.getDate() - i);
-    dates.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-  }
-  return dates;
+    d.setDate(d.getDate() - (days - 1 - i));
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
 }
 
 function generateTrend(start, end, days, volatility = 0.025, seed = 42) {
   const rand = seededRand(seed);
   return Array.from({ length: days }, (_, i) => {
-    const trend = start + (end - start) * (i / (days - 1));
-    const noise = trend * volatility * (rand() - 0.5) * 2;
-    // Sunday spike simulation (every 7th day from offset)
-    const sundayBoost = (i % 7 === 0) ? trend * 0.012 : 0;
-    return Math.round(trend + noise + sundayBoost);
+    const trend    = start + (end - start) * (i / (days - 1));
+    const noise    = trend * volatility * (rand() - 0.5) * 2;
+    const sunBoost = (i % 7 === 0) ? trend * 0.014 : 0;
+    return Math.round(trend + noise + sunBoost);
   });
 }
 
-const DAYS = 90;
+export const DAYS = 365;
 const dates = generateDates(DAYS);
 
-// ── Platform current stats ────────────────────────────────────────────────────
+// ── Platform definitions ──────────────────────────────────────────────────────
 export const platforms = {
   facebook: {
-    id: 'facebook',
-    name: 'Facebook',
-    color: '#1877F2',
-    bgLight: '#EBF5FF',
-    emoji: '📘',
-    followers: 47823,
-    followersStart: 46576,
-    growth: 1247,
-    growthPct: 2.68,
-    reach: 234567,
-    reachPrev: 218432,
-    impressions: 412890,
-    engagement: 18432,
-    engagementPrev: 16890,
-    engagementRate: 3.8,
-    posts: 24,
-    avgLikes: 412,
-    avgComments: 34,
-    avgShares: 89,
-    videoViews: 67823,
-    topCity: 'Rockwall, TX',
-    status: 'Connected',
+    id: 'facebook', name: 'Facebook', color: '#1877F2', bgLight: '#EBF5FF',
+    followers: 47823, followersStart: 43210, growth: 4613, growthPct: 10.7,
+    reach: 234567, reachPrev: 218432, engagement: 18432, engagementPrev: 16890,
+    engagementRate: 3.8, posts: 24, avgLikes: 412, avgComments: 34, avgShares: 89,
+    videoViews: 67823, topCity: 'Rockwall, TX', status: 'Connected',
   },
   instagram: {
-    id: 'instagram',
-    name: 'Instagram',
-    color: '#E1306C',
-    bgLight: '#FDF2F8',
-    emoji: '📷',
-    followers: 28456,
-    followersStart: 26312,
-    growth: 2144,
-    growthPct: 8.15,
-    reach: 156789,
-    reachPrev: 134567,
-    impressions: 289034,
-    engagement: 14234,
-    engagementPrev: 11890,
-    engagementRate: 5.2,
-    posts: 31,
-    avgLikes: 334,
-    avgComments: 28,
-    avgShares: 67,
-    videoViews: 89012,
-    topCity: 'Rockwall, TX',
-    status: 'Connected',
+    id: 'instagram', name: 'Instagram', color: '#E1306C', bgLight: '#FDF2F8',
+    followers: 28456, followersStart: 22100, growth: 6356, growthPct: 28.8,
+    reach: 156789, reachPrev: 134567, engagement: 14234, engagementPrev: 11890,
+    engagementRate: 5.2, posts: 31, avgLikes: 334, avgComments: 28, avgShares: 67,
+    videoViews: 89012, topCity: 'Rockwall, TX', status: 'Connected',
   },
   youtube: {
-    id: 'youtube',
-    name: 'YouTube',
-    color: '#FF0000',
-    bgLight: '#FEF2F2',
-    emoji: '▶️',
-    followers: 89234,
-    followersStart: 79456,
-    growth: 9778,
-    growthPct: 12.31,
-    reach: 423891,
-    reachPrev: 378234,
-    impressions: 834567,
-    engagement: 31245,
-    engagementPrev: 27890,
-    engagementRate: 4.1,
-    posts: 16,
-    avgLikes: 1234,
-    avgComments: 156,
-    avgShares: 234,
-    videoViews: 423891,
-    watchTimeHours: 18432,
-    avgViewDuration: '4:23',
-    topCity: 'Dallas-Fort Worth',
-    status: 'Connected',
+    id: 'youtube', name: 'YouTube', color: '#FF0000', bgLight: '#FEF2F2',
+    followers: 89234, followersStart: 52000, growth: 37234, growthPct: 71.6,
+    reach: 423891, reachPrev: 378234, engagement: 31245, engagementPrev: 27890,
+    engagementRate: 4.1, posts: 16, avgLikes: 1234, avgComments: 156, avgShares: 234,
+    videoViews: 423891, watchTimeHours: 18432, avgViewDuration: '4:23',
+    topCity: 'Dallas-Fort Worth', status: 'Connected',
   },
   tiktok: {
-    id: 'tiktok',
-    name: 'TikTok',
-    color: '#010101',
-    colorAlt: '#EE1D52',
-    bgLight: '#F9F9F9',
-    emoji: '🎵',
-    followers: 15672,
-    followersStart: 11678,
-    growth: 3994,
-    growthPct: 34.2,
-    reach: 287456,
-    reachPrev: 198234,
-    impressions: 412890,
-    engagement: 23456,
-    engagementPrev: 15678,
-    engagementRate: 8.1,
-    posts: 28,
-    avgLikes: 678,
-    avgComments: 89,
-    avgShares: 145,
-    videoViews: 287456,
-    topCity: 'N/A (not available)',
-    status: 'Connected',
+    id: 'tiktok', name: 'TikTok', color: '#010101', colorAlt: '#EE1D52', bgLight: '#F9F9F9',
+    followers: 15672, followersStart: 3200, growth: 12472, growthPct: 389.8,
+    reach: 287456, reachPrev: 198234, engagement: 23456, engagementPrev: 15678,
+    engagementRate: 8.1, posts: 28, avgLikes: 678, avgComments: 89, avgShares: 145,
+    videoViews: 287456, topCity: 'N/A', status: 'Connected',
     geoNote: 'Geographic data not available via TikTok API',
-  },
-  linkedin: {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    color: '#0A66C2',
-    bgLight: '#EEF3FB',
-    emoji: '💼',
-    followers: 8341,
-    followersStart: 8074,
-    growth: 267,
-    growthPct: 3.31,
-    reach: 45678,
-    reachPrev: 43234,
-    impressions: 89034,
-    engagement: 2456,
-    engagementPrev: 2234,
-    engagementRate: 2.9,
-    posts: 12,
-    avgLikes: 145,
-    avgComments: 18,
-    avgShares: 34,
-    videoViews: 12890,
-    topCity: 'Dallas-Fort Worth',
-    status: 'Manual (CSV)',
   },
 };
 
-// ── 90-day follower history ───────────────────────────────────────────────────
-const fbFollowers  = generateTrend(46576, 47823, DAYS, 0.008, 11);
-const igFollowers  = generateTrend(26312, 28456, DAYS, 0.012, 22);
-const ytFollowers  = generateTrend(79456, 89234, DAYS, 0.015, 33);
-const ttFollowers  = generateTrend(11678, 15672, DAYS, 0.025, 44);
-const liFollowers  = generateTrend(8074,   8341, DAYS, 0.007, 55);
+// ── 365-day time series ───────────────────────────────────────────────────────
+const fbF  = generateTrend(43210, 47823, DAYS, 0.008, 11);
+const igF  = generateTrend(22100, 28456, DAYS, 0.012, 22);
+const ytF  = generateTrend(52000, 89234, DAYS, 0.015, 33);
+const ttF  = generateTrend(3200,  15672, DAYS, 0.025, 44);
 
 export const followerHistory = dates.map((date, i) => ({
-  date,
-  Facebook:  fbFollowers[i],
-  Instagram: igFollowers[i],
-  YouTube:   ytFollowers[i],
-  TikTok:    ttFollowers[i],
-  LinkedIn:  liFollowers[i],
+  date, Facebook: fbF[i], Instagram: igF[i], YouTube: ytF[i], TikTok: ttF[i],
 }));
 
-// ── 90-day reach history ──────────────────────────────────────────────────────
-const fbReach = generateTrend(195000, 234567, DAYS, 0.06, 66);
-const igReach = generateTrend(121000, 156789, DAYS, 0.07, 77);
-const ytReach = generateTrend(345000, 423891, DAYS, 0.08, 88);
-const ttReach = generateTrend(180000, 287456, DAYS, 0.10, 99);
+const fbR = generateTrend(155000, 234567, DAYS, 0.06, 66);
+const igR = generateTrend( 90000, 156789, DAYS, 0.07, 77);
+const ytR = generateTrend(210000, 423891, DAYS, 0.08, 88);
+const ttR = generateTrend( 50000, 287456, DAYS, 0.10, 99);
 
 export const reachHistory = dates.map((date, i) => ({
-  date,
-  Facebook:  fbReach[i],
-  Instagram: igReach[i],
-  YouTube:   ytReach[i],
-  TikTok:    ttReach[i],
+  date, Facebook: fbR[i], Instagram: igR[i], YouTube: ytR[i], TikTok: ttR[i],
 }));
 
-// ── 90-day engagement history ─────────────────────────────────────────────────
-const fbEng = generateTrend(14500, 18432, DAYS, 0.07, 111);
-const igEng = generateTrend(10200, 14234, DAYS, 0.09, 222);
-const ytEng = generateTrend(25000, 31245, DAYS, 0.08, 333);
-const ttEng = generateTrend(11000, 23456, DAYS, 0.12, 444);
+const fbE = generateTrend( 9000, 18432, DAYS, 0.07, 111);
+const igE = generateTrend( 5500, 14234, DAYS, 0.09, 222);
+const ytE = generateTrend(12000, 31245, DAYS, 0.08, 333);
+const ttE = generateTrend( 2500, 23456, DAYS, 0.12, 444);
 
 export const engagementHistory = dates.map((date, i) => ({
-  date,
-  Facebook:  fbEng[i],
-  Instagram: igEng[i],
-  YouTube:   ytEng[i],
-  TikTok:    ttEng[i],
+  date, Facebook: fbE[i], Instagram: igE[i], YouTube: ytE[i], TikTok: ttE[i],
 }));
 
-// ── Weekly summary (last 12 weeks) ────────────────────────────────────────────
-export const weeklyStats = Array.from({ length: 12 }, (_, i) => {
-  const weekNum = 12 - i;
-  const rand = seededRand(weekNum * 13);
+// ── Weekly summary ────────────────────────────────────────────────────────────
+export const weeklyStats = Array.from({ length: 52 }, (_, i) => {
+  const w = 52 - i;
+  const r = seededRand(w * 13);
   return {
-    week: `Wk ${weekNum}`,
-    totalReach: Math.round(155000 + weekNum * 9000 + rand() * 15000),
-    totalEngagement: Math.round(10000 + weekNum * 700 + rand() * 2000),
-    totalFollowerGain: Math.round(280 + weekNum * 50 + rand() * 100),
-    posts: Math.round(8 + rand() * 5),
+    week: `Wk ${w}`,
+    totalReach:        Math.round(55000  + w * 3500 + r() * 12000),
+    totalEngagement:   Math.round(3800   + w * 280  + r() * 1500),
+    totalFollowerGain: Math.round(60     + w * 18   + r() * 40),
+    posts: Math.round(8 + r() * 5),
   };
 }).reverse();
 
-// ── Top performing posts ──────────────────────────────────────────────────────
+// ── Top posts ─────────────────────────────────────────────────────────────────
 export const topPosts = [
-  {
-    id: 1,
-    platform: 'youtube',
-    platformName: 'YouTube',
-    type: 'Video',
-    title: '"When God Feels Silent" — Easter Sunday Sermon',
-    date: 'Mar 31, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/FF0000/FFFFFF?text=YT',
-    views: 48234,
-    likes: 3412,
-    comments: 287,
-    shares: 891,
-    reach: 62340,
-    watchTime: '5:12 avg',
-    engagementRate: 9.6,
-  },
-  {
-    id: 2,
-    platform: 'tiktok',
-    platformName: 'TikTok',
-    type: 'Short Video',
-    title: 'Worship moment from Easter — "Graves Into Gardens"',
-    date: 'Apr 1, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/010101/FFFFFF?text=TT',
-    views: 94567,
-    likes: 8234,
-    comments: 412,
-    shares: 2341,
-    reach: 94567,
-    watchTime: '0:42 avg',
-    engagementRate: 11.6,
-  },
-  {
-    id: 3,
-    platform: 'instagram',
-    platformName: 'Instagram',
-    type: 'Reel',
-    title: 'Easter baptisms — 47 people said yes to Jesus 🙌',
-    date: 'Apr 1, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/E1306C/FFFFFF?text=IG',
-    views: 31890,
-    likes: 4567,
-    comments: 634,
-    shares: 1234,
-    reach: 31890,
-    watchTime: '0:58 avg',
-    engagementRate: 20.2,
-  },
-  {
-    id: 4,
-    platform: 'facebook',
-    platformName: 'Facebook',
-    type: 'Video',
-    title: 'Easter Sunday full service — All 3 campuses LIVE',
-    date: 'Mar 31, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/1877F2/FFFFFF?text=FB',
-    views: 28901,
-    likes: 1823,
-    comments: 312,
-    shares: 789,
-    reach: 42340,
-    watchTime: '18:34 avg',
-    engagementRate: 7.1,
-  },
-  {
-    id: 5,
-    platform: 'youtube',
-    platformName: 'YouTube',
-    type: 'Video',
-    title: '"The Sermon on the Mount" — Part 1 of New Series',
-    date: 'Apr 7, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/FF0000/FFFFFF?text=YT',
-    views: 19234,
-    likes: 1456,
-    comments: 198,
-    shares: 412,
-    reach: 24567,
-    watchTime: '6:44 avg',
-    engagementRate: 8.6,
-  },
-  {
-    id: 6,
-    platform: 'instagram',
-    platformName: 'Instagram',
-    type: 'Carousel',
-    title: '10 ways your church family made an impact in Q1 2026',
-    date: 'Apr 3, 2026',
-    thumbnail: 'https://via.placeholder.com/120x68/E1306C/FFFFFF?text=IG',
-    views: 12340,
-    likes: 2890,
-    comments: 234,
-    shares: 567,
-    reach: 18930,
-    watchTime: null,
-    engagementRate: 19.5,
-  },
+  { id:1, platform:'youtube',   platformName:'YouTube',   type:'Video',       title:'"When God Feels Silent" — Easter Sunday Sermon',        date:'Mar 31, 2026', views:48234, likes:3412, comments:287, shares:891, reach:62340, watchTime:'5:12 avg', engagementRate:9.6  },
+  { id:2, platform:'tiktok',    platformName:'TikTok',    type:'Short Video', title:'Worship moment — "Graves Into Gardens"',                 date:'Apr 1, 2026',  views:94567, likes:8234, comments:412, shares:2341, reach:94567, watchTime:'0:42 avg', engagementRate:11.6 },
+  { id:3, platform:'instagram', platformName:'Instagram', type:'Reel',        title:'Easter baptisms — 47 people said yes to Jesus 🙌',       date:'Apr 1, 2026',  views:31890, likes:4567, comments:634, shares:1234, reach:31890, watchTime:'0:58 avg', engagementRate:20.2 },
+  { id:4, platform:'facebook',  platformName:'Facebook',  type:'Video',       title:'Easter Sunday full service — All 3 campuses LIVE',       date:'Mar 31, 2026', views:28901, likes:1823, comments:312, shares:789,  reach:42340, watchTime:'18:34 avg',engagementRate:7.1  },
+  { id:5, platform:'youtube',   platformName:'YouTube',   type:'Video',       title:'"The Sermon on the Mount" — Part 1',                    date:'Apr 7, 2026',  views:19234, likes:1456, comments:198, shares:412,  reach:24567, watchTime:'6:44 avg', engagementRate:8.6  },
+  { id:6, platform:'instagram', platformName:'Instagram', type:'Carousel',    title:'10 ways your church family made an impact in Q1 2026',  date:'Apr 3, 2026',  views:12340, likes:2890, comments:234, shares:567,  reach:18930, watchTime:null,        engagementRate:19.5 },
 ];
 
 // ── Content type performance ──────────────────────────────────────────────────
 export const contentTypeData = [
-  { type: 'Live Service',   avgReach: 38420, avgEngagement: 8.2,  posts: 12, icon: '⛪' },
-  { type: 'Short Video',    avgReach: 52340, avgEngagement: 10.4, posts: 34, icon: '🎬' },
-  { type: 'Sermon Clip',    avgReach: 28900, avgEngagement: 7.1,  posts: 28, icon: '🎙️' },
-  { type: 'Worship Music',  avgReach: 41230, avgEngagement: 9.3,  posts: 19, icon: '🎵' },
-  { type: 'Devotional',     avgReach: 18450, avgEngagement: 6.4,  posts: 22, icon: '📖' },
-  { type: 'Community Story',avgReach: 22100, avgEngagement: 11.2, posts: 15, icon: '❤️' },
-  { type: 'Event Promo',    avgReach: 15670, avgEngagement: 4.8,  posts: 18, icon: '📣' },
-  { type: 'Baptism',        avgReach: 45890, avgEngagement: 14.7, posts: 8,  icon: '💧' },
+  { type:'Live Service',    avgReach:38420, avgEngagement:8.2,  posts:12, icon:'⛪' },
+  { type:'Short Video',     avgReach:52340, avgEngagement:10.4, posts:34, icon:'🎬' },
+  { type:'Sermon Clip',     avgReach:28900, avgEngagement:7.1,  posts:28, icon:'🎙️'  },
+  { type:'Worship Music',   avgReach:41230, avgEngagement:9.3,  posts:19, icon:'🎵' },
+  { type:'Devotional',      avgReach:18450, avgEngagement:6.4,  posts:22, icon:'📖' },
+  { type:'Community Story', avgReach:22100, avgEngagement:11.2, posts:15, icon:'❤️'  },
+  { type:'Event Promo',     avgReach:15670, avgEngagement:4.8,  posts:18, icon:'📣' },
+  { type:'Baptism',         avgReach:45890, avgEngagement:14.7, posts:8,  icon:'💧' },
 ];
+
+// ── Best time to post (engagement by hour/day) ────────────────────────────────
+export const bestTimeData = {
+  byHour: [
+    { hour:'12am', engagement:120  },{ hour:'1am',  engagement:80   },
+    { hour:'2am',  engagement:60   },{ hour:'3am',  engagement:45   },
+    { hour:'4am',  engagement:55   },{ hour:'5am',  engagement:90   },
+    { hour:'6am',  engagement:210  },{ hour:'7am',  engagement:380  },
+    { hour:'8am',  engagement:620  },{ hour:'9am',  engagement:840  },
+    { hour:'10am', engagement:1120 },{ hour:'11am', engagement:1340 },
+    { hour:'12pm', engagement:1580 },{ hour:'1pm',  engagement:1420 },
+    { hour:'2pm',  engagement:1280 },{ hour:'3pm',  engagement:1190 },
+    { hour:'4pm',  engagement:1310 },{ hour:'5pm',  engagement:1480 },
+    { hour:'6pm',  engagement:1720 },{ hour:'7pm',  engagement:1890 },
+    { hour:'8pm',  engagement:1950 },{ hour:'9pm',  engagement:1780 },
+    { hour:'10pm', engagement:1340 },{ hour:'11pm', engagement:780  },
+  ],
+  byDay: [
+    { day:'Sun', engagement:3840, posts:18 },
+    { day:'Mon', engagement:1240, posts:12 },
+    { day:'Tue', engagement:980,  posts:11 },
+    { day:'Wed', engagement:1560, posts:14 },
+    { day:'Thu', engagement:1120, posts:10 },
+    { day:'Fri', engagement:1680, posts:13 },
+    { day:'Sat', engagement:2340, posts:15 },
+  ],
+};
 
 // ── Geographic breakdown ──────────────────────────────────────────────────────
 export const geoData = {
-  countries: [
-    { name: 'United States', value: 82.4, followers: 127834, flag: '🇺🇸' },
-    { name: 'Canada',        value: 4.1,  followers: 6367,   flag: '🇨🇦' },
-    { name: 'Mexico',        value: 3.8,  followers: 5898,   flag: '🇲🇽' },
-    { name: 'United Kingdom',value: 2.6,  followers: 4034,   flag: '🇬🇧' },
-    { name: 'Australia',     value: 1.9,  followers: 2949,   flag: '🇦🇺' },
-    { name: 'Brazil',        value: 1.4,  followers: 2172,   flag: '🇧🇷' },
-    { name: 'Other',         value: 3.8,  followers: 5898,   flag: '🌍' },
+  all: {
+    countries: [
+      { name:'United States', value:82.4, followers:127834, flag:'🇺🇸' },
+      { name:'Canada',        value:4.1,  followers:6367,   flag:'🇨🇦' },
+      { name:'Mexico',        value:3.8,  followers:5898,   flag:'🇲🇽' },
+      { name:'United Kingdom',value:2.6,  followers:4034,   flag:'🇬🇧' },
+      { name:'Australia',     value:1.9,  followers:2949,   flag:'🇦🇺' },
+      { name:'Brazil',        value:1.4,  followers:2172,   flag:'🇧🇷' },
+      { name:'Other',         value:3.8,  followers:5898,   flag:'🌍' },
+    ],
+    cities: [
+      { name:'Rockwall, TX',    value:28.4, followers:44094 },
+      { name:'Dallas, TX',      value:19.2, followers:29798 },
+      { name:'Heath, TX',       value:11.7, followers:18158 },
+      { name:'Rowlett, TX',     value:8.9,  followers:13815 },
+      { name:'Garland, TX',     value:6.4,  followers:9933  },
+      { name:'Forney, TX',      value:5.1,  followers:7917  },
+      { name:'Mesquite, TX',    value:4.3,  followers:6675  },
+      { name:'Other TX cities', value:9.8,  followers:15213 },
+      { name:'Outside Texas',   value:6.2,  followers:9622  },
+    ],
+  },
+  facebook: {
+    countries: [
+      { name:'United States', value:88.1, followers:42133, flag:'🇺🇸' },
+      { name:'Canada',        value:3.8,  followers:1817,  flag:'🇨🇦' },
+      { name:'Mexico',        value:2.9,  followers:1387,  flag:'🇲🇽' },
+      { name:'United Kingdom',value:2.1,  followers:1004,  flag:'🇬🇧' },
+      { name:'Other',         value:3.1,  followers:1482,  flag:'🌍' },
+    ],
+    cities: [
+      { name:'Rockwall, TX',    value:31.2, followers:14922 },
+      { name:'Dallas, TX',      value:20.8, followers:9947  },
+      { name:'Heath, TX',       value:13.4, followers:6408  },
+      { name:'Rowlett, TX',     value:9.7,  followers:4641  },
+      { name:'Garland, TX',     value:7.1,  followers:3396  },
+      { name:'Forney, TX',      value:5.6,  followers:2678  },
+      { name:'Other TX cities', value:12.2, followers:5834  },
+    ],
+  },
+  instagram: {
+    countries: [
+      { name:'United States', value:79.4, followers:22594, flag:'🇺🇸' },
+      { name:'Canada',        value:5.2,  followers:1480,  flag:'🇨🇦' },
+      { name:'Mexico',        value:4.8,  followers:1366,  flag:'🇲🇽' },
+      { name:'Brazil',        value:3.1,  followers:882,   flag:'🇧🇷' },
+      { name:'Other',         value:7.5,  followers:2134,  flag:'🌍' },
+    ],
+    cities: [
+      { name:'Rockwall, TX',    value:24.6, followers:6993 },
+      { name:'Dallas, TX',      value:18.9, followers:5378 },
+      { name:'Heath, TX',       value:10.2, followers:2903 },
+      { name:'Rowlett, TX',     value:8.1,  followers:2305 },
+      { name:'Garland, TX',     value:6.3,  followers:1793 },
+      { name:'Mesquite, TX',    value:5.8,  followers:1650 },
+      { name:'Other TX cities', value:26.1, followers:7424 },
+    ],
+  },
+  youtube: {
+    countries: [
+      { name:'United States', value:76.8, followers:68532, flag:'🇺🇸' },
+      { name:'Canada',        value:5.4,  followers:4819,  flag:'🇨🇦' },
+      { name:'United Kingdom',value:4.2,  followers:3748,  flag:'🇬🇧' },
+      { name:'Australia',     value:3.1,  followers:2766,  flag:'🇦🇺' },
+      { name:'Other',         value:10.5, followers:9369,  flag:'🌍' },
+    ],
+    cities: [
+      { name:'Dallas-Fort Worth', value:35.4, followers:31589 },
+      { name:'Houston, TX',       value:12.1, followers:10797 },
+      { name:'Austin, TX',        value:8.9,  followers:7942  },
+      { name:'Rockwall, TX',      value:7.8,  followers:6960  },
+      { name:'San Antonio, TX',   value:5.6,  followers:4998  },
+      { name:'Other TX cities',   value:15.1, followers:13474 },
+      { name:'Outside Texas',     value:15.1, followers:13474 },
+    ],
+  },
+  tiktok: null, // not available via API
+};
+
+// ── Age & gender demographics ─────────────────────────────────────────────────
+export const ageData = {
+  all: [
+    { age:'13–17', male:2.8,  female:3.9  },
+    { age:'18–24', male:11.2, female:15.4 },
+    { age:'25–34', male:17.8, female:21.6 },
+    { age:'35–44', male:15.2, female:18.9 },
+    { age:'45–54', male:8.4,  female:10.6 },
+    { age:'55–64', male:4.1,  female:5.8  },
+    { age:'65+',   male:2.9,  female:4.1  },
   ],
-  cities: [
-    { name: 'Rockwall, TX',       value: 28.4, followers: 44094 },
-    { name: 'Dallas, TX',         value: 19.2, followers: 29798 },
-    { name: 'Heath, TX',          value: 11.7, followers: 18158 },
-    { name: 'Rowlett, TX',        value: 8.9,  followers: 13815 },
-    { name: 'Garland, TX',        value: 6.4,  followers: 9933  },
-    { name: 'Forney, TX',         value: 5.1,  followers: 7917  },
-    { name: 'Mesquite, TX',       value: 4.3,  followers: 6675  },
-    { name: 'Other TX cities',    value: 9.8,  followers: 15213 },
-    { name: 'Outside Texas',      value: 6.2,  followers: 9622  },
+  facebook: [
+    { age:'13–17', male:1.2,  female:1.8  },
+    { age:'18–24', male:6.8,  female:8.9  },
+    { age:'25–34', male:14.2, female:17.4 },
+    { age:'35–44', male:18.9, female:22.8 },
+    { age:'45–54', male:13.2, female:15.6 },
+    { age:'55–64', male:7.8,  female:9.4  },
+    { age:'65+',   male:5.6,  female:7.2  },
+  ],
+  instagram: [
+    { age:'13–17', male:4.8,  female:7.2  },
+    { age:'18–24', male:18.4, female:24.8 },
+    { age:'25–34', male:22.1, female:26.4 },
+    { age:'35–44', male:11.8, female:14.2 },
+    { age:'45–54', male:4.2,  female:5.6  },
+    { age:'55–64', male:1.4,  female:2.1  },
+    { age:'65+',   male:0.6,  female:0.8  },
+  ],
+  youtube: [
+    { age:'13–17', male:3.8,  female:3.2  },
+    { age:'18–24', male:14.6, female:12.8 },
+    { age:'25–34', male:21.4, female:18.6 },
+    { age:'35–44', male:17.2, female:14.8 },
+    { age:'45–54', male:9.8,  female:7.4  },
+    { age:'55–64', male:5.2,  female:3.8  },
+    { age:'65+',   male:3.4,  female:2.1  },
+  ],
+  tiktok: [
+    { age:'13–17', male:6.8,  female:9.4  },
+    { age:'18–24', male:24.8, female:31.2 },
+    { age:'25–34', male:18.4, female:22.6 },
+    { age:'35–44', male:8.2,  female:10.4 },
+    { age:'45–54', male:2.8,  female:3.4  },
+    { age:'55–64', male:0.8,  female:1.2  },
+    { age:'65+',   male:0.2,  female:0.4  },
   ],
 };
 
-// ── Platform comparison (for AI context) ─────────────────────────────────────
-export const platformComparison = [
-  { platform: 'Facebook',  followers: 47823, growth: 2.68,  engRate: 3.8, reach: 234567, posts: 24 },
-  { platform: 'Instagram', followers: 28456, growth: 8.15,  engRate: 5.2, reach: 156789, posts: 31 },
-  { platform: 'YouTube',   followers: 89234, growth: 12.31, engRate: 4.1, reach: 423891, posts: 16 },
-  { platform: 'TikTok',    followers: 15672, growth: 34.2,  engRate: 8.1, reach: 287456, posts: 28 },
-  { platform: 'LinkedIn',  followers: 8341,  growth: 3.31,  engRate: 2.9, reach: 45678,  posts: 12 },
+// ── Milestones ────────────────────────────────────────────────────────────────
+export const milestones = [
+  { platform:'youtube',   label:'100K Subscribers',  current:89234, target:100000, color:'#FF0000', daysAway:10,  emoji:'🎯' },
+  { platform:'facebook',  label:'50K Followers',      current:47823, target:50000,  color:'#1877F2', daysAway:18,  emoji:'🎯' },
+  { platform:'instagram', label:'30K Followers',      current:28456, target:30000,  color:'#E1306C', daysAway:12,  emoji:'🎯' },
+  { platform:'tiktok',    label:'20K Followers',      current:15672, target:20000,  color:'#EE1D52', daysAway:25,  emoji:'🎯' },
 ];
 
-// ── Aggregate totals ──────────────────────────────────────────────────────────
+// ── Aggregates ────────────────────────────────────────────────────────────────
 export const totals = {
-  totalFollowers:    189526,
-  followerGrowth:    17430,
-  followerGrowthPct: 10.1,
-  totalReach:        1148381,
-  totalEngagement:   89823,
-  avgEngagementRate: 4.82,
-  totalPosts:        111,
-  totalVideoViews:   880092,
+  totalFollowers:    181185,
+  followerGrowth:    60675,
+  followerGrowthPct: 50.3,
+  totalReach:        1102703,
+  totalEngagement:   87367,
+  avgEngagementRate: 5.4,
+  totalPosts:        99,
+  totalVideoViews:   868179,
 };
 
-// ── Data context string for AI ────────────────────────────────────────────────
+// ── Platform comparison ───────────────────────────────────────────────────────
+export const platformComparison = [
+  { platform:'Facebook',  followers:47823, growth:10.7,  engRate:3.8, reach:234567, posts:24 },
+  { platform:'Instagram', followers:28456, growth:28.8,  engRate:5.2, reach:156789, posts:31 },
+  { platform:'YouTube',   followers:89234, growth:71.6,  engRate:4.1, reach:423891, posts:16 },
+  { platform:'TikTok',    followers:15672, growth:389.8, engRate:8.1, reach:287456, posts:28 },
+];
+
+// ── AI context string ─────────────────────────────────────────────────────────
 export function getDataContext() {
   return `
-LAKE POINTE CHURCH — SOCIAL MEDIA ANALYTICS DATA (Last 90 Days)
+LAKE POINTE CHURCH — SOCIAL MEDIA ANALYTICS (Last 365 Days)
 Report Date: April 7, 2026
+Platforms Tracked: Facebook, Instagram, YouTube, TikTok
 
-═══ AGGREGATE TOTALS ═══
-Total Followers (All Platforms): 189,526
-Total Follower Growth (90 days): +17,430 (+10.1%)
-Total Monthly Reach: 1,148,381
-Total Engagement: 89,823
-Average Engagement Rate: 4.82%
-Total Posts Published: 111
-Total Video Views: 880,092
+═══ TOTALS ═══
+Total Followers: 181,185 | Growth (365d): +60,675 (+50.3%)
+Total Monthly Reach: 1,102,703 | Total Engagement: 87,367
+Avg Engagement Rate: 5.4% | Total Posts: 99 | Video Views: 868,179
 
-═══ PLATFORM BREAKDOWN ═══
+═══ PLATFORM DETAILS ═══
 
-FACEBOOK
-  Followers: 47,823 (started at 46,576 — +1,247 / +2.68% growth)
-  Monthly Reach: 234,567 (up from 218,432 prior period)
-  Engagement: 18,432 (Rate: 3.8%)
-  Posts: 24 | Avg Likes: 412 | Avg Comments: 34 | Avg Shares: 89
-  Video Views: 67,823
-  Top Location: Rockwall, TX
+FACEBOOK  — 47,823 followers (+4,613 / +10.7% last 365d)
+  Reach: 234,567 | Engagement: 18,432 (3.8%) | Posts: 24
+  Avg: 412 likes · 34 comments · 89 shares | Video Views: 67,823
+  Top city: Rockwall TX (31.2%) | Top country: USA (88.1%)
 
-INSTAGRAM
-  Followers: 28,456 (started at 26,312 — +2,144 / +8.15% growth)
-  Monthly Reach: 156,789 (up from 134,567)
-  Engagement: 14,234 (Rate: 5.2%)
-  Posts: 31 | Avg Likes: 334 | Avg Comments: 28 | Avg Shares: 67
-  Video Views: 89,012
-  Top Location: Rockwall, TX
-  Note: Reels consistently outperform static posts.
+INSTAGRAM — 28,456 followers (+6,356 / +28.8%)
+  Reach: 156,789 | Engagement: 14,234 (5.2%) | Posts: 31
+  Avg: 334 likes · 28 comments · 67 shares | Video Views: 89,012
+  Top city: Rockwall TX (24.6%) | Top country: USA (79.4%)
 
-YOUTUBE
-  Subscribers: 89,234 (started at 79,456 — +9,778 / +12.31% growth)
-  Monthly Views: 423,891 (up from 378,234)
-  Engagement: 31,245 (Rate: 4.1%)
-  Videos: 16 | Avg Likes: 1,234 | Avg Comments: 156 | Avg Shares: 234
-  Watch Time: 18,432 hours/month | Avg View Duration: 4:23
-  Top Location: Dallas-Fort Worth metro
+YOUTUBE   — 89,234 subscribers (+37,234 / +71.6%) ← FASTEST ABSOLUTE GROWTH
+  Views: 423,891 | Engagement: 31,245 (4.1%) | Videos: 16
+  Watch Time: 18,432 hrs | Avg Duration: 4:23
+  ~108 new subs/day → will hit 100K in ~10 days
+  Top city: Dallas-Fort Worth (35.4%) | Top country: USA (76.8%)
 
-TIKTOK
-  Followers: 15,672 (started at 11,678 — +3,994 / +34.2% growth)
-  Monthly Views: 287,456 (up from 198,234)
-  Engagement: 23,456 (Rate: 8.1%)
-  Videos: 28 | Avg Likes: 678 | Avg Comments: 89 | Avg Shares: 145
-  Note: Geographic data not available via TikTok API.
-  Note: Fastest growing platform by percentage.
+TIKTOK    — 15,672 followers (+12,472 / +389.8%) ← FASTEST % GROWTH
+  Views: 287,456 | Engagement: 23,456 (8.1%) | Videos: 28
+  Avg: 678 likes · 89 comments · 145 shares
+  Note: Geographic/demographic data NOT available via TikTok API.
 
-LINKEDIN
-  Followers: 8,341 (started at 8,074 — +267 / +3.31% growth)
-  Monthly Reach: 45,678 (up from 43,234)
-  Engagement: 2,456 (Rate: 2.9%)
-  Posts: 12 | Source: Manual CSV export
-  Top Location: Dallas-Fort Worth
+═══ AUDIENCE DEMOGRAPHICS ═══
 
-═══ TOP PERFORMING CONTENT ═══
-1. YouTube: "When God Feels Silent" Easter Sermon — 48,234 views, 9.6% eng. rate
-2. TikTok: Easter worship moment "Graves Into Gardens" — 94,567 views, 11.6% eng. rate
-3. Instagram: Easter baptisms (47 people) Reel — 31,890 views, 20.2% eng. rate
-4. Facebook: Easter Sunday full service LIVE — 28,901 views, 7.1% eng. rate
-5. YouTube: "Sermon on the Mount Part 1" — 19,234 views, 8.6% eng. rate
-6. Instagram: "10 ways your church made impact" carousel — 12,340 views, 19.5% eng. rate
+Overall age split (male/female %):
+  13–17: M 2.8% / F 3.9%
+  18–24: M 11.2% / F 15.4%
+  25–34: M 17.8% / F 21.6%  ← Largest segment
+  35–44: M 15.2% / F 18.9%
+  45–54: M 8.4% / F 10.6%
+  55–64: M 4.1% / F 5.8%
+  65+:   M 2.9% / F 4.1%
+Female-skewed overall audience.
 
-═══ CONTENT TYPE PERFORMANCE ═══
-Best by Reach: Short Video (52,340 avg reach)
-Best by Engagement Rate: Baptism content (14.7% avg)
-Best by Volume: Short Video (34 posts)
-Worship Music: 41,230 avg reach, 9.3% engagement
+Facebook skews older (35–54 peak). Instagram & TikTok skew younger (18–34 peak).
+YouTube has a strong 25–44 core.
 
 ═══ GEOGRAPHIC BREAKDOWN ═══
-Top Countries: USA (82.4%), Canada (4.1%), Mexico (3.8%), UK (2.6%), Australia (1.9%)
-Top Cities: Rockwall TX (28.4%), Dallas TX (19.2%), Heath TX (11.7%), Rowlett TX (8.9%), Garland TX (6.4%)
-Total tracked followers with location: ~155,152
 
-═══ WEEKLY TRENDS ═══
-Week-over-week reach is up 15.3% over the 90-day period.
-Engagement rate peaked at Easter weekend (late March / early April 2026).
-Sunday posts consistently outperform weekday posts by 2.3x on average.
-Video content outperforms static images by 3.1x in reach.
+Top Cities (all platforms): Rockwall TX 28.4%, Dallas TX 19.2%, Heath TX 11.7%, Rowlett TX 8.9%, Garland TX 6.4%
+Top Countries: USA 82.4%, Canada 4.1%, Mexico 3.8%, UK 2.6%, Australia 1.9%
+YouTube has the most geographic diversity — 23.2% international audience.
+Facebook audience is most local (88.1% USA, heavy Rockwall/Dallas TX).
 
-═══ KEY INSIGHTS ═══
-- TikTok is the fastest-growing platform (34.2% in 90 days)
-- YouTube has the highest absolute subscriber count (89,234)
-- Instagram has the highest engagement rate among traditional platforms (5.2%)
-- TikTok has the highest overall engagement rate (8.1%)
-- Baptism and community story content has the highest emotional engagement
-- Easter weekend was the highest-performing period of the 90 days
-- YouTube at current growth rate (~108 subscribers/day) will hit 100,000 subscribers in approximately 10 days
+═══ TOP CONTENT ═══
+1. TikTok — Easter worship "Graves Into Gardens": 94,567 views, 11.6% eng
+2. YouTube — Easter sermon "When God Feels Silent": 48,234 views, 9.6% eng
+3. Instagram — Easter baptisms Reel (47 baptisms): 31,890 views, 20.2% eng
+4. Facebook — Easter Sunday LIVE all campuses: 28,901 views, 7.1% eng
+5. Instagram — "10 ways church made impact" carousel: 12,340 views, 19.5% eng
+
+Best content by engagement rate: Baptism content (14.7% avg), Community Stories (11.2%)
+Best content by reach: Short videos (52,340 avg), Worship music (41,230 avg)
+Sunday posts outperform weekday posts by 3.1x. Video outperforms static by 3.1x.
+
+═══ BEST TIMES TO POST ═══
+Best day: Sunday (3,840 avg engagement, 3.1x above average)
+Wednesday is the #2 day (mid-week sermon study content performs well)
+Best hours: 6–9pm (peak: 8pm at 1,950 avg engagement)
+Worst time: 2–5am
+
+═══ MILESTONES ═══
+YouTube: 89,234 / 100,000 subscribers — ~10 days away
+Facebook: 47,823 / 50,000 followers — ~18 days away
+Instagram: 28,456 / 30,000 followers — ~12 days away
+TikTok: 15,672 / 20,000 followers — ~25 days away
 `.trim();
 }
