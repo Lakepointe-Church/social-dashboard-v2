@@ -6,7 +6,7 @@
 
 const CHANNEL_ID       = 'UC5f7yO3WU_Ns0WDCQuP5bAw'; // Lakepointe Church
 const RESULTS_PER_PAGE = 50;
-const PODCAST_MARKER   = 'Live Free with Josh Howerton';
+const PODCAST_MARKER   = ['Live Free with Josh Howerton', 'Live Free'];
 
 // ── Duration helpers ──────────────────────────────────────────────────────────
 function parseDurationSeconds(iso8601) {
@@ -30,7 +30,7 @@ function formatDuration(seconds) {
 function classifyVideo(title, durationISO) {
   const seconds = parseDurationSeconds(durationISO);
   if (seconds > 0 && seconds <= 180) return 'short';           // Under 3 min → Short
-  if (title?.includes(PODCAST_MARKER))  return 'podcast';      // Live Free → Podcast
+  if (PODCAST_MARKERS.some(m => title?.includes(m))) return 'podcast';      // Live Free → Podcast
   return 'sermon';                                              // Everything else → Sermon
 }
 
