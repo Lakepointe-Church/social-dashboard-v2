@@ -14,6 +14,7 @@ import MilestoneTracker from '../components/MilestoneTracker';
 import BestTimeToPost from '../components/BestTimeToPost';
 import AIChatPanel from '../components/AIChatPanel';
 import CustomViewBuilder, { useWidgetConfig } from '../components/CustomViewBuilder';
+import YouTubeAnalytics from '../components/YouTubeAnalytics';
 import {
   platforms, totals, followerHistory, engagementHistory, reachHistory,
   topPosts, geoData, contentTypeData, ageData, milestones, bestTimeData,
@@ -22,7 +23,8 @@ import {
 import { Users, TrendingUp, Eye, Heart } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
 
-const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok'];
+// Added 'YouTube Live' tab — shows real API data instead of demo data
+const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok', 'YouTube Live'];
 
 function daysAgo(n) {
   const d = new Date(DATA_END_DATE);
@@ -65,6 +67,9 @@ export default function Dashboard() {
 
   const show = (id) => enabled[id] !== false;
 
+  // YouTube Live tab renders its own dedicated view
+  const isYouTubeLive = activeTab === 'YouTube Live';
+
   return (
     <>
       <Head>
@@ -95,98 +100,121 @@ export default function Dashboard() {
                   activeTab === tab ? 'tab-active' : 'tab-inactive'
                 }`}
               >
-                {tab !== 'All' && <PlatformIcon platform={tab.toLowerCase()} size={16} />}
-                {tab}
+                {tab === 'YouTube Live' ? (
+                  <>
+                    {/* YouTube icon */}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <rect width="24" height="24" rx="6" fill="#FF0000"/>
+                      <path d="M21.5 7.5s-.2-1.2-.8-1.8c-.8-.8-1.7-.8-2.1-.8C16.1 4.7 12 4.7 12 4.7s-4.1 0-6.6.2c-.4 0-1.3 0-2.1.8-.6.6-.8 1.8-.8 1.8S2.3 8.9 2.3 10.3v1.3c0 1.4.2 2.8.2 2.8s.2 1.2.8 1.8c.8.8 1.9.8 2.3.8C6.9 17.3 12 17.3 12 17.3s4.1 0 6.6-.3c.4 0 1.3 0 2.1-.8.6-.6.8-1.8.8-1.8s.2-1.4.2-2.8v-1.3c0-1.4-.2-2.8-.2-2.8zM10.1 13.7V8.3l5.2 2.7-5.2 2.7z" fill="white"/>
+                    </svg>
+                    <span>YouTube</span>
+                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                      LIVE
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {tab !== 'All' && <PlatformIcon platform={tab.toLowerCase()} size={16} />}
+                    {tab}
+                  </>
+                )}
               </button>
             ))}
           </div>
 
-          {/* Summary Metric Cards */}
-          {show('summary_metrics') && activeTab === 'All' && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard label="Total Followers"  value={totals.totalFollowers.toLocaleString()}
-                change={`+${totals.followerGrowthPct}%`} changePositive subtext={`+${totals.followerGrowth.toLocaleString()} this period`}
-                icon={<Users size={20}/>} iconBg="bg-blue-100" iconColor="text-blue-600" />
-              <MetricCard label="Total Reach"      value={totals.totalReach.toLocaleString()}
-                change="+22.4%" changePositive subtext="Across all platforms"
-                icon={<Eye size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
-              <MetricCard label="Total Engagement" value={totals.totalEngagement.toLocaleString()}
-                change="+31.2%" changePositive subtext={`${totals.avgEngagementRate}% avg rate`}
-                icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
-              <MetricCard label="Video Views"      value={totals.totalVideoViews.toLocaleString()}
-                change="+45.8%" changePositive subtext={`${totals.totalPosts} posts published`}
-                icon={<TrendingUp size={20}/>} iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            </div>
-          )}
-
-          {/* Platform Cards */}
-          {show('platform_cards') && (
-            <div className={`grid gap-4 ${
-              activeTab === 'All' ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-            }`}>
-              {activePlatforms.map(p => (
-                <PlatformCard key={p.id} platform={p} compact={activeTab === 'All'} onClick={() => setActiveTab(p.name)} />
-              ))}
-            </div>
-          )}
-
-          {/* Milestones */}
-          {show('milestones') && <MilestoneTracker milestones={milestones} />}
-
-          {/* Growth + Engagement Charts */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {show('growth_chart') && (
-              <div className="xl:col-span-2 card">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="font-bold text-slate-900 text-lg">Growth Over Time</h2>
-                    <p className="text-slate-500 text-sm">{dateRange} · {followerSlice.length} days · All platforms</p>
-                  </div>
-                  <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-                    {[['followers','Followers'],['reach','Reach'],['engagement','Engagement']].map(([k,l]) => (
-                      <button key={k} onClick={() => setChartType(k)}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                          chartType === k ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
-                        }`}>{l}</button>
-                    ))}
-                  </div>
+          {/* ── YouTube Live View ─────────────────────────────────────────── */}
+          {isYouTubeLive ? (
+            <YouTubeAnalytics />
+          ) : (
+            <>
+              {/* Summary Metric Cards */}
+              {show('summary_metrics') && activeTab === 'All' && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <MetricCard label="Total Followers"  value={totals.totalFollowers.toLocaleString()}
+                    change={`+${totals.followerGrowthPct}%`} changePositive subtext={`+${totals.followerGrowth.toLocaleString()} this period`}
+                    icon={<Users size={20}/>} iconBg="bg-blue-100" iconColor="text-blue-600" />
+                  <MetricCard label="Total Reach"      value={totals.totalReach.toLocaleString()}
+                    change="+22.4%" changePositive subtext="Across all platforms"
+                    icon={<Eye size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+                  <MetricCard label="Total Engagement" value={totals.totalEngagement.toLocaleString()}
+                    change="+31.2%" changePositive subtext={`${totals.avgEngagementRate}% avg rate`}
+                    icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+                  <MetricCard label="Video Views"      value={totals.totalVideoViews.toLocaleString()}
+                    change="+45.8%" changePositive subtext={`${totals.totalPosts} posts published`}
+                    icon={<TrendingUp size={20}/>} iconBg="bg-emerald-100" iconColor="text-emerald-600" />
                 </div>
-                <FollowerGrowthChart data={chartData} activePlatform={activeTab === 'All' ? null : activeTab} dataType={chartType} />
-              </div>
-            )}
-            {show('engagement_chart') && (
-              <div className={show('growth_chart') ? 'card' : 'card xl:col-span-3'}>
-                <h2 className="font-bold text-slate-900 text-lg mb-1">Engagement Rate</h2>
-                <p className="text-slate-500 text-sm mb-4">% by platform</p>
-                <EngagementChart activePlatform={activeTab === 'All' ? null : activeTab} />
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* Content Type Performance */}
-          {show('content_type') && (
-            <div className="card">
-              <div className="mb-4">
-                <h2 className="font-bold text-slate-900 text-lg">Content Type Performance</h2>
-                <p className="text-slate-500 text-sm">Avg reach & engagement rate by format</p>
+              {/* Platform Cards */}
+              {show('platform_cards') && (
+                <div className={`grid gap-4 ${
+                  activeTab === 'All' ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                }`}>
+                  {activePlatforms.map(p => (
+                    <PlatformCard key={p.id} platform={p} compact={activeTab === 'All'} onClick={() => setActiveTab(p.name)} />
+                  ))}
+                </div>
+              )}
+
+              {/* Milestones */}
+              {show('milestones') && <MilestoneTracker milestones={milestones} />}
+
+              {/* Growth + Engagement Charts */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                {show('growth_chart') && (
+                  <div className="xl:col-span-2 card">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="font-bold text-slate-900 text-lg">Growth Over Time</h2>
+                        <p className="text-slate-500 text-sm">{dateRange} · {followerSlice.length} days · All platforms</p>
+                      </div>
+                      <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                        {[['followers','Followers'],['reach','Reach'],['engagement','Engagement']].map(([k,l]) => (
+                          <button key={k} onClick={() => setChartType(k)}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                              chartType === k ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                            }`}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <FollowerGrowthChart data={chartData} activePlatform={activeTab === 'All' ? null : activeTab} dataType={chartType} />
+                  </div>
+                )}
+                {show('engagement_chart') && (
+                  <div className={show('growth_chart') ? 'card' : 'card xl:col-span-3'}>
+                    <h2 className="font-bold text-slate-900 text-lg mb-1">Engagement Rate</h2>
+                    <p className="text-slate-500 text-sm mb-4">% by platform</p>
+                    <EngagementChart activePlatform={activeTab === 'All' ? null : activeTab} />
+                  </div>
+                )}
               </div>
-              <ContentTypeChart data={contentTypeData} />
-            </div>
+
+              {/* Content Type Performance */}
+              {show('content_type') && (
+                <div className="card">
+                  <div className="mb-4">
+                    <h2 className="font-bold text-slate-900 text-lg">Content Type Performance</h2>
+                    <p className="text-slate-500 text-sm">Avg reach & engagement rate by format</p>
+                  </div>
+                  <ContentTypeChart data={contentTypeData} />
+                </div>
+              )}
+
+              {/* Best Time to Post */}
+              {show('best_time') && <BestTimeToPost data={bestTimeData} />}
+
+              {/* Top Content + Geo */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {show('top_content') && <TopContent posts={filteredPosts} />}
+                {show('geo_breakdown') && <GeoBreakdown geoData={geoData} activeTab={activeTab} />}
+              </div>
+
+              {/* Age & Gender */}
+              {show('age_breakdown') && <AgeBreakdown ageData={ageData} />}
+
+              {showAI && <div className="h-80" />}
+            </>
           )}
-
-          {/* Best Time to Post */}
-          {show('best_time') && <BestTimeToPost data={bestTimeData} />}
-
-          {/* Top Content + Geo */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {show('top_content') && <TopContent posts={filteredPosts} />}
-            {show('geo_breakdown') && <GeoBreakdown geoData={geoData} activeTab={activeTab} />}
-          </div>
-
-          {/* Age & Gender */}
-          {show('age_breakdown') && <AgeBreakdown ageData={ageData} />}
-
-          {showAI && <div className="h-80" />}
         </main>
 
         {/* AI Panel */}
