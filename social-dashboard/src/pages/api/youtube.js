@@ -6,7 +6,7 @@
 
 const CHANNEL_ID       = 'UC5f7yO3WU_Ns0WDCQuP5bAw'; // Lakepointe Church
 const RESULTS_PER_PAGE = 50;
-const PODCAST_MARKER   = ['Live Free with Josh Howerton', 'Live Free'];
+const PODCAST_MARKERS   = ['Live Free with Josh Howerton', 'Live Free'];
 
 // ── Duration helpers ──────────────────────────────────────────────────────────
 function parseDurationSeconds(iso8601) {
