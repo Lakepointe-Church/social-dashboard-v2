@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
-        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}`)
+        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=week&since=${daysAgo(28)}&until=${today()}&access_token=${token}`)
           .then(r => r.json())
       )
     );
@@ -35,24 +35,36 @@ export default async function handler(req, res) {
     });
     const insights = parseInsights(allInsightData);
 
-    // ── 3. Recent posts (basic fields only, no per-post insights) ─────────────
-    const postsRes  = await fetch(`${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments&limit=20&access_token=${token}`);
+    // ── 3. Recent posts with likes + comments summary ─────────────────────────
+    const postsRes  = await fetch(
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares&limit=20&access_token=${token}`
+    );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
 
-    const posts = (postsData.data || []).map(p => ({
-      id:          p.id,
-      message:     p.message || p.story || '',
-      createdTime: p.created_time,
-      thumbnail:   p.attachments?.data?.[0]?.media?.image?.src || null,
-      type:        p.attachments?.data?.[0]?.type || 'status',
-      reach:       0,
-      impressions: 0,
-      engaged:     0,
-      reactions:   0,
-      clicks:      0,
-      engagementRate: 0,
-    }));
+    const posts = (postsData.data || []).map(p => {
+      const likes    = p.likes?.summary?.total_count || 0;
+      const comments = p.comments?.summary?.total_count || 0;
+      const shares   = p.shares?.count || 0;
+      const engaged  = likes + comments + shares;
+
+      return {
+        id:             p.id,
+        message:        p.message || p.story || '',
+        createdTime:    p.created_time,
+        thumbnail:      p.attachments?.data?.[0]?.media?.image?.src || null,
+        type:           p.attachments?.data?.[0]?.type || 'status',
+        reach:          0,
+        impressions:    0,
+        engaged,
+        reactions:      likes,
+        clicks:         shares,
+        engagementRate: 0,
+        likeCount:      likes,
+        commentCount:   comments,
+        shareCount:     shares,
+      };
+    });
 
     // ── 4. Demographics ───────────────────────────────────────────────────────
     const demoRes  = await fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_gender_age&period=lifetime&access_token=${token}`);
@@ -90,8 +102,8 @@ export default async function handler(req, res) {
   }
 }
 
-function today()      { return Math.floor(Date.now() / 1000); }
-function daysAgo(n)   { return Math.floor((Date.now() - n * 24 * 60 * 60 * 1000) / 1000); }
+function today()    { return Math.floor(Date.now() / 1000); }
+function daysAgo(n) { return Math.floor((Date.now() - n * 24 * 60 * 60 * 1000) / 1000); }
 
 function parseInsights(data) {
   const totals = {};

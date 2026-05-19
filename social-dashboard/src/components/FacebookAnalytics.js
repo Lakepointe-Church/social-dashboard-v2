@@ -95,8 +95,8 @@ export default function FacebookAnalytics() {
   const { page, insights, posts = [], demographics = [], geo, fetchedAt } = data || {};
 
   // Chart data — top 8 posts by reach
-  const topPosts = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 8).reverse();
-  const postsChartData = topPosts.map(p => ({ name: truncate(p.message, 30) || 'Post', Reach: p.reach, Engaged: p.engaged }));
+  const topPosts = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
+  const postsChartData = topPosts.map(p => ({ name: truncate(p.message, 30) || 'Post', Likes: p.likeCount || 0, Comments: p.commentCount || 0 }));
 
   // Demographics chart
   const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
@@ -146,15 +146,15 @@ export default function FacebookAnalytics() {
       {posts.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Reach</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts by unique reach</p>
+            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Likes</h3>
+            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts by engagement</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
                 <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Reach" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="Likes" radius={[0, 4, 4, 0]}>
                   {postsChartData.map((_, i) => (
                     <Cell key={i} fill={i === postsChartData.length - 1 ? FB_BLUE : '#93c5fd'} />
                   ))}
@@ -163,15 +163,15 @@ export default function FacebookAnalytics() {
             </ResponsiveContainer>
           </div>
           <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Engagement</h3>
-            <p className="text-slate-500 text-sm mb-4">Engaged users per post</p>
+            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Comments</h3>
+            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
                 <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Engaged" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="Comments" fill="#6366f1" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -266,29 +266,26 @@ export default function FacebookAnalytics() {
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reach</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Engaged</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reactions</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Eng. Rate</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Shares</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Eng.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {posts.map(p => {
-                  const engColor = p.engagementRate > 5 ? 'text-emerald-600' : p.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-3 max-w-xs">
-                        <p className="text-slate-700 text-sm line-clamp-2">{truncate(p.message, 100) || '(No caption)'}</p>
-                        <span className="text-xs text-slate-400 capitalize">{p.type}</span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(p.createdTime)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{fmtBig(p.reach)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(p.engaged)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(p.reactions)}</td>
-                      <td className={`px-6 py-3 text-right font-mono font-semibold ${engColor}`}>{p.engagementRate.toFixed(2)}%</td>
-                    </tr>
-                  );
-                })}
+                {posts.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-3 max-w-xs">
+                      <p className="text-slate-700 text-sm line-clamp-2">{truncate(p.message, 100) || '(No caption)'}</p>
+                      <span className="text-xs text-slate-400 capitalize">{p.type}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(p.createdTime)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{fmtBig(p.likeCount)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(p.commentCount)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(p.shareCount)}</td>
+                    <td className="px-6 py-3 text-right font-mono font-semibold text-blue-500">{fmtBig(p.engaged)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
