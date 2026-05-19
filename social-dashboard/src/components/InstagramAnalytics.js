@@ -165,10 +165,10 @@ export default function InstagramAnalytics() {
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Followers"        value={fmtBig(account?.followersCount)}  subtext={`${fmtBig(account?.mediaCount)} posts`}   icon={<Users size={20}/>}      iconBg="bg-pink-100"   iconColor="text-pink-600"   />
-        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}          subtext="Unique accounts reached"                   icon={<Eye size={20}/>}        iconBg="bg-purple-100" iconColor="text-purple-600" />
-        <StatCard label="Interactions (30d)" value={fmtBig(insights?.interactions)} subtext="Likes, comments, saves, shares"            icon={<Heart size={20}/>}      iconBg="bg-rose-100"   iconColor="text-rose-600"   />
-        <StatCard label="Profile Views (30d)" value={fmtBig(insights?.profileViews)} subtext="Last 30 days"                            icon={<TrendingUp size={20}/>}  iconBg="bg-orange-100" iconColor="text-orange-600" />
+        <StatCard label="Followers"        value={fmtBig(account?.followersCount)}  subtext={`Following ${fmtBig(account?.followsCount)}`} icon={<Users size={20}/>}      iconBg="bg-pink-100"   iconColor="text-pink-600"   />
+        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}          subtext="Unique accounts reached"                      icon={<Eye size={20}/>}        iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard label="Total Posts"      value={fmtBig(account?.mediaCount)}      subtext={`${filteredMedia.length} in current filter`}  icon={<Heart size={20}/>}      iconBg="bg-rose-100"   iconColor="text-rose-600"   />
+        <StatCard label="Impressions (30d)" value={fmtBig(insights?.impressions)}   subtext="Total content impressions"                    icon={<TrendingUp size={20}/>}  iconBg="bg-orange-100" iconColor="text-orange-600" />
       </div>
 
       {/* ── Content type filter chips ──────────────────────────────────────── */}
