@@ -1,12 +1,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // InstagramAnalytics — live data from /api/instagram
+// Multi-select content type filters including Collabs
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, Bookmark } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
 
-const IG_PINK  = '#E1306C';
+const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
+
+const CONTENT_FILTERS = [
+  { id: 'photo',    label: '📷 Photos',    color: '#3b82f6' },
+  { id: 'carousel', label: '🖼️ Carousels', color: '#0ea5e9' },
+  { id: 'reel',     label: '🎬 Reels',     color: '#8b5cf6' },
+  { id: 'video',    label: '📹 Videos',    color: '#6366f1' },
+  { id: 'collab',   label: '🤝 Collabs',   color: '#f59e0b' },
+  { id: 'other',    label: '📝 Other',     color: '#64748b' },
+];
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -25,19 +35,17 @@ function truncate(str, max = 80) {
 }
 
 function mediaTypeLabel(type) {
-  if (type === 'IMAGE')      return '📷 Photo';
-  if (type === 'VIDEO')      return '🎬 Video';
+  if (type === 'IMAGE')          return '📷 Photo';
+  if (type === 'VIDEO')          return '📹 Video';
   if (type === 'CAROUSEL_ALBUM') return '🖼️ Carousel';
-  if (type === 'REELS')      return '🎥 Reel';
+  if (type === 'REELS')          return '🎬 Reel';
   return type || '—';
 }
 
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   return (
     <div className="card card-hover">
-      <div className={`${iconBg} ${iconColor} w-10 h-10 rounded-xl flex items-center justify-center`}>
-        {icon}
-      </div>
+      <div className={`${iconBg} ${iconColor} w-10 h-10 rounded-xl flex items-center justify-center`}>{icon}</div>
       <div className="mt-3">
         <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
         <div className="text-slate-500 text-sm font-medium mt-0.5">{label}</div>
@@ -60,9 +68,11 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function InstagramAnalytics() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
+  const [data,          setData]          = useState(null);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState(null);
+  // Default: photos, carousels, reels, videos on — collabs and other off
+  const [activeFilters, setActiveFilters] = useState(['photo', 'carousel', 'reel', 'video']);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -76,6 +86,12 @@ export default function InstagramAnalytics() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  function toggleFilter(id) {
+    setActiveFilters(prev =>
+      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
+    );
+  }
 
   if (loading && !data) return (
     <div className="card flex items-center justify-center py-20">
@@ -103,27 +119,28 @@ export default function InstagramAnalytics() {
 
   const { account, insights, media = [], demographics = [], geo, fetchedAt } = data || {};
 
-  // Charts
-  const topMedia = [...media].sort((a, b) => b.reach - a.reach).slice(0, 8).reverse();
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  const filteredMedia  = media.filter(m => activeFilters.includes(m.contentType));
+  const topMedia       = [...filteredMedia].sort((a, b) => b.engagement - a.engagement).slice(0, 8).reverse();
   const mediaChartData = topMedia.map(m => ({
-    name:    truncate(m.caption, 30) || mediaTypeLabel(m.mediaType),
+    name:    truncate(m.caption, 32) || mediaTypeLabel(m.mediaType),
     Reach:   m.reach,
-    Engaged: m.engagement,
+    Likes:   m.likeCount,
     Saved:   m.saved,
   }));
 
-  const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
-  const cityData    = (geo?.cities    || []).slice(0, 8);
-  const countryData = (geo?.countries || []).slice(0, 6);
+  // ── Counts per type ───────────────────────────────────────────────────────
+  const counts = { photo: 0, carousel: 0, reel: 0, video: 0, collab: 0, other: 0 };
+  media.forEach(m => { if (counts[m.contentType] !== undefined) counts[m.contentType]++; });
 
-  const engRate = account?.followersCount > 0
-    ? ((insights?.engaged || 0) / account.followersCount * 100).toFixed(2)
-    : '0.00';
+  const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
+  const cityData      = (geo?.cities    || []).slice(0, 8);
+  const countryData   = (geo?.countries || []).slice(0, 6);
 
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* Header */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -146,20 +163,65 @@ export default function InstagramAnalytics() {
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Followers"       value={fmtBig(account?.followersCount)} subtext={`${fmtBig(account?.mediaCount)} posts`} icon={<Users size={20}/>}     iconBg="bg-pink-100"   iconColor="text-pink-600"   />
-        <StatCard label="Reach (30d)"     value={fmtBig(insights?.reach)}         subtext="Unique accounts reached"               icon={<Eye size={20}/>}       iconBg="bg-purple-100" iconColor="text-purple-600" />
-        <StatCard label="Engaged (30d)"   value={fmtBig(insights?.engaged)}       subtext={`${engRate}% eng. rate`}               icon={<Heart size={20}/>}     iconBg="bg-rose-100"   iconColor="text-rose-600"   />
-        <StatCard label="Profile Views"   value={fmtBig(insights?.profileViews)}  subtext="Last 30 days"                          icon={<TrendingUp size={20}/>} iconBg="bg-orange-100" iconColor="text-orange-600" />
+        <StatCard label="Followers"        value={fmtBig(account?.followersCount)}  subtext={`${fmtBig(account?.mediaCount)} posts`}   icon={<Users size={20}/>}      iconBg="bg-pink-100"   iconColor="text-pink-600"   />
+        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}          subtext="Unique accounts reached"                   icon={<Eye size={20}/>}        iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard label="Interactions (30d)" value={fmtBig(insights?.interactions)} subtext="Likes, comments, saves, shares"            icon={<Heart size={20}/>}      iconBg="bg-rose-100"   iconColor="text-rose-600"   />
+        <StatCard label="Profile Views (30d)" value={fmtBig(insights?.profileViews)} subtext="Last 30 days"                            icon={<TrendingUp size={20}/>}  iconBg="bg-orange-100" iconColor="text-orange-600" />
       </div>
 
-      {/* Media charts */}
-      {media.length > 0 && (
+      {/* ── Content type filter chips ──────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">Content Type Filter</h3>
+            <p className="text-slate-400 text-xs mt-0.5">Toggle to include/exclude types. Deselect all to clear the view.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono">{filteredMedia.length} posts in view</span>
+            {activeFilters.length === 0 && (
+              <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel', 'video'])}
+                className="text-xs font-semibold text-pink-600 hover:text-pink-700">Reset</button>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {CONTENT_FILTERS.map(f => {
+            const isActive = activeFilters.includes(f.id);
+            return (
+              <button key={f.id} onClick={() => toggleFilter(f.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+                  isActive ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+                style={isActive ? { background: f.color, borderColor: f.color } : {}}>
+                {f.label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  {counts[f.id] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Empty state ────────────────────────────────────────────────────── */}
+      {activeFilters.length === 0 && (
+        <div className="card text-center py-12">
+          <p className="text-slate-400 text-sm mb-3">No content types selected.</p>
+          <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel', 'video'])}
+            className="text-xs font-semibold text-pink-600 hover:text-pink-700 border border-pink-200 rounded-lg px-4 py-2 hover:bg-pink-50 transition-all">
+            Reset to default
+          </button>
+        </div>
+      )}
+
+      {/* ── Charts ────────────────────────────────────────────────────────── */}
+      {filteredMedia.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="card">
             <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Reach</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {topMedia.length} posts by unique reach</p>
+            <p className="text-slate-500 text-sm mb-4">Top {topMedia.length} posts by engagement</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={mediaChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
@@ -175,7 +237,7 @@ export default function InstagramAnalytics() {
             </ResponsiveContainer>
           </div>
           <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Engagement &amp; Saves</h3>
+            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Likes &amp; Saves</h3>
             <p className="text-slate-500 text-sm mb-4">Top {topMedia.length} posts</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={mediaChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
@@ -183,15 +245,15 @@ export default function InstagramAnalytics() {
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
                 <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Engaged" fill={IG_PINK}   radius={[0, 4, 4, 0]} />
-                <Bar dataKey="Saved"   fill={IG_PURPLE} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="Likes" fill={IG_PINK}   radius={[0, 4, 4, 0]} />
+                <Bar dataKey="Saved" fill={IG_PURPLE} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* Demographics */}
+      {/* ── Demographics ──────────────────────────────────────────────────── */}
       {demoChartData.length > 0 && (
         <div className="card">
           <h3 className="font-bold text-slate-900 text-base mb-1">Audience Age &amp; Gender</h3>
@@ -210,7 +272,7 @@ export default function InstagramAnalytics() {
         </div>
       )}
 
-      {/* Geographic */}
+      {/* ── Geographic ────────────────────────────────────────────────────── */}
       {(cityData.length > 0 || countryData.length > 0) && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {cityData.length > 0 && (
@@ -266,12 +328,12 @@ export default function InstagramAnalytics() {
         </div>
       )}
 
-      {/* Media table */}
-      {media.length > 0 && (
+      {/* ── Media table ───────────────────────────────────────────────────── */}
+      {filteredMedia.length > 0 && (
         <div className="card p-0 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 text-base">Recent Posts</h3>
-            <p className="text-slate-500 text-sm">Latest {media.length} posts · Live from Instagram</p>
+            <h3 className="font-bold text-slate-900 text-base">Posts</h3>
+            <p className="text-slate-500 text-sm">{filteredMedia.length} posts · filtered view · Live from Instagram</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -282,25 +344,29 @@ export default function InstagramAnalytics() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reach</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Saved</th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Eng. Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {media.map(m => {
+                {filteredMedia.map(m => {
                   const engColor = m.engagementRate > 5 ? 'text-emerald-600' : m.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
+                  const isCollab = m.contentType === 'collab';
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${isCollab ? 'bg-amber-50/40' : ''}`}>
                       <td className="px-6 py-3 max-w-xs">
                         <a href={m.permalink} target="_blank" rel="noopener noreferrer"
                           className="text-slate-700 text-sm line-clamp-2 hover:text-pink-600 transition-colors block">
                           {truncate(m.caption, 100) || '(No caption)'}
                         </a>
+                        {isCollab && <span className="text-[10px] text-amber-600 font-semibold">🤝 Collab</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{mediaTypeLabel(m.mediaType)}</td>
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(m.timestamp)}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{fmtBig(m.reach)}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(m.likeCount)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(m.commentsCount)}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(m.saved)}</td>
                       <td className={`px-6 py-3 text-right font-mono font-semibold ${engColor}`}>{m.engagementRate.toFixed(2)}%</td>
                     </tr>
