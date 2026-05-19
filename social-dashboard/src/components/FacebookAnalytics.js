@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FacebookAnalytics — live data from /api/facebook
-// Multi-select content type filters: Photos, Videos, Other
-// Service Streams are always excluded from charts/table
+// Multi-select content type filters — all toggleable including streams
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
@@ -9,11 +8,11 @@ import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe } 
 
 const FB_BLUE = '#1877F2';
 
-// ── Content type config ───────────────────────────────────────────────────────
 const CONTENT_FILTERS = [
-  { id: 'photo',  label: '📷 Photos',  color: '#3b82f6' },
-  { id: 'video',  label: '🎬 Videos & Reels', color: '#8b5cf6' },
-  { id: 'other',  label: '📝 Other',   color: '#64748b' },
+  { id: 'photo',  label: '📷 Photos',          color: '#3b82f6' },
+  { id: 'video',  label: '🎬 Videos & Reels',  color: '#8b5cf6' },
+  { id: 'other',  label: '📝 Text & Links',    color: '#64748b' },
+  { id: 'stream', label: '📺 Service Streams', color: '#f59e0b' },
 ];
 
 function fmtBig(n) {
@@ -30,6 +29,21 @@ function fmtDate(iso) {
 
 function truncate(str, max = 80) {
   return str?.length > max ? str.slice(0, max) + '…' : str;
+}
+
+function getFbPostUrl(postId) {
+  // postId format is pageId_postId
+  const parts = postId?.split('_');
+  if (parts?.length === 2) return `https://www.facebook.com/permalink.php?story_fbid=${parts[1]}&id=${parts[0]}`;
+  return `https://www.facebook.com/${postId}`;
+}
+
+function contentTypeLabel(type) {
+  if (type === 'photo')  return '📷 Photo';
+  if (type === 'album')  return '🖼️ Album';
+  if (type === 'video_inline' || type === 'video') return '🎬 Video';
+  if (type === 'status') return '📝 Status';
+  return type || '—';
 }
 
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
@@ -57,20 +71,12 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
-function contentTypeLabel(type) {
-  if (type === 'photo')  return '📷 Photo';
-  if (type === 'album')  return '🖼️ Album';
-  if (type === 'video_inline' || type === 'video') return '🎬 Video';
-  if (type === 'status') return '📝 Status';
-  return type || '—';
-}
-
 export default function FacebookAnalytics() {
   const [data,          setData]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState(null);
-  // Default: photos + videos selected
-  const [activeFilters, setActiveFilters] = useState(['photo', 'video']);
+  // Default: photos, videos, text all on — streams off
+  const [activeFilters, setActiveFilters] = useState(['photo', 'video', 'other']);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -85,11 +91,10 @@ export default function FacebookAnalytics() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Allow toggling any filter — including deselecting all (shows empty state)
   function toggleFilter(id) {
     setActiveFilters(prev =>
-      prev.includes(id)
-        ? prev.length > 1 ? prev.filter(f => f !== id) : prev // keep at least 1 active
-        : [...prev, id]
+      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
     );
   }
 
@@ -119,29 +124,23 @@ export default function FacebookAnalytics() {
 
   const { page, insights, posts = [], demographics = [], geo, fetchedAt } = data || {};
 
-  // ── Filter logic ──────────────────────────────────────────────────────────
-  // Always exclude streams; then apply active content type filters
-  const nonStreamPosts  = posts.filter(p => p.contentType !== 'stream');
-  const streamCount     = posts.filter(p => p.contentType === 'stream').length;
-  const filteredPosts   = nonStreamPosts.filter(p => activeFilters.includes(p.contentType));
-
-  // ── Chart data ────────────────────────────────────────────────────────────
-  const topPosts       = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
-  const postsChartData = topPosts.map(p => ({
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  const filteredPosts   = posts.filter(p => activeFilters.includes(p.contentType));
+  const topPosts        = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
+  const postsChartData  = topPosts.map(p => ({
     name:     truncate(p.message, 32) || contentTypeLabel(p.type),
     Likes:    p.likeCount    || 0,
     Comments: p.commentCount || 0,
     Shares:   p.shareCount   || 0,
   }));
 
-  // ── Demographics & geo ────────────────────────────────────────────────────
+  // ── Counts per type ───────────────────────────────────────────────────────
+  const counts = { photo: 0, video: 0, other: 0, stream: 0 };
+  posts.forEach(p => { if (counts[p.contentType] !== undefined) counts[p.contentType]++; });
+
   const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
   const cityData      = (geo?.cities    || []).slice(0, 8);
   const countryData   = (geo?.countries || []).slice(0, 6);
-
-  // ── Count per content type ────────────────────────────────────────────────
-  const counts = { photo: 0, video: 0, other: 0, stream: streamCount };
-  nonStreamPosts.forEach(p => { if (counts[p.contentType] !== undefined) counts[p.contentType]++; });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -170,10 +169,10 @@ export default function FacebookAnalytics() {
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Page Followers"    value={fmtBig(page?.followersCount)}    subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
-        <StatCard label="Reach (30d)"       value={fmtBig(insights?.reach)}         subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Total Posts"       value={nonStreamPosts.length}            subtext={`${streamCount} streams excluded`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
-        <StatCard label="Page Views (30d)"  value={fmtBig(insights?.pageViews)}     subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
+        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+        <StatCard label="Total Posts"      value={posts.length}                  subtext={`${filteredPosts.length} in current filter`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+        <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
 
       {/* ── Content type filter chips ──────────────────────────────────────── */}
@@ -181,9 +180,19 @@ export default function FacebookAnalytics() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="font-bold text-slate-900 text-sm">Content Type Filter</h3>
-            <p className="text-slate-400 text-xs mt-0.5">Toggle to include/exclude types. Service streams are always excluded.</p>
+            <p className="text-slate-400 text-xs mt-0.5">Toggle content types to include. Deselect all to clear the view.</p>
           </div>
-          <span className="text-xs text-slate-400 font-mono">{filteredPosts.length} posts in view</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono">{filteredPosts.length} posts in view</span>
+            {activeFilters.length === 0 && (
+              <button
+                onClick={() => setActiveFilters(['photo', 'video', 'other'])}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {CONTENT_FILTERS.map(f => {
@@ -195,7 +204,7 @@ export default function FacebookAnalytics() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
                   isActive
                     ? 'text-white border-transparent shadow-sm'
-                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 }`}
                 style={isActive ? { background: f.color, borderColor: f.color } : {}}
               >
@@ -208,14 +217,21 @@ export default function FacebookAnalytics() {
               </button>
             );
           })}
-          {/* Stream pill — always shown as excluded */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-dashed border-slate-200 text-slate-400 bg-slate-50">
-            📺 Service Streams
-            <span className="text-xs px-1.5 py-0.5 rounded-full font-mono bg-slate-200 text-slate-500">{streamCount}</span>
-            <span className="text-[10px] text-slate-400">always excluded</span>
-          </div>
         </div>
       </div>
+
+      {/* ── Empty state ────────────────────────────────────────────────────── */}
+      {activeFilters.length === 0 && (
+        <div className="card text-center py-12">
+          <p className="text-slate-400 text-sm mb-3">No content types selected.</p>
+          <button
+            onClick={() => setActiveFilters(['photo', 'video', 'other'])}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg px-4 py-2 hover:bg-blue-50 transition-all"
+          >
+            Reset to default
+          </button>
+        </div>
+      )}
 
       {/* ── Charts ────────────────────────────────────────────────────────── */}
       {filteredPosts.length > 0 && (
@@ -251,12 +267,6 @@ export default function FacebookAnalytics() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
-
-      {filteredPosts.length === 0 && nonStreamPosts.length > 0 && (
-        <div className="card text-center py-12 text-slate-400 text-sm">
-          No posts match the selected filters. Try adding more content types above.
         </div>
       )}
 
@@ -338,11 +348,9 @@ export default function FacebookAnalytics() {
       {/* ── Posts table ───────────────────────────────────────────────────── */}
       {filteredPosts.length > 0 && (
         <div className="card p-0 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-slate-900 text-base">Posts</h3>
-              <p className="text-slate-500 text-sm">{filteredPosts.length} posts · filtered view · Live from Facebook</p>
-            </div>
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-900 text-base">Posts</h3>
+            <p className="text-slate-500 text-sm">{filteredPosts.length} posts · filtered view · Live from Facebook</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -361,7 +369,15 @@ export default function FacebookAnalytics() {
                 {filteredPosts.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-3 max-w-xs">
-                      <p className="text-slate-700 text-sm line-clamp-2">{truncate(p.message, 100) || '(No caption)'}</p>
+                      <a
+                        href={getFbPostUrl(p.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-700 text-sm line-clamp-2 hover:text-blue-600 transition-colors block"
+                        title="Open post on Facebook"
+                      >
+                        {truncate(p.message, 100) || '(No caption)'}
+                      </a>
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{contentTypeLabel(p.type)}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(p.createdTime)}</td>
