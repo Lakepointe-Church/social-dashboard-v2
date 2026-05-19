@@ -15,35 +15,40 @@ export default async function handler(req, res) {
   const base = `https://graph.facebook.com/v21.0`;
 
   try {
-    // ── 1. Page summary (followers, fan count) ────────────────────────────────
+    // ── 1. Page summary ───────────────────────────────────────────────────────
     const pageRes = await fetch(
       `${base}/${PAGE_ID}?fields=name,fan_count,followers_count,link&access_token=${token}`
     );
     const pageData = await pageRes.json();
     if (pageData.error) throw new Error(pageData.error.message);
 
-    // ── 2. Page insights ──────────────────────────────────────────────────────
-    // Metrics: page_impressions (reach), page_engaged_users, page_views_total
+    // ── 2. Page insights (fetch individually to isolate any bad metric) ───────
     const insightMetrics = [
       'page_impressions',
       'page_impressions_unique',
       'page_engaged_users',
       'page_views_total',
-      'page_video_views',
-    ].join(',');
+    ];
 
-    const insightRes = await fetch(
-      `${base}/${PAGE_ID}/insights?metric=${insightMetrics}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}`
+    const insightResults = await Promise.allSettled(
+      insightMetrics.map(metric =>
+        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}`)
+          .then(r => r.json())
+      )
     );
-    const insightData = await insightRes.json();
-    if (insightData.error) throw new Error(insightData.error.message);
 
-    // Parse insights into summary totals
-    const insights = parseInsights(insightData.data || []);
+    const allInsightData = [];
+    insightResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value?.data) {
+        allInsightData.push(...result.value.data);
+      }
+    });
+
+    const insights = parseInsights(allInsightData);
 
     // ── 3. Recent posts ───────────────────────────────────────────────────────
     const postsRes = await fetch(
-      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_reactions_by_type_total,post_clicks)&limit=20&access_token=${token}`
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_clicks)&limit=20&access_token=${token}`
     );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
@@ -53,23 +58,21 @@ export default async function handler(req, res) {
       (p.insights?.data || []).forEach(m => {
         postInsights[m.name] = m.values?.[0]?.value || 0;
       });
-      const reactions = postInsights.post_reactions_by_type_total || {};
-      const totalReactions = Object.values(reactions).reduce((s, v) => s + v, 0);
-      const reach = postInsights.post_impressions_unique || 0;
+      const reach   = postInsights.post_impressions_unique || 0;
       const engaged = postInsights.post_engaged_users || 0;
       const engRate = reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0;
 
       return {
-        id: p.id,
-        message: p.message || p.story || '',
-        createdTime: p.created_time,
-        thumbnail: p.attachments?.data?.[0]?.media?.image?.src || null,
-        type: p.attachments?.data?.[0]?.type || 'status',
+        id:             p.id,
+        message:        p.message || p.story || '',
+        createdTime:    p.created_time,
+        thumbnail:      p.attachments?.data?.[0]?.media?.image?.src || null,
+        type:           p.attachments?.data?.[0]?.type || 'status',
         reach,
-        impressions: postInsights.post_impressions || 0,
+        impressions:    postInsights.post_impressions || 0,
         engaged,
-        reactions: totalReactions,
-        clicks: postInsights.post_clicks || 0,
+        reactions:      0,
+        clicks:         postInsights.post_clicks || 0,
         engagementRate: engRate,
       };
     });
@@ -82,18 +85,25 @@ export default async function handler(req, res) {
     const demographics = parseDemographics(demoData.data || []);
 
     // ── 5. Geographic insights ────────────────────────────────────────────────
-    const geoRes = await fetch(
-      `${base}/${PAGE_ID}/insights?metric=page_fans_city,page_fans_country&period=lifetime&access_token=${token}`
-    );
-    const geoData = await geoRes.json();
-    const geo = parseGeo(geoData.data || []);
+    const geoResults = await Promise.allSettled([
+      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_city&period=lifetime&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_country&period=lifetime&access_token=${token}`).then(r => r.json()),
+    ]);
+
+    const geoData = { data: [] };
+    geoResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value?.data) {
+        geoData.data.push(...result.value.data);
+      }
+    });
+    const geo = parseGeo(geoData.data);
 
     return res.status(200).json({
       page: {
-        name: pageData.name,
-        fanCount: pageData.fan_count || 0,
+        name:           pageData.name,
+        fanCount:       pageData.fan_count || 0,
         followersCount: pageData.followers_count || 0,
-        link: pageData.link || '',
+        link:           pageData.link || '',
       },
       insights,
       posts,
@@ -121,17 +131,19 @@ function parseInsights(data) {
   const totals = {};
   data.forEach(metric => {
     const total = (metric.values || []).reduce((s, v) => {
-      const val = typeof v.value === 'object' ? Object.values(v.value).reduce((a, b) => a + b, 0) : (v.value || 0);
+      const val = typeof v.value === 'object'
+        ? Object.values(v.value).reduce((a, b) => a + b, 0)
+        : (v.value || 0);
       return s + val;
     }, 0);
     totals[metric.name] = total;
   });
   return {
-    impressions:    totals.page_impressions || 0,
-    reach:          totals.page_impressions_unique || 0,
-    engagedUsers:   totals.page_engaged_users || 0,
-    pageViews:      totals.page_views_total || 0,
-    videoViews:     totals.page_video_views || 0,
+    impressions:  totals.page_impressions || 0,
+    reach:        totals.page_impressions_unique || 0,
+    engagedUsers: totals.page_engaged_users || 0,
+    pageViews:    totals.page_views_total || 0,
+    videoViews:   totals.page_video_views || 0,
   };
 }
 
@@ -162,10 +174,16 @@ function parseGeo(data) {
     cities: Object.entries(cityRaw)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
-      .map(([name, value]) => ({ name, value, pct: totalCityFans > 0 ? parseFloat((value / totalCityFans * 100).toFixed(1)) : 0 })),
+      .map(([name, value]) => ({
+        name, value,
+        pct: totalCityFans > 0 ? parseFloat((value / totalCityFans * 100).toFixed(1)) : 0,
+      })),
     countries: Object.entries(countryRaw)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 8)
-      .map(([name, value]) => ({ name, value, pct: totalCountryFans > 0 ? parseFloat((value / totalCountryFans * 100).toFixed(1)) : 0 })),
+      .map(([name, value]) => ({
+        name, value,
+        pct: totalCountryFans > 0 ? parseFloat((value / totalCountryFans * 100).toFixed(1)) : 0,
+      })),
   };
 }
