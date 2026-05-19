@@ -4,6 +4,21 @@
 
 const PAGE_ID = process.env.META_PAGE_ID;
 
+// ── Content type classification ───────────────────────────────────────────────
+const STREAM_MARKERS = ['thank you for joining us today', 'connect with us:', 'lp.social/connectcard'];
+
+function classifyPost(message, type) {
+  const msg = (message || '').toLowerCase();
+  // Service stream — always first check
+  if (STREAM_MARKERS.some(m => msg.includes(m))) return 'stream';
+  // Photo / carousel
+  if (type === 'photo' || type === 'album') return 'photo';
+  // Video / reel
+  if (type === 'video_inline' || type === 'video') return 'video';
+  // Everything else
+  return 'other';
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -19,7 +34,7 @@ export default async function handler(req, res) {
     const pageData = await pageRes.json();
     if (pageData.error) throw new Error(pageData.error.message);
 
-    // ── 2. Page insights (one metric at a time, failures silently skipped) ────
+    // ── 2. Page insights ──────────────────────────────────────────────────────
     const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
@@ -29,15 +44,13 @@ export default async function handler(req, res) {
     );
     const allInsightData = [];
     insightResults.forEach(r => {
-      if (r.status === 'fulfilled' && !r.value.error && r.value.data) {
-        allInsightData.push(...r.value.data);
-      }
+      if (r.status === 'fulfilled' && !r.value.error && r.value.data) allInsightData.push(...r.value.data);
     });
     const insights = parseInsights(allInsightData);
 
-    // ── 3. Recent posts with likes + comments summary ─────────────────────────
+    // ── 3. Recent posts with likes + comments + shares ────────────────────────
     const postsRes  = await fetch(
-      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares&limit=20&access_token=${token}`
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares&limit=50&access_token=${token}`
     );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
@@ -47,22 +60,20 @@ export default async function handler(req, res) {
       const comments = p.comments?.summary?.total_count || 0;
       const shares   = p.shares?.count || 0;
       const engaged  = likes + comments + shares;
+      const type     = p.attachments?.data?.[0]?.type || 'status';
+      const message  = p.message || p.story || '';
 
       return {
-        id:             p.id,
-        message:        p.message || p.story || '',
-        createdTime:    p.created_time,
-        thumbnail:      p.attachments?.data?.[0]?.media?.image?.src || null,
-        type:           p.attachments?.data?.[0]?.type || 'status',
-        reach:          0,
-        impressions:    0,
+        id:           p.id,
+        message,
+        createdTime:  p.created_time,
+        thumbnail:    p.attachments?.data?.[0]?.media?.image?.src || null,
+        type,
+        contentType:  classifyPost(message, type), // 'stream' | 'photo' | 'video' | 'other'
         engaged,
-        reactions:      likes,
-        clicks:         shares,
-        engagementRate: 0,
-        likeCount:      likes,
-        commentCount:   comments,
-        shareCount:     shares,
+        likeCount:    likes,
+        commentCount: comments,
+        shareCount:   shares,
       };
     });
 
@@ -83,12 +94,7 @@ export default async function handler(req, res) {
     const geo = parseGeo(geoRawData);
 
     return res.status(200).json({
-      page: {
-        name:           pageData.name,
-        fanCount:       pageData.fan_count || 0,
-        followersCount: pageData.followers_count || 0,
-        link:           pageData.link || '',
-      },
+      page: { name: pageData.name, fanCount: pageData.fan_count || 0, followersCount: pageData.followers_count || 0 },
       insights,
       posts,
       demographics,
@@ -113,13 +119,7 @@ function parseInsights(data) {
       return s + val;
     }, 0);
   });
-  return {
-    impressions:  totals.page_impressions || 0,
-    reach:        totals.page_impressions_unique || 0,
-    engagedUsers: totals.page_engaged_users || 0,
-    pageViews:    totals.page_views_total || 0,
-    videoViews:   0,
-  };
+  return { impressions: totals.page_impressions || 0, reach: totals.page_impressions_unique || 0, engagedUsers: totals.page_engaged_users || 0, pageViews: totals.page_views_total || 0 };
 }
 
 function parseDemographics(data) {
@@ -143,7 +143,7 @@ function parseGeo(data) {
   const totalC = Object.values(cityRaw).reduce((s, v) => s + v, 0);
   const totalN = Object.values(countryRaw).reduce((s, v) => s + v, 0);
   return {
-    cities:    Object.entries(cityRaw).sort(([,a],[,b])=>b-a).slice(0,10).map(([name,value])=>({ name, value, pct: totalC > 0 ? parseFloat((value/totalC*100).toFixed(1)) : 0 })),
-    countries: Object.entries(countryRaw).sort(([,a],[,b])=>b-a).slice(0,8).map(([name,value])=>({ name, value, pct: totalN > 0 ? parseFloat((value/totalN*100).toFixed(1)) : 0 })),
+    cities:    Object.entries(cityRaw).sort(([,a],[,b])=>b-a).slice(0,10).map(([name,value])=>({ name, value, pct: totalC>0?parseFloat((value/totalC*100).toFixed(1)):0 })),
+    countries: Object.entries(countryRaw).sort(([,a],[,b])=>b-a).slice(0,8).map(([name,value])=>({ name, value, pct: totalN>0?parseFloat((value/totalN*100).toFixed(1)):0 })),
   };
 }

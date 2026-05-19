@@ -1,11 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FacebookAnalytics — live data from /api/facebook
+// Multi-select content type filters: Photos, Videos, Other
+// Service Streams are always excluded from charts/table
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
 
 const FB_BLUE = '#1877F2';
+
+// ── Content type config ───────────────────────────────────────────────────────
+const CONTENT_FILTERS = [
+  { id: 'photo',  label: '📷 Photos',  color: '#3b82f6' },
+  { id: 'video',  label: '🎬 Videos & Reels', color: '#8b5cf6' },
+  { id: 'other',  label: '📝 Other',   color: '#64748b' },
+];
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -26,9 +35,7 @@ function truncate(str, max = 80) {
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   return (
     <div className="card card-hover">
-      <div className={`${iconBg} ${iconColor} w-10 h-10 rounded-xl flex items-center justify-center`}>
-        {icon}
-      </div>
+      <div className={`${iconBg} ${iconColor} w-10 h-10 rounded-xl flex items-center justify-center`}>{icon}</div>
       <div className="mt-3">
         <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
         <div className="text-slate-500 text-sm font-medium mt-0.5">{label}</div>
@@ -50,10 +57,20 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
+function contentTypeLabel(type) {
+  if (type === 'photo')  return '📷 Photo';
+  if (type === 'album')  return '🖼️ Album';
+  if (type === 'video_inline' || type === 'video') return '🎬 Video';
+  if (type === 'status') return '📝 Status';
+  return type || '—';
+}
+
 export default function FacebookAnalytics() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
+  const [data,          setData]          = useState(null);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState(null);
+  // Default: photos + videos selected
+  const [activeFilters, setActiveFilters] = useState(['photo', 'video']);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -67,6 +84,14 @@ export default function FacebookAnalytics() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  function toggleFilter(id) {
+    setActiveFilters(prev =>
+      prev.includes(id)
+        ? prev.length > 1 ? prev.filter(f => f !== id) : prev // keep at least 1 active
+        : [...prev, id]
+    );
+  }
 
   if (loading && !data) return (
     <div className="card flex items-center justify-center py-20">
@@ -94,25 +119,34 @@ export default function FacebookAnalytics() {
 
   const { page, insights, posts = [], demographics = [], geo, fetchedAt } = data || {};
 
-  // Chart data — top 8 posts by reach
-  const topPosts = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
-  const postsChartData = topPosts.map(p => ({ name: truncate(p.message, 30) || 'Post', Likes: p.likeCount || 0, Comments: p.commentCount || 0 }));
+  // ── Filter logic ──────────────────────────────────────────────────────────
+  // Always exclude streams; then apply active content type filters
+  const nonStreamPosts  = posts.filter(p => p.contentType !== 'stream');
+  const streamCount     = posts.filter(p => p.contentType === 'stream').length;
+  const filteredPosts   = nonStreamPosts.filter(p => activeFilters.includes(p.contentType));
 
-  // Demographics chart
+  // ── Chart data ────────────────────────────────────────────────────────────
+  const topPosts       = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
+  const postsChartData = topPosts.map(p => ({
+    name:     truncate(p.message, 32) || contentTypeLabel(p.type),
+    Likes:    p.likeCount    || 0,
+    Comments: p.commentCount || 0,
+    Shares:   p.shareCount   || 0,
+  }));
+
+  // ── Demographics & geo ────────────────────────────────────────────────────
   const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
+  const cityData      = (geo?.cities    || []).slice(0, 8);
+  const countryData   = (geo?.countries || []).slice(0, 6);
 
-  // Geo chart
-  const cityData    = (geo?.cities    || []).slice(0, 8);
-  const countryData = (geo?.countries || []).slice(0, 6);
-
-  const engRate = page?.followersCount > 0
-    ? ((insights?.engagedUsers || 0) / page.followersCount * 100).toFixed(2)
-    : '0.00';
+  // ── Count per content type ────────────────────────────────────────────────
+  const counts = { photo: 0, video: 0, other: 0, stream: streamCount };
+  nonStreamPosts.forEach(p => { if (counts[p.contentType] !== undefined) counts[p.contentType]++; });
 
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* Header */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: FB_BLUE }}>
@@ -134,20 +168,61 @@ export default function FacebookAnalytics() {
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"          icon={<Users size={20}/>}     iconBg="bg-blue-100"   iconColor="text-blue-600"   />
-        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached" icon={<Eye size={20}/>}       iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Engaged (30d)"    value={fmtBig(insights?.engagedUsers)} subtext={`${engRate}% eng. rate`} icon={<Heart size={20}/>}   iconBg="bg-pink-100"   iconColor="text-pink-600"   />
-        <StatCard label="Video Views (30d)" value={fmtBig(insights?.videoViews)} subtext="All video content"      icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard label="Page Followers"    value={fmtBig(page?.followersCount)}    subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
+        <StatCard label="Reach (30d)"       value={fmtBig(insights?.reach)}         subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+        <StatCard label="Total Posts"       value={nonStreamPosts.length}            subtext={`${streamCount} streams excluded`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+        <StatCard label="Page Views (30d)"  value={fmtBig(insights?.pageViews)}     subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
 
-      {/* Post performance charts */}
-      {posts.length > 0 && (
+      {/* ── Content type filter chips ──────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">Content Type Filter</h3>
+            <p className="text-slate-400 text-xs mt-0.5">Toggle to include/exclude types. Service streams are always excluded.</p>
+          </div>
+          <span className="text-xs text-slate-400 font-mono">{filteredPosts.length} posts in view</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {CONTENT_FILTERS.map(f => {
+            const isActive = activeFilters.includes(f.id);
+            return (
+              <button
+                key={f.id}
+                onClick={() => toggleFilter(f.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+                  isActive
+                    ? 'text-white border-transparent shadow-sm'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                }`}
+                style={isActive ? { background: f.color, borderColor: f.color } : {}}
+              >
+                {f.label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {counts[f.id] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+          {/* Stream pill — always shown as excluded */}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-dashed border-slate-200 text-slate-400 bg-slate-50">
+            📺 Service Streams
+            <span className="text-xs px-1.5 py-0.5 rounded-full font-mono bg-slate-200 text-slate-500">{streamCount}</span>
+            <span className="text-[10px] text-slate-400">always excluded</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Charts ────────────────────────────────────────────────────────── */}
+      {filteredPosts.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="card">
             <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Likes</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts by engagement</p>
+            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts by total engagement</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
@@ -163,7 +238,7 @@ export default function FacebookAnalytics() {
             </ResponsiveContainer>
           </div>
           <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Comments</h3>
+            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Comments &amp; Shares</h3>
             <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts</p>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
@@ -172,13 +247,20 @@ export default function FacebookAnalytics() {
                 <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="Comments" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="Shares"   fill="#a78bfa" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* Demographics */}
+      {filteredPosts.length === 0 && nonStreamPosts.length > 0 && (
+        <div className="card text-center py-12 text-slate-400 text-sm">
+          No posts match the selected filters. Try adding more content types above.
+        </div>
+      )}
+
+      {/* ── Demographics ──────────────────────────────────────────────────── */}
       {demoChartData.length > 0 && (
         <div className="card">
           <h3 className="font-bold text-slate-900 text-base mb-1">Audience Age &amp; Gender</h3>
@@ -190,14 +272,14 @@ export default function FacebookAnalytics() {
               <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Bar dataKey="Male"   fill={FB_BLUE}  radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Female" fill="#f472b6"  radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Male"   fill={FB_BLUE} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Female" fill="#f472b6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Geographic */}
+      {/* ── Geographic ────────────────────────────────────────────────────── */}
       {(cityData.length > 0 || countryData.length > 0) && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {cityData.length > 0 && (
@@ -253,32 +335,35 @@ export default function FacebookAnalytics() {
         </div>
       )}
 
-      {/* Posts table */}
-      {posts.length > 0 && (
+      {/* ── Posts table ───────────────────────────────────────────────────── */}
+      {filteredPosts.length > 0 && (
         <div className="card p-0 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 text-base">Recent Posts</h3>
-            <p className="text-slate-500 text-sm">Latest {posts.length} posts · Live from Facebook</p>
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">Posts</h3>
+              <p className="text-slate-500 text-sm">{filteredPosts.length} posts · filtered view · Live from Facebook</p>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Shares</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Eng.</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {posts.map(p => (
+                {filteredPosts.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-3 max-w-xs">
                       <p className="text-slate-700 text-sm line-clamp-2">{truncate(p.message, 100) || '(No caption)'}</p>
-                      <span className="text-xs text-slate-400 capitalize">{p.type}</span>
                     </td>
+                    <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{contentTypeLabel(p.type)}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(p.createdTime)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{fmtBig(p.likeCount)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(p.commentCount)}</td>
