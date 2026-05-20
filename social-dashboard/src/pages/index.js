@@ -24,7 +24,7 @@ import {
 } from '../data/demoData';
 import { Users, TrendingUp, Eye, Heart, Sparkles } from 'lucide-react';
 
-const PLATFORM_TABS = ['All', 'Facebook', 'Instagram', 'YouTube', 'TikTok'];
+const PLATFORM_TABS = ['All'];
 
 const LIVE_TABS = [
   { id: 'facebook-live',  label: 'Facebook',  badge: 'LIVE' },
