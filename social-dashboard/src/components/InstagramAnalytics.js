@@ -261,6 +261,9 @@ export default function InstagramAnalytics() {
   const [activeFilters, setActiveFilters] = useState(['photo', 'carousel', 'reel']);
   const [tableSort,     setTableSort]     = useState({ key: 'timestamp', dir: 'desc' });
   const [tableLimit,    setTableLimit]    = useState(20);
+  const [datePreset,    setDatePreset]    = useState('30');
+  const [customStart,   setCustomStart]   = useState('');
+  const [customEnd,     setCustomEnd]     = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -305,7 +308,21 @@ export default function InstagramAnalytics() {
 
   const { account, insights, media = [], demographics = [], geo, fetchedAt } = data || {};
 
-  const filteredMedia = media.filter(m => activeFilters.includes(m.contentType));
+  const rangeStart = datePreset === 'custom'
+    ? (customStart ? new Date(customStart) : null)
+    : new Date(Date.now() - parseInt(datePreset) * 864e5);
+  const rangeEnd = datePreset === 'custom'
+    ? (customEnd ? new Date(customEnd + 'T23:59:59') : null)
+    : new Date();
+
+  const filteredMedia = media
+    .filter(m => activeFilters.includes(m.contentType))
+    .filter(m => {
+      const t = new Date(m.timestamp);
+      if (rangeStart && t < rangeStart) return false;
+      if (rangeEnd   && t > rangeEnd)   return false;
+      return true;
+    });
   const sortedMedia   = [...filteredMedia].sort((a, b) => {
     const mul = tableSort.dir === 'asc' ? 1 : -1;
     if (tableSort.key === 'timestamp') return mul * (new Date(a.timestamp) - new Date(b.timestamp));
@@ -344,10 +361,36 @@ export default function InstagramAnalytics() {
             </p>
           </div>
         </div>
-        <button onClick={fetchData} disabled={loading}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Date preset tabs */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
+            {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
+              <button key={value} onClick={() => { setDatePreset(value); setTableLimit(20); }}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === value ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                {label}
+              </button>
+            ))}
+            <button onClick={() => { setDatePreset('custom'); setTableLimit(20); }}
+              className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === 'custom' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+              Custom
+            </button>
+          </div>
+          {/* Custom date inputs */}
+          {datePreset === 'custom' && (
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setTableLimit(20); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-pink-300" />
+              <span className="text-slate-400 text-xs">–</span>
+              <input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setTableLimit(20); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-pink-300" />
+            </div>
+          )}
+          {/* Refresh button */}
+          <button onClick={fetchData} disabled={loading}
           className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* ── 6 KPI Cards ───────────────────────────────────────────────────── */}
