@@ -173,12 +173,10 @@ function RateInsightsTable({ posts, type }) {
   const top10  = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 10);
   if (top10.length === 0) return null;
 
-  const maxSkip    = Math.max(...top10.map(p => p.skipRate),    0.01);
   const maxShare   = Math.max(...top10.map(p => p.shareRate),   0.01);
   const maxLike    = Math.max(...top10.map(p => p.likeRate),    0.01);
   const maxSave    = Math.max(...top10.map(p => p.saveRate),    0.01);
   const maxComment = Math.max(...top10.map(p => p.commentRate), 0.01);
-  const maxRepost  = Math.max(...top10.map(p => p.repostRate),  0.01);
 
   return (
     <div className="overflow-x-auto mt-4">
@@ -189,12 +187,10 @@ function RateInsightsTable({ posts, type }) {
             <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Type</th>
             <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Date</th>
             <th className="text-center px-3 py-2.5 font-semibold text-slate-700 uppercase tracking-wide whitespace-nowrap">Views</th>
-            {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#ef4444' }}>⏭ Skip</th>}
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#f59e0b' }}>🔗 Share</th>
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PINK }}>❤️ Like</th>
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PURPLE }}>🔖 Save</th>
             {!isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>💬 Comment</th>}
-            {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>🔁 Repost</th>}
             {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#10b981' }}>⏱ Avg Watch</th>}
           </tr>
         </thead>
@@ -230,12 +226,10 @@ function RateInsightsTable({ posts, type }) {
                 <td className="px-3 py-2.5 text-center">
                   <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.reach)}</span>
                 </td>
-                {isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.skipRate}   color="#ef4444" maxValue={maxSkip}    /></td>}
                 <td className="px-3 py-2.5 text-center"><RateBar value={p.shareRate}   color="#f59e0b"   maxValue={maxShare}   /></td>
                 <td className="px-3 py-2.5 text-center"><RateBar value={p.likeRate}    color={IG_PINK}   maxValue={maxLike}    /></td>
                 <td className="px-3 py-2.5 text-center"><RateBar value={p.saveRate}    color={IG_PURPLE} maxValue={maxSave}    /></td>
                 {!isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>}
-                {isReel  && <td className="px-3 py-2.5 text-center"><RateBar value={p.repostRate}  color="#6366f1" maxValue={maxRepost}  /></td>}
                 {isReel  && (
                   <td className="px-3 py-2.5 text-center">
                     <span className="font-bold tabular-nums text-sm" style={{ color: '#10b981' }}>{fmtWatchTime(p.avgWatchTime)}</span>

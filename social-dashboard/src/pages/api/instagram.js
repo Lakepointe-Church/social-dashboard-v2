@@ -74,7 +74,8 @@ export default async function handler(req, res) {
       mediaItems.map(async m => {
         const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
         const photoMetrics = ['reach', 'saved', 'total_interactions', 'shares'];
-        const reelMetrics  = ['views', 'saved', 'total_interactions', 'shares', 'plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
+        // plays and clips_replays_count deprecated in Graph API v22.0+
+        const reelMetrics  = ['views', 'saved', 'total_interactions', 'shares', 'ig_reels_avg_watch_time'];
         const metricList   = isReel ? reelMetrics.join(',') : photoMetrics.join(',');
 
         let mi = {};
@@ -95,16 +96,13 @@ export default async function handler(req, res) {
         const comments = m.comments_count || 0;
         const saves    = mi.saved || 0;
         const shares   = mi.shares || 0;
-        const plays    = mi.plays || 0;
         const engaged  = mi.total_interactions || (likes + comments);
         const engRate  = reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0;
 
-        const likeRate    = reach > 0 ? parseFloat((likes    / reach * 100).toFixed(2)) : 0;
-        const saveRate    = reach > 0 ? parseFloat((saves    / reach * 100).toFixed(2)) : 0;
-        const shareRate   = reach > 0 ? parseFloat((shares   / reach * 100).toFixed(2)) : 0;
+        const likeRate    = reach > 0 ? parseFloat((likes   / reach * 100).toFixed(2)) : 0;
+        const saveRate    = reach > 0 ? parseFloat((saves   / reach * 100).toFixed(2)) : 0;
+        const shareRate   = reach > 0 ? parseFloat((shares  / reach * 100).toFixed(2)) : 0;
         const commentRate = reach > 0 ? parseFloat((comments / reach * 100).toFixed(2)) : 0;
-        const skipRate    = plays > 0 ? parseFloat(((1 - Math.min(engaged / plays, 1)) * 100).toFixed(2)) : 0;
-        const repostRate  = reach > 0 ? parseFloat(((mi.clips_replays_count || 0) / reach * 100).toFixed(2)) : 0;
 
         return {
           id:             m.id,
@@ -118,7 +116,6 @@ export default async function handler(req, res) {
           reach,
           saved:          saves,
           shares,
-          plays,
           avgWatchTime:   mi.ig_reels_avg_watch_time || 0,
           engagement:     engaged,
           engagementRate: engRate,
@@ -126,8 +123,6 @@ export default async function handler(req, res) {
           saveRate,
           shareRate,
           commentRate,
-          skipRate,
-          repostRate,
           contentType:    classifyMedia(m.media_type, m.caption),
         };
       })
