@@ -259,6 +259,8 @@ export default function InstagramAnalytics() {
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState(null);
   const [activeFilters, setActiveFilters] = useState(['photo', 'carousel', 'reel']);
+  const [tableSort,     setTableSort]     = useState({ key: 'timestamp', dir: 'desc' });
+  const [tableLimit,    setTableLimit]    = useState(20);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -274,6 +276,7 @@ export default function InstagramAnalytics() {
 
   function toggleFilter(id) {
     setActiveFilters(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
+    setTableLimit(20);
   }
 
   if (loading && !data) return (
@@ -302,7 +305,13 @@ export default function InstagramAnalytics() {
 
   const { account, insights, media = [], demographics = [], geo, fetchedAt } = data || {};
 
-  const filteredMedia   = media.filter(m => activeFilters.includes(m.contentType));
+  const filteredMedia = media.filter(m => activeFilters.includes(m.contentType));
+  const sortedMedia   = [...filteredMedia].sort((a, b) => {
+    const mul = tableSort.dir === 'asc' ? 1 : -1;
+    if (tableSort.key === 'timestamp') return mul * (new Date(a.timestamp) - new Date(b.timestamp));
+    return mul * ((a[tableSort.key] || 0) - (b[tableSort.key] || 0));
+  });
+  const visibleMedia  = sortedMedia.slice(0, tableLimit);
   const counts          = { photo: 0, carousel: 0, reel: 0, collab: 0, other: 0 };
   media.forEach(m => { if (counts[m.contentType] !== undefined) counts[m.contentType]++; });
 
@@ -514,22 +523,35 @@ export default function InstagramAnalytics() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-8">#</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Views</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Saves</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Shares</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Eng. Rate</th>
+                  {[
+                    { label: 'Date',      key: 'timestamp',      left: true  },
+                    { label: 'Views',     key: 'reach'                        },
+                    { label: 'Likes',     key: 'likeCount'                    },
+                    { label: 'Comments',  key: 'commentsCount'                },
+                    { label: 'Saves',     key: 'saved'                        },
+                    { label: 'Shares',    key: 'shares'                       },
+                    { label: 'Eng. Rate', key: 'engagementRate', last: true   },
+                  ].map(col => {
+                    const active = tableSort.key === col.key;
+                    return (
+                      <th key={col.key}
+                        className={`${col.left ? 'text-left' : 'text-right'} ${col.last ? 'px-6' : 'px-4'} py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none whitespace-nowrap transition-colors ${active ? 'text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => { setTableSort(prev => ({ key: col.key, dir: prev.key === col.key && prev.dir === 'desc' ? 'asc' : 'desc' })); setTableLimit(20); }}>
+                        {col.label}{active ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredMedia.map(m => {
+                {visibleMedia.map((m, idx) => {
                   const engColor = m.engagementRate > 5 ? 'text-emerald-600' : m.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
                   return (
                     <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${m.contentType === 'collab' ? 'bg-amber-50/40' : ''}`}>
+                      <td className="px-3 py-3 text-center text-slate-400 text-xs font-mono font-bold">{idx + 1}</td>
                       <td className="px-6 py-3 max-w-xs">
                         <a href={m.permalink} target="_blank" rel="noopener noreferrer"
                           className="text-slate-700 text-sm line-clamp-2 hover:text-pink-600 transition-colors block">
@@ -551,6 +573,14 @@ export default function InstagramAnalytics() {
               </tbody>
             </table>
           </div>
+          {tableLimit < sortedMedia.length && (
+            <div className="px-6 py-4 border-t border-slate-100 text-center">
+              <button onClick={() => setTableLimit(prev => prev + 20)}
+                className="text-sm font-semibold text-pink-600 border border-pink-200 rounded-lg px-5 py-2 hover:bg-pink-50 transition-all">
+                Load 20 more · {sortedMedia.length - tableLimit} remaining
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
