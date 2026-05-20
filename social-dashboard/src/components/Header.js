@@ -14,8 +14,8 @@ export default function Header({
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600
                           flex items-center justify-center text-lg shadow-lg">⛪</div>
           <div>
-            <div className="font-bold text-white leading-tight text-base">Lake Pointe</div>
-            <div className="text-slate-400 text-xs leading-tight">Social Analytics</div>
+            <div className="font-bold text-white leading-tight text-base">Lakepointe</div>
+            <div className="text-slate-400 text-xs leading-tight">Social Analytics Dashboard</div>
           </div>
         </div>
 
@@ -26,43 +26,7 @@ export default function Header({
           Demo Mode
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
-
-          {/* Date Range Picker — replaces the old dropdown */}
-          <DateRangePicker
-            startISO={startISO}
-            endISO={endISO}
-            presetLabel={dateRange}
-            onChange={({ startISO, endISO, label }) =>
-              onDateRangeChange({ startISO, endISO, label })
-            }
-          />
-
-          {/* Customize */}
-          <button
-            onClick={onOpenBuilder}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200
-                       text-sm font-medium px-3 py-2 rounded-xl transition-all border border-slate-700"
-            title="Customize Dashboard"
-          >
-            <Sliders size={15} />
-            <span className="hidden sm:inline">Customize</span>
-          </button>
-
-          {/* AI Toggle */}
-          <button
-            onClick={onToggleAI}
-            className={`flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl
-                        transition-all duration-200 border ${
-              aiActive
-                ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white border-transparent shadow-lg shadow-blue-500/25'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-            }`}
-          >
-            <Sparkles size={15} />
-            <span className="hidden sm:inline">AI Analyst</span>
-          </button>
-        </div>
+      
       </div>
     </header>
   );
