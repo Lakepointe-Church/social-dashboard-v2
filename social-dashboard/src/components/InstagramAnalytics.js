@@ -421,6 +421,11 @@ export default function InstagramAnalytics() {
       </div>
 
       {/* ── 6 KPI Cards ───────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="font-semibold text-slate-700 text-sm">Profile Overview</h3>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Account-wide · not affected by filters</span>
+        </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard label="Followers"        value={fmtBig(account?.followersCount)} subtext="All time"     icon={<Users size={18}/>}     iconBg="bg-pink-100"    iconColor="text-pink-600"    />
         <StatCard label="New Followers"    value={fmtBig(insights?.newFollowers)}  subtext="Last 30 days" icon={<UserPlus size={18}/>}  iconBg="bg-rose-100"    iconColor="text-rose-600"    />
@@ -428,6 +433,7 @@ export default function InstagramAnalytics() {
         <StatCard label="Profile Visits"   value={fmtBig(insights?.profileViews)}  subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600"  />
         <StatCard label="Engagement"       value={fmtBig(insights?.interactions)}  subtext="Last 30 days" icon={<Heart size={18}/>}     iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
         <StatCard label="Shares"           value={fmtBig(insights?.shares)}        subtext="Last 30 days" icon={<Share2 size={18}/>}    iconBg="bg-orange-100"  iconColor="text-orange-600"  />
+      </div>
       </div>
 
 
