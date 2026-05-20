@@ -11,8 +11,7 @@ export default function Header({
 
         {/* Logo */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-lg"
-     style={{ backgroundColor: '#ec5f2f' }}>⛪</div> 
+<div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-lg" style={{ backgroundColor: '#ec5f2f' }}>⛪</div>
             <div className="font-bold text-white leading-tight text-base">Lakepointe</div>
             <div className="text-slate-400 text-xs leading-tight">Social Analytics Dashboard</div>
           </div>
