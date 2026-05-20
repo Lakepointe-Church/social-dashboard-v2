@@ -73,22 +73,24 @@ export default async function handler(req, res) {
     const mediaWithInsights = await Promise.all(
       mediaItems.map(async m => {
         const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
-        const baseMetrics = ['views', 'saved', 'total_interactions', 'shares'];
-        const reelMetrics = ['plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
-        const metricList  = isReel
-          ? [...baseMetrics, ...reelMetrics].join(',')
-          : baseMetrics.join(',');
+        const photoMetrics = ['reach', 'saved', 'total_interactions', 'shares'];
+        const reelMetrics  = ['views', 'saved', 'total_interactions', 'shares', 'plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
+        const metricList   = isReel ? reelMetrics.join(',') : photoMetrics.join(',');
 
         let mi = {};
         try {
           const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}`);
           const miData = await miRes.json();
-          if (!miData.error && miData.data) {
-            miData.data.forEach(i => { mi[i.name] = i.values?.[0]?.value || 0; });
+          if (miData.error) {
+            console.error(`[IG insights] ${m.media_type} ${m.id}: ${miData.error.message}`);
+          } else if (miData.data) {
+            miData.data.forEach(i => { mi[i.name] = i.values?.[0]?.value ?? i.value ?? 0; });
           }
-        } catch {}
+        } catch (e) {
+          console.error(`[IG insights] fetch failed for ${m.id}:`, e.message);
+        }
 
-        const reach    = mi.views || 0;
+        const reach    = isReel ? (mi.views || 0) : (mi.reach || 0);
         const likes    = m.like_count || 0;
         const comments = m.comments_count || 0;
         const saves    = mi.saved || 0;
