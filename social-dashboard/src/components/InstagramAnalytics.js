@@ -72,7 +72,7 @@ function PostCard({ post, rank, metric, metricLabel }) {
     <a href={post.permalink} target="_blank" rel="noopener noreferrer"
       className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
       {/* Image */}
-      <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '1' }}>
+      <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
         {post.mediaUrl && !imgError ? (
           <img
             src={post.mediaUrl}
@@ -135,17 +135,17 @@ function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
   const sorted = [...posts].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 4);
   if (sorted.length === 0) return null;
   return (
-    <div>
+    <div className="card">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-bold text-slate-900 text-base">{title}</h3>
-        <span className="text-xs text-slate-400">Top 4 across selected filters</span>
+        <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
+        <span className="text-xs text-slate-400">Top 4</span>
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {sorted.map((post, i) => (
           <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} />
         ))}
         {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
-          <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '0.8' }}>
+          <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '3/4' }}>
             No post
           </div>
         ))}
@@ -398,12 +398,13 @@ export default function InstagramAnalytics() {
 
       {filteredMedia.length > 0 && (<>
 
-        {/* ── Top 4 by Views ────────────────────────────────────────────────── */}
-        <Top4Section title="🏆 Top Posts by Views"       posts={filteredMedia} sortKey="reach"      metricLabel="Views"      />
-        {/* ── Top 4 by Engagement ───────────────────────────────────────────── */}
-        <Top4Section title="❤️ Top Posts by Engagement"  posts={filteredMedia} sortKey="engagement" metricLabel="Engaged"    />
-        {/* ── Top 4 by Shares ───────────────────────────────────────────────── */}
-        <Top4Section title="🔗 Top Posts by Shares"      posts={filteredMedia} sortKey="shares"     metricLabel="Shares"     />
+        {/* ── Top posts 2×2 grid ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Top4Section title="🏆 Top Posts by Views"      posts={filteredMedia} sortKey="reach"      metricLabel="Views"   />
+          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredMedia} sortKey="engagement" metricLabel="Engaged" />
+          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredMedia} sortKey="shares"     metricLabel="Shares"  />
+          <Top4Section title="🔖 Top Posts by Saves"      posts={filteredMedia} sortKey="saved"      metricLabel="Saves"   />
+        </div>
 
         {/* ── Reel insights ─────────────────────────────────────────────────── */}
         {hasReels && (
