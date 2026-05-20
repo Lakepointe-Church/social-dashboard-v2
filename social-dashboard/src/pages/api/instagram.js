@@ -9,10 +9,10 @@ const COLLAB_MARKERS = ['josh howerton', 'live free', '@joshhowerton', '@livefre
 function classifyMedia(mediaType, caption) {
   const cap = (caption || '').toLowerCase();
   if (COLLAB_MARKERS.some(m => cap.includes(m))) return 'collab';
-  if (mediaType === 'REELS')          return 'reel';
+  // VIDEO and REELS both become 'reel'
+  if (mediaType === 'REELS' || mediaType === 'VIDEO') return 'reel';
   if (mediaType === 'IMAGE')          return 'photo';
   if (mediaType === 'CAROUSEL_ALBUM') return 'carousel';
-  if (mediaType === 'VIDEO')          return 'video';
   return 'other';
 }
 
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     });
     const insights = parseInsights(allInsightData);
 
-    // ── 3. New followers (day-by-day follower change) ─────────────────────────
+    // ── 3. New followers ──────────────────────────────────────────────────────
     let newFollowers = 0;
     try {
       const followRes = await fetch(
@@ -70,16 +70,12 @@ export default async function handler(req, res) {
 
     const mediaItems = mediaData.data || [];
 
-    // Fetch per-post insights in parallel (batches of 10 to avoid rate limits)
     const mediaWithInsights = await Promise.all(
       mediaItems.map(async m => {
-        const isReel     = m.media_type === 'REELS';
-        const isCarousel = m.media_type === 'CAROUSEL_ALBUM';
-
-        // Build metric list based on type
-        const baseMetrics  = ['reach', 'saved', 'total_interactions', 'shares'];
-        const reelMetrics  = ['plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
-        const metricList   = isReel
+        const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
+        const baseMetrics = ['reach', 'saved', 'total_interactions', 'shares'];
+        const reelMetrics = ['plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
+        const metricList  = isReel
           ? [...baseMetrics, ...reelMetrics].join(',')
           : baseMetrics.join(',');
 
@@ -92,23 +88,20 @@ export default async function handler(req, res) {
           }
         } catch {}
 
-        const reach       = mi.reach || 0;
-        const likes       = m.like_count || 0;
-        const comments    = m.comments_count || 0;
-        const saves       = mi.saved || 0;
-        const shares      = mi.shares || 0;
-        const plays       = mi.plays || 0;
-        const interactions = mi.total_interactions || (likes + comments);
-        const engaged     = interactions;
-        const engRate     = reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0;
+        const reach    = mi.reach || 0;
+        const likes    = m.like_count || 0;
+        const comments = m.comments_count || 0;
+        const saves    = mi.saved || 0;
+        const shares   = mi.shares || 0;
+        const plays    = mi.plays || 0;
+        const engaged  = mi.total_interactions || (likes + comments);
+        const engRate  = reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0;
 
-        // Rate metrics for type-specific insights
         const likeRate    = reach > 0 ? parseFloat((likes    / reach * 100).toFixed(2)) : 0;
         const saveRate    = reach > 0 ? parseFloat((saves    / reach * 100).toFixed(2)) : 0;
         const shareRate   = reach > 0 ? parseFloat((shares   / reach * 100).toFixed(2)) : 0;
         const commentRate = reach > 0 ? parseFloat((comments / reach * 100).toFixed(2)) : 0;
-        // Skip rate: people who scrolled past without engaging (approx: 1 - (interactions/plays))
-        const skipRate    = plays > 0 ? parseFloat(((1 - Math.min(interactions / plays, 1)) * 100).toFixed(2)) : 0;
+        const skipRate    = plays > 0 ? parseFloat(((1 - Math.min(engaged / plays, 1)) * 100).toFixed(2)) : 0;
         const repostRate  = reach > 0 ? parseFloat(((mi.clips_replays_count || 0) / reach * 100).toFixed(2)) : 0;
 
         return {
@@ -155,8 +148,8 @@ export default async function handler(req, res) {
         name:           accountData.name,
         username:       accountData.username,
         followersCount: accountData.followers_count || 0,
-        followsCount:   accountData.follows_count || 0,
-        mediaCount:     accountData.media_count || 0,
+        followsCount:   accountData.follows_count   || 0,
+        mediaCount:     accountData.media_count      || 0,
         profilePicture: accountData.profile_picture_url || null,
       },
       insights: { ...insights, newFollowers },
@@ -217,5 +210,8 @@ function parseGeo(geoResults) {
       pct:   total > 0 ? parseFloat((r.value / total * 100).toFixed(1)) : 0,
     }));
   };
-  return { cities: parseBreakdown(geoResults[0], 10), countries: parseBreakdown(geoResults[1], 8) };
+  return {
+    cities:    parseBreakdown(geoResults[0], 10),
+    countries: parseBreakdown(geoResults[1], 8),
+  };
 }

@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MapPin, Globe, ExternalLink } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -12,7 +12,6 @@ const CONTENT_FILTERS = [
   { id: 'photo',    label: '📷 Photos',    color: '#3b82f6' },
   { id: 'carousel', label: '🖼️ Carousels', color: '#0ea5e9' },
   { id: 'reel',     label: '🎬 Reels',     color: '#8b5cf6' },
-  { id: 'video',    label: '📹 Videos',    color: '#6366f1' },
   { id: 'collab',   label: '🤝 Collabs',   color: '#f59e0b' },
   { id: 'other',    label: '📝 Other',     color: '#64748b' },
 ];
@@ -20,7 +19,7 @@ const CONTENT_FILTERS = [
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
   return n.toLocaleString();
 }
 
@@ -35,21 +34,13 @@ function truncate(str, max = 60) {
 
 function mediaTypeLabel(type) {
   if (type === 'IMAGE')          return '📷 Photo';
-  if (type === 'VIDEO')          return '📹 Video';
+  if (type === 'VIDEO')          return '🎬 Reel';
   if (type === 'CAROUSEL_ALBUM') return '🖼️ Carousel';
   if (type === 'REELS')          return '🎬 Reel';
   return type || '—';
 }
 
-function fmtWatchTime(ms) {
-  if (!ms) return '—';
-  const s = Math.round(ms / 1000);
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-}
-
-// ── Stat Card ────────────────────────────────────────────────────────────────
+// ── Stat Card ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   return (
     <div className="card card-hover">
@@ -63,18 +54,31 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   );
 }
 
-// ── Top Post Grid Card ────────────────────────────────────────────────────────
-function PostCard({ post, rank }) {
+// ── Post grid card ────────────────────────────────────────────────────────────
+function PostCard({ post, rank, metric, metricLabel }) {
+  const [imgError, setImgError] = useState(false);
   const rankColors = ['#E1306C', '#833AB4', '#f59e0b', '#3b82f6'];
+  const emoji = post.mediaType === 'REELS' || post.mediaType === 'VIDEO' ? '🎬'
+              : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
+
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group">
+    <a href={post.permalink} target="_blank" rel="noopener noreferrer"
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
       {/* Image */}
-      <div className="relative aspect-square bg-slate-100 overflow-hidden">
-        {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt={truncate(post.caption, 40)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+      <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '1' }}>
+        {post.mediaUrl && !imgError ? (
+          <img
+            src={post.mediaUrl}
+            alt={truncate(post.caption, 40)}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+            crossOrigin="anonymous"
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">
-            {post.mediaType === 'REELS' ? '🎬' : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷'}
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #fdf2f8, #f5f3ff)' }}>
+            <span className="text-4xl">{emoji}</span>
+            <span className="text-xs text-slate-400 px-4 text-center line-clamp-2">{truncate(post.caption, 60)}</span>
           </div>
         )}
         {/* Rank badge */}
@@ -86,50 +90,153 @@ function PostCard({ post, rank }) {
         <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
           {mediaTypeLabel(post.mediaType)}
         </div>
-        {/* Open link */}
-        <a href={post.permalink} target="_blank" rel="noopener noreferrer"
-          className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-all">
-          <ExternalLink size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-        </a>
       </div>
-      {/* Caption */}
+      {/* Caption + date */}
       <div className="px-3 pt-2.5 pb-1">
         <p className="text-slate-700 text-xs leading-snug line-clamp-2 min-h-[32px]">
           {truncate(post.caption, 80) || '(No caption)'}
         </p>
         <p className="text-slate-400 text-[10px] mt-1 font-mono">{fmtDate(post.timestamp)}</p>
       </div>
-      {/* Metrics */}
-      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 mt-2">
+      {/* Primary metric + breakdown */}
+      <div className="px-3 pb-3 pt-1">
+        <div className="text-lg font-bold tabular-nums" style={{ color: rankColors[rank] || '#64748b' }}>
+          {fmtBig(metric)}
+        </div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">{metricLabel}</div>
+      </div>
+      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-sm tabular-nums">{fmtBig(post.engagement)}</div>
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.engagement)}</div>
           <div className="text-slate-400 text-[10px]">Engaged</div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-sm tabular-nums">{fmtBig(post.shares)}</div>
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.shares)}</div>
           <div className="text-slate-400 text-[10px]">Shares</div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-sm tabular-nums">{fmtBig(post.reach)}</div>
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.reach)}</div>
           <div className="text-slate-400 text-[10px]">Reach</div>
         </div>
+      </div>
+    </a>
+  );
+}
+
+// ── Top 4 section ─────────────────────────────────────────────────────────────
+function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
+  const sorted = [...posts].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 4);
+  if (sorted.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-slate-900 text-base">{title}</h3>
+        <span className="text-xs text-slate-400">Top 4 across selected filters</span>
+      </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {sorted.map((post, i) => (
+          <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} />
+        ))}
+        {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
+          <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '0.8' }}>
+            No post
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ── Rate metric row ───────────────────────────────────────────────────────────
-function RateRow({ label, value, color, description }) {
+// ── Rate row (for per-post insights table) ────────────────────────────────────
+function RateBar({ value, color, maxValue }) {
+  const pct = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-32 text-xs text-slate-600 font-medium shrink-0">{label}</div>
-      <div className="flex-1">
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(value, 100)}%`, background: color }} />
-        </div>
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs font-bold font-mono" style={{ color }}>{value.toFixed(1)}%</span>
+      <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <div className="text-xs font-mono font-semibold text-slate-700 w-12 text-right">{value.toFixed(2)}%</div>
-      {description && <div className="text-xs text-slate-400 w-32 hidden xl:block">{description}</div>}
+    </div>
+  );
+}
+
+// ── Per-post rate insights table ──────────────────────────────────────────────
+function RateInsightsTable({ posts, type }) {
+  const isReel = type === 'reel';
+  const top10  = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 10);
+  if (top10.length === 0) return null;
+
+  // Compute max per column for relative bar scaling
+  const maxSkip    = Math.max(...top10.map(p => p.skipRate),    0.01);
+  const maxShare   = Math.max(...top10.map(p => p.shareRate),   0.01);
+  const maxLike    = Math.max(...top10.map(p => p.likeRate),    0.01);
+  const maxSave    = Math.max(...top10.map(p => p.saveRate),    0.01);
+  const maxComment = Math.max(...top10.map(p => p.commentRate), 0.01);
+  const maxRepost  = Math.max(...top10.map(p => p.repostRate),  0.01);
+
+  return (
+    <div className="overflow-x-auto mt-4">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50">
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide min-w-[200px]">Post</th>
+            <th className="text-center px-3 py-2.5 font-semibold text-slate-700 uppercase tracking-wide whitespace-nowrap">
+              Reach
+            </th>
+            {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#ef4444' }}>⏭ Skip</th>}
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#f59e0b' }}>🔗 Share</th>
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PINK }}>❤️ Like</th>
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PURPLE }}>🔖 Save</th>
+            {!isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>💬 Comment</th>}
+            {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>🔁 Repost</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {top10.map((p, i) => {
+            const [imgError, setImgError] = useState(false);
+            const emoji = p.mediaType === 'REELS' || p.mediaType === 'VIDEO' ? '🎬'
+                        : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
+            return (
+              <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    {/* Rank */}
+                    <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
+                    {/* Thumbnail */}
+                    <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
+                      {p.mediaUrl && !imgError ? (
+                        <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
+                          onError={() => setImgError(true)} crossOrigin="anonymous" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-lg"
+                          style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
+                      )}
+                    </div>
+                    {/* Caption + date */}
+                    <div className="min-w-0">
+                      <a href={p.permalink} target="_blank" rel="noopener noreferrer"
+                        className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
+                        {truncate(p.caption, 55) || '(No caption)'}
+                      </a>
+                      <span className="text-slate-400 font-mono text-[10px]">{fmtDate(p.timestamp)}</span>
+                    </div>
+                  </div>
+                </td>
+                {/* Reach — prominent */}
+                <td className="px-3 py-2.5 text-center">
+                  <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.reach)}</span>
+                </td>
+                {isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.skipRate}   color="#ef4444" maxValue={maxSkip}    /></td>}
+                <td className="px-3 py-2.5 text-center"><RateBar value={p.shareRate}   color="#f59e0b"   maxValue={maxShare}   /></td>
+                <td className="px-3 py-2.5 text-center"><RateBar value={p.likeRate}    color={IG_PINK}   maxValue={maxLike}    /></td>
+                <td className="px-3 py-2.5 text-center"><RateBar value={p.saveRate}    color={IG_PURPLE} maxValue={maxSave}    /></td>
+                {!isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>}
+                {isReel  && <td className="px-3 py-2.5 text-center"><RateBar value={p.repostRate}  color="#6366f1" maxValue={maxRepost}  /></td>}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -148,7 +255,7 @@ export default function InstagramAnalytics() {
   const [data,          setData]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState(null);
-  const [activeFilters, setActiveFilters] = useState(['photo', 'carousel', 'reel', 'video']);
+  const [activeFilters, setActiveFilters] = useState(['photo', 'carousel', 'reel']);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -192,36 +299,18 @@ export default function InstagramAnalytics() {
 
   const { account, insights, media = [], demographics = [], geo, fetchedAt } = data || {};
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
-  const filteredMedia = media.filter(m => activeFilters.includes(m.contentType));
-  const top4          = [...filteredMedia].sort((a, b) => b.engagement - a.engagement).slice(0, 4);
-
-  // ── Counts ────────────────────────────────────────────────────────────────
-  const counts = { photo: 0, carousel: 0, reel: 0, video: 0, collab: 0, other: 0 };
+  const filteredMedia   = media.filter(m => activeFilters.includes(m.contentType));
+  const counts          = { photo: 0, carousel: 0, reel: 0, collab: 0, other: 0 };
   media.forEach(m => { if (counts[m.contentType] !== undefined) counts[m.contentType]++; });
 
-  // ── Type-specific metrics ─────────────────────────────────────────────────
-  const reelsInView   = filteredMedia.filter(m => m.mediaType === 'REELS');
-  const photosInView  = filteredMedia.filter(m => m.mediaType === 'IMAGE' || m.mediaType === 'CAROUSEL_ALBUM');
+  const reelsInView     = filteredMedia.filter(m => m.contentType === 'reel');
+  const photosInView    = filteredMedia.filter(m => m.contentType === 'photo' || m.contentType === 'carousel');
+  const hasReels        = activeFilters.includes('reel') && reelsInView.length > 0;
+  const hasPhotos       = (activeFilters.includes('photo') || activeFilters.includes('carousel')) && photosInView.length > 0;
 
-  const avgRate = (arr, key) => arr.length ? (arr.reduce((s, m) => s + (m[key] || 0), 0) / arr.length) : 0;
-
-  // ── Chart data (demographics) ─────────────────────────────────────────────
-  const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
-  const cityData      = (geo?.cities    || []).slice(0, 8);
-  const countryData   = (geo?.countries || []).slice(0, 6);
-
-  // ── All posts chart data ──────────────────────────────────────────────────
-  const chartTop8     = [...filteredMedia].sort((a, b) => b.reach - a.reach).slice(0, 8).reverse();
-  const chartData     = chartTop8.map(m => ({
-    name:     truncate(m.caption, 28) || mediaTypeLabel(m.mediaType),
-    Reach:    m.reach,
-    Engaged:  m.engagement,
-    Shares:   m.shares,
-  }));
-
-  const hasReels  = activeFilters.includes('reel')    && reelsInView.length  > 0;
-  const hasPhotos = (activeFilters.includes('photo') || activeFilters.includes('carousel')) && photosInView.length > 0;
+  const demoChartData   = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
+  const cityData        = (geo?.cities    || []).slice(0, 8);
+  const countryData     = (geo?.countries || []).slice(0, 6);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -230,7 +319,7 @@ export default function InstagramAnalytics() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)' }}>
+            style={{ background: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
               <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
             </svg>
@@ -251,12 +340,12 @@ export default function InstagramAnalytics() {
 
       {/* ── 6 KPI Cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard label="Followers"       value={fmtBig(account?.followersCount)} subtext="All time"          icon={<Users size={18}/>}    iconBg="bg-pink-100"   iconColor="text-pink-600"   />
-        <StatCard label="New Followers"   value={fmtBig(insights?.newFollowers)}  subtext="Last 30 days"      icon={<UserPlus size={18}/>}  iconBg="bg-rose-100"   iconColor="text-rose-600"   />
-        <StatCard label="Reach"           value={fmtBig(insights?.reach)}         subtext="Last 30 days"      icon={<Eye size={18}/>}       iconBg="bg-purple-100" iconColor="text-purple-600" />
-        <StatCard label="Profile Visits"  value={fmtBig(insights?.profileViews)}  subtext="Last 30 days"      icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Engagement"      value={fmtBig(insights?.interactions)}  subtext="Last 30 days"      icon={<Heart size={18}/>}     iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
-        <StatCard label="Shares"          value={fmtBig(insights?.shares)}        subtext="Last 30 days"      icon={<Share2 size={18}/>}    iconBg="bg-orange-100" iconColor="text-orange-600" />
+        <StatCard label="Followers"        value={fmtBig(account?.followersCount)} subtext="All time"     icon={<Users size={18}/>}     iconBg="bg-pink-100"    iconColor="text-pink-600"    />
+        <StatCard label="New Followers"    value={fmtBig(insights?.newFollowers)}  subtext="Last 30 days" icon={<UserPlus size={18}/>}  iconBg="bg-rose-100"    iconColor="text-rose-600"    />
+        <StatCard label="Reach"            value={fmtBig(insights?.reach)}         subtext="Last 30 days" icon={<Eye size={18}/>}       iconBg="bg-purple-100"  iconColor="text-purple-600"  />
+        <StatCard label="Profile Visits"   value={fmtBig(insights?.profileViews)}  subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600"  />
+        <StatCard label="Engagement"       value={fmtBig(insights?.interactions)}  subtext="Last 30 days" icon={<Heart size={18}/>}     iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
+        <StatCard label="Shares"           value={fmtBig(insights?.shares)}        subtext="Last 30 days" icon={<Share2 size={18}/>}    iconBg="bg-orange-100"  iconColor="text-orange-600"  />
       </div>
 
       {/* ── Content type filter chips ──────────────────────────────────────── */}
@@ -269,7 +358,7 @@ export default function InstagramAnalytics() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-mono">{filteredMedia.length} posts in view</span>
             {activeFilters.length === 0 && (
-              <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel', 'video'])}
+              <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel'])}
                 className="text-xs font-semibold text-pink-600 hover:text-pink-700">Reset</button>
             )}
           </div>
@@ -297,7 +386,7 @@ export default function InstagramAnalytics() {
       {activeFilters.length === 0 && (
         <div className="card text-center py-12">
           <p className="text-slate-400 text-sm mb-3">No content types selected.</p>
-          <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel', 'video'])}
+          <button onClick={() => setActiveFilters(['photo', 'carousel', 'reel'])}
             className="text-xs font-semibold text-pink-600 border border-pink-200 rounded-lg px-4 py-2 hover:bg-pink-50 transition-all">
             Reset to default
           </button>
@@ -306,111 +395,36 @@ export default function InstagramAnalytics() {
 
       {filteredMedia.length > 0 && (<>
 
-        {/* ── Top 4 grid cards ──────────────────────────────────────────────── */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-slate-900 text-base">Top Posts</h3>
-            <span className="text-xs text-slate-400">Ranked by engagement · across selected filters</span>
-          </div>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-            {top4.map((post, i) => <PostCard key={post.id} post={post} rank={i} />)}
-            {top4.length < 4 && Array.from({ length: 4 - top4.length }).map((_, i) => (
-              <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl aspect-square flex items-center justify-center text-slate-300 text-sm">
-                No post
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* ── Top 4 by Reach ────────────────────────────────────────────────── */}
+        <Top4Section title="🏆 Top Posts by Reach"       posts={filteredMedia} sortKey="reach"      metricLabel="Reach"      />
+        {/* ── Top 4 by Engagement ───────────────────────────────────────────── */}
+        <Top4Section title="❤️ Top Posts by Engagement"  posts={filteredMedia} sortKey="engagement" metricLabel="Engaged"    />
+        {/* ── Top 4 by Shares ───────────────────────────────────────────────── */}
+        <Top4Section title="🔗 Top Posts by Shares"      posts={filteredMedia} sortKey="shares"     metricLabel="Shares"     />
 
-        {/* ── Performance chart (top 8, 3 metrics) ──────────────────────────── */}
-        {chartData.length > 0 && (
-          <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Post Performance</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {chartTop8.length} posts by reach — engagement, shares &amp; reach</p>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-                <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar dataKey="Reach"   fill="#e879f9" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="Engaged" fill={IG_PINK}   radius={[0, 4, 4, 0]} />
-                <Bar dataKey="Shares"  fill={IG_PURPLE} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* ── Reel-specific insights ─────────────────────────────────────────── */}
+        {/* ── Reel insights ─────────────────────────────────────────────────── */}
         {hasReels && (
           <div className="card">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">🎬</span>
-              <h3 className="font-bold text-slate-900 text-base">Reel Insights</h3>
-              <span className="text-xs text-slate-400 font-mono">avg across {reelsInView.length} reels in view</span>
+              <h3 className="font-bold text-slate-900 text-base">Reel Insights — Per Post</h3>
+              <span className="text-xs text-slate-400 font-mono">Top 10 by reach</span>
             </div>
-            <p className="text-slate-500 text-sm mb-5">Rate metrics ordered by Instagram's impact on reach</p>
-            <div className="space-y-4">
-              <RateRow label="⏭️ Skip Rate"   value={avgRate(reelsInView,'skipRate')}   color="#ef4444" description="Scrolled past without engaging" />
-              <RateRow label="🔗 Share Rate"  value={avgRate(reelsInView,'shareRate')}  color="#f59e0b" description="Shared to stories or DMs" />
-              <RateRow label="❤️ Like Rate"   value={avgRate(reelsInView,'likeRate')}   color={IG_PINK} description="Liked relative to reach" />
-              <RateRow label="🔖 Save Rate"   value={avgRate(reelsInView,'saveRate')}   color={IG_PURPLE} description="Saved to collections" />
-              <RateRow label="🔁 Repost Rate" value={avgRate(reelsInView,'repostRate')} color="#6366f1" description="Reposted to other accounts" />
-            </div>
-            {/* Per-reel breakdown */}
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">Reel</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500 uppercase tracking-wide">Plays</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500 uppercase tracking-wide">Skip%</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500 uppercase tracking-wide">Share%</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500 uppercase tracking-wide">Like%</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500 uppercase tracking-wide">Save%</th>
-                    <th className="text-right px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">Repost%</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {reelsInView.slice(0, 15).map(m => (
-                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-2 max-w-xs">
-                        <a href={m.permalink} target="_blank" rel="noopener noreferrer"
-                          className="text-slate-700 hover:text-pink-600 transition-colors line-clamp-1">
-                          {truncate(m.caption, 60) || '(No caption)'}
-                        </a>
-                        <span className="text-slate-400 font-mono">{fmtDate(m.timestamp)}</span>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtBig(m.plays)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-red-500">{m.skipRate.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right font-mono text-amber-500">{m.shareRate.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right font-mono text-pink-500">{m.likeRate.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right font-mono text-purple-500">{m.saveRate.toFixed(1)}%</td>
-                      <td className="px-4 py-2 text-right font-mono text-indigo-500">{m.repostRate.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <p className="text-slate-500 text-sm">Rate metrics in Instagram's priority order for reach impact</p>
+            <RateInsightsTable posts={reelsInView} type="reel" />
           </div>
         )}
 
-        {/* ── Photo/Carousel-specific insights ──────────────────────────────── */}
+        {/* ── Photo & carousel insights ──────────────────────────────────────── */}
         {hasPhotos && (
           <div className="card">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">📷</span>
-              <h3 className="font-bold text-slate-900 text-base">Photo &amp; Carousel Insights</h3>
-              <span className="text-xs text-slate-400 font-mono">avg across {photosInView.length} posts in view</span>
+              <h3 className="font-bold text-slate-900 text-base">Photo &amp; Carousel Insights — Per Post</h3>
+              <span className="text-xs text-slate-400 font-mono">Top 10 by reach</span>
             </div>
-            <p className="text-slate-500 text-sm mb-5">Engagement rate breakdown</p>
-            <div className="space-y-4">
-              <RateRow label="❤️ Like Rate"    value={avgRate(photosInView,'likeRate')}    color={IG_PINK}   description="Liked relative to reach" />
-              <RateRow label="💬 Comment Rate" value={avgRate(photosInView,'commentRate')} color="#6366f1"   description="Comments relative to reach" />
-              <RateRow label="🔖 Save Rate"    value={avgRate(photosInView,'saveRate')}    color={IG_PURPLE} description="Saved to collections" />
-              <RateRow label="🔗 Share Rate"   value={avgRate(photosInView,'shareRate')}   color="#f59e0b"   description="Shared to stories or DMs" />
-            </div>
+            <p className="text-slate-500 text-sm">Engagement rate breakdown per post</p>
+            <RateInsightsTable posts={photosInView} type="photo" />
           </div>
         )}
 
@@ -485,7 +499,7 @@ export default function InstagramAnalytics() {
         </div>
       )}
 
-      {/* ── Full media table ───────────────────────────────────────────────── */}
+      {/* ── Full table ─────────────────────────────────────────────────────── */}
       {filteredMedia.length > 0 && (
         <div className="card p-0 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
