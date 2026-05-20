@@ -140,7 +140,7 @@ function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
         <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
         <span className="text-xs text-slate-400">Top 4</span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {sorted.map((post, i) => (
           <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} />
         ))}
