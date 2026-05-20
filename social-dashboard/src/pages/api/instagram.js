@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     const mediaWithInsights = await Promise.all(
       mediaItems.map(async m => {
         const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
-        const baseMetrics = ['reach', 'saved', 'total_interactions', 'shares'];
+        const baseMetrics = ['views', 'saved', 'total_interactions', 'shares'];
         const reelMetrics = ['plays', 'ig_reels_avg_watch_time', 'clips_replays_count'];
         const metricList  = isReel
           ? [...baseMetrics, ...reelMetrics].join(',')
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
           }
         } catch {}
 
-        const reach    = mi.reach || 0;
+        const reach    = mi.views || 0;
         const likes    = m.like_count || 0;
         const comments = m.comments_count || 0;
         const saves    = mi.saved || 0;

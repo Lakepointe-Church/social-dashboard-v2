@@ -28,6 +28,13 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function fmtWatchTime(ms) {
+  if (!ms) return '—';
+  const s = ms / 1000;
+  if (s >= 60) return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+  return `${s.toFixed(1)}s`;
+}
+
 function truncate(str, max = 60) {
   return str?.length > max ? str.slice(0, max) + '…' : str;
 }
@@ -116,7 +123,7 @@ function PostCard({ post, rank, metric, metricLabel }) {
         </div>
         <div className="px-2 py-2 text-center">
           <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.reach)}</div>
-          <div className="text-slate-400 text-[10px]">Reach</div>
+          <div className="text-slate-400 text-[10px]">Views</div>
         </div>
       </div>
     </a>
@@ -133,7 +140,7 @@ function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
         <h3 className="font-bold text-slate-900 text-base">{title}</h3>
         <span className="text-xs text-slate-400">Top 4 across selected filters</span>
       </div>
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         {sorted.map((post, i) => (
           <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} />
         ))}
@@ -166,7 +173,6 @@ function RateInsightsTable({ posts, type }) {
   const top10  = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 10);
   if (top10.length === 0) return null;
 
-  // Compute max per column for relative bar scaling
   const maxSkip    = Math.max(...top10.map(p => p.skipRate),    0.01);
   const maxShare   = Math.max(...top10.map(p => p.shareRate),   0.01);
   const maxLike    = Math.max(...top10.map(p => p.likeRate),    0.01);
@@ -180,15 +186,16 @@ function RateInsightsTable({ posts, type }) {
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50">
             <th className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide min-w-[200px]">Post</th>
-            <th className="text-center px-3 py-2.5 font-semibold text-slate-700 uppercase tracking-wide whitespace-nowrap">
-              Reach
-            </th>
+            <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Type</th>
+            <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Date</th>
+            <th className="text-center px-3 py-2.5 font-semibold text-slate-700 uppercase tracking-wide whitespace-nowrap">Views</th>
             {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#ef4444' }}>⏭ Skip</th>}
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#f59e0b' }}>🔗 Share</th>
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PINK }}>❤️ Like</th>
             <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PURPLE }}>🔖 Save</th>
             {!isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>💬 Comment</th>}
             {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>🔁 Repost</th>}
+            {isReel && <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#10b981' }}>⏱ Avg Watch</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
@@ -200,9 +207,7 @@ function RateInsightsTable({ posts, type }) {
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
-                    {/* Rank */}
                     <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
-                    {/* Thumbnail */}
                     <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
                       {p.mediaUrl && !imgError ? (
                         <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
@@ -212,17 +217,16 @@ function RateInsightsTable({ posts, type }) {
                           style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
                       )}
                     </div>
-                    {/* Caption + date */}
                     <div className="min-w-0">
                       <a href={p.permalink} target="_blank" rel="noopener noreferrer"
                         className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
                         {truncate(p.caption, 55) || '(No caption)'}
                       </a>
-                      <span className="text-slate-400 font-mono text-[10px]">{fmtDate(p.timestamp)}</span>
                     </div>
                   </div>
                 </td>
-                {/* Reach — prominent */}
+                <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{mediaTypeLabel(p.mediaType)}</td>
+                <td className="px-3 py-2.5 text-slate-500 font-mono whitespace-nowrap">{fmtDate(p.timestamp)}</td>
                 <td className="px-3 py-2.5 text-center">
                   <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.reach)}</span>
                 </td>
@@ -232,6 +236,11 @@ function RateInsightsTable({ posts, type }) {
                 <td className="px-3 py-2.5 text-center"><RateBar value={p.saveRate}    color={IG_PURPLE} maxValue={maxSave}    /></td>
                 {!isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>}
                 {isReel  && <td className="px-3 py-2.5 text-center"><RateBar value={p.repostRate}  color="#6366f1" maxValue={maxRepost}  /></td>}
+                {isReel  && (
+                  <td className="px-3 py-2.5 text-center">
+                    <span className="font-bold tabular-nums text-sm" style={{ color: '#10b981' }}>{fmtWatchTime(p.avgWatchTime)}</span>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -342,7 +351,7 @@ export default function InstagramAnalytics() {
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard label="Followers"        value={fmtBig(account?.followersCount)} subtext="All time"     icon={<Users size={18}/>}     iconBg="bg-pink-100"    iconColor="text-pink-600"    />
         <StatCard label="New Followers"    value={fmtBig(insights?.newFollowers)}  subtext="Last 30 days" icon={<UserPlus size={18}/>}  iconBg="bg-rose-100"    iconColor="text-rose-600"    />
-        <StatCard label="Reach"            value={fmtBig(insights?.reach)}         subtext="Last 30 days" icon={<Eye size={18}/>}       iconBg="bg-purple-100"  iconColor="text-purple-600"  />
+        <StatCard label="Views"             value={fmtBig(insights?.reach)}         subtext="Last 30 days" icon={<Eye size={18}/>}       iconBg="bg-purple-100"  iconColor="text-purple-600"  />
         <StatCard label="Profile Visits"   value={fmtBig(insights?.profileViews)}  subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600"  />
         <StatCard label="Engagement"       value={fmtBig(insights?.interactions)}  subtext="Last 30 days" icon={<Heart size={18}/>}     iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
         <StatCard label="Shares"           value={fmtBig(insights?.shares)}        subtext="Last 30 days" icon={<Share2 size={18}/>}    iconBg="bg-orange-100"  iconColor="text-orange-600"  />
@@ -395,8 +404,8 @@ export default function InstagramAnalytics() {
 
       {filteredMedia.length > 0 && (<>
 
-        {/* ── Top 4 by Reach ────────────────────────────────────────────────── */}
-        <Top4Section title="🏆 Top Posts by Reach"       posts={filteredMedia} sortKey="reach"      metricLabel="Reach"      />
+        {/* ── Top 4 by Views ────────────────────────────────────────────────── */}
+        <Top4Section title="🏆 Top Posts by Views"       posts={filteredMedia} sortKey="reach"      metricLabel="Views"      />
         {/* ── Top 4 by Engagement ───────────────────────────────────────────── */}
         <Top4Section title="❤️ Top Posts by Engagement"  posts={filteredMedia} sortKey="engagement" metricLabel="Engaged"    />
         {/* ── Top 4 by Shares ───────────────────────────────────────────────── */}
@@ -408,9 +417,9 @@ export default function InstagramAnalytics() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">🎬</span>
               <h3 className="font-bold text-slate-900 text-base">Reel Insights — Per Post</h3>
-              <span className="text-xs text-slate-400 font-mono">Top 10 by reach</span>
+              <span className="text-xs text-slate-400 font-mono">Top 10 by views</span>
             </div>
-            <p className="text-slate-500 text-sm">Rate metrics in Instagram's priority order for reach impact</p>
+            <p className="text-slate-500 text-sm">Rate metrics in Instagram's priority order for views impact</p>
             <RateInsightsTable posts={reelsInView} type="reel" />
           </div>
         )}
@@ -421,7 +430,7 @@ export default function InstagramAnalytics() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">📷</span>
               <h3 className="font-bold text-slate-900 text-base">Photo &amp; Carousel Insights — Per Post</h3>
-              <span className="text-xs text-slate-400 font-mono">Top 10 by reach</span>
+              <span className="text-xs text-slate-400 font-mono">Top 10 by views</span>
             </div>
             <p className="text-slate-500 text-sm">Engagement rate breakdown per post</p>
             <RateInsightsTable posts={photosInView} type="photo" />
@@ -513,7 +522,7 @@ export default function InstagramAnalytics() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reach</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Views</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Saves</th>
