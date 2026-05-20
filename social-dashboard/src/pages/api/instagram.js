@@ -108,7 +108,7 @@ export default async function handler(req, res) {
           id:             m.id,
           caption:        m.caption || '',
           mediaType:      m.media_type,
-          mediaUrl:       m.media_url || m.thumbnail_url || null,
+          mediaUrl:       isReel ? (m.thumbnail_url || null) : (m.media_url || m.thumbnail_url || null),
           permalink:      m.permalink,
           timestamp:      m.timestamp,
           likeCount:      likes,
