@@ -270,6 +270,7 @@ export default function FacebookAnalytics() {
   const [customStart,   setCustomStart]   = useState('');
   const [customEnd,     setCustomEnd]     = useState('');
   const [tableLimit,    setTableLimit]    = useState(20);
+  const [tableSort,     setTableSort]     = useState({ key: 'createdTime', dir: 'desc' });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -347,7 +348,17 @@ export default function FacebookAnalytics() {
       if (rangeEnd && posted > rangeEnd) return false;
       return true;
     });
-  const sortedFilteredPosts = [...filteredPosts].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+
+  const sortMultiplier = tableSort.dir === 'asc' ? 1 : -1;
+  const sortedFilteredPosts = [...filteredPosts].sort((a, b) => {
+    if (tableSort.key === 'createdTime') {
+      return sortMultiplier * (new Date(a.createdTime) - new Date(b.createdTime));
+    }
+    if (tableSort.key === 'contentType') {
+      return sortMultiplier * a.contentType.localeCompare(b.contentType);
+    }
+    return sortMultiplier * ((a[tableSort.key] || 0) - (b[tableSort.key] || 0));
+  });
   const visiblePosts        = sortedFilteredPosts.slice(0, tableLimit);
 
 
@@ -584,18 +595,50 @@ export default function FacebookAnalytics() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-10">#</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Shares</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+                  <th
+                    className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'contentType', dir: prev.key === 'contentType' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Type{tableSort.key === 'contentType' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th
+                    className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'createdTime', dir: prev.key === 'createdTime' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Date{tableSort.key === 'createdTime' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th
+                    className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'likeCount', dir: prev.key === 'likeCount' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Likes{tableSort.key === 'likeCount' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th
+                    className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'commentCount', dir: prev.key === 'commentCount' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Comments{tableSort.key === 'commentCount' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th
+                    className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'shareCount', dir: prev.key === 'shareCount' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Shares{tableSort.key === 'shareCount' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th
+                    className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none"
+                    onClick={() => setTableSort(prev => ({ key: 'engaged', dir: prev.key === 'engaged' && prev.dir === 'desc' ? 'asc' : 'desc' }))}
+                  >
+                    Total{tableSort.key === 'engaged' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {visiblePosts.map(p => (
+                {visiblePosts.map((p, idx) => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-3 py-3 text-center text-slate-400 text-xs font-mono font-bold">{idx + 1}</td>
                     <td className="px-6 py-3 max-w-xs">
                       <a
                         href={getFbPostUrl(p.id)}
