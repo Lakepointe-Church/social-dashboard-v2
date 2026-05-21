@@ -7,20 +7,50 @@ export default async function handler(req, res) {
   const base = `https://graph.facebook.com/v21.0`;
   const out  = { IG_ID, steps: {} };
 
-  // Step 1: Business Discovery lookup for joshhowerton
+  // Step 1a: Business Discovery — fields without 'username' sub-field (avoid param conflict)
   try {
-    const r = await fetch(
-      `${base}/${IG_ID}?fields=business_discovery.fields(id,username,name)&username=joshhowerton&access_token=${token}`
-    );
-    out.steps.businessDiscovery = await r.json();
+    const url = `${base}/${IG_ID}?fields=business_discovery.fields(id,name)&username=joshhowerton&access_token=${token}`;
+    const r = await fetch(url);
+    out.steps.discoveryA_noUsernamefield = await r.json();
   } catch (e) {
-    out.steps.businessDiscovery = { fetchError: e.message };
+    out.steps.discoveryA_noUsernamefield = { fetchError: e.message };
   }
 
-  const joshId = out.steps.businessDiscovery?.business_discovery?.id;
+  // Step 1b: Business Discovery — URL-encode the fields value so parens don't confuse parsers
+  try {
+    const fields = encodeURIComponent('business_discovery.fields(id,name)');
+    const url = `${base}/${IG_ID}?fields=${fields}&username=joshhowerton&access_token=${token}`;
+    const r = await fetch(url);
+    out.steps.discoveryB_encodedFields = await r.json();
+  } catch (e) {
+    out.steps.discoveryB_encodedFields = { fetchError: e.message };
+  }
+
+  // Step 1c: Business Discovery — use URLSearchParams for safe encoding of all params
+  try {
+    const params = new URLSearchParams({
+      fields: 'business_discovery.fields(id,name)',
+      username: 'joshhowerton',
+      access_token: token,
+    });
+    const url = `${base}/${IG_ID}?${params.toString()}`;
+    const r = await fetch(url);
+    out.steps.discoveryC_urlSearchParams = await r.json();
+  } catch (e) {
+    out.steps.discoveryC_urlSearchParams = { fetchError: e.message };
+  }
+
+  // Find the first successful joshId across the three attempts
+  const joshId =
+    out.steps.discoveryA_noUsernamefield?.business_discovery?.id ||
+    out.steps.discoveryB_encodedFields?.business_discovery?.id ||
+    out.steps.discoveryC_urlSearchParams?.business_discovery?.id;
 
   if (!joshId) {
-    return res.json({ ...out, note: 'Business Discovery failed — cannot proceed to media fetch' });
+    return res.json({
+      ...out,
+      note: 'All Business Discovery attempts failed — cannot proceed to media fetch. Check if @joshhowerton is a Business/Creator account.',
+    });
   }
 
   out.joshId = joshId;
