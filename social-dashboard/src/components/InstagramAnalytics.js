@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle } from 'lucide-react';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -114,16 +114,16 @@ function PostCard({ post, rank, metric, metricLabel }) {
       </div>
       <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.engagement)}</div>
-          <div className="text-slate-400 text-[10px]">Engaged</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.engagement)}</div>
+          <div className="text-slate-400 mt-1"><Heart size={12} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.shares)}</div>
-          <div className="text-slate-400 text-[10px]">Shares</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.shares)}</div>
+          <div className="text-slate-400 mt-1"><Share2 size={12} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.reach)}</div>
-          <div className="text-slate-400 text-[10px]">Views</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.reach)}</div>
+          <div className="text-slate-400 mt-1"><Eye size={12} className="mx-auto" /></div>
         </div>
       </div>
     </a>
