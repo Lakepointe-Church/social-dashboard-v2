@@ -30,8 +30,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function AgeBreakdown({ ageData }) {
-  const [platform, setPlatform] = useState('all');
+export default function AgeBreakdown({ ageData, title = 'Audience Age & Gender', hideTabs = false, defaultPlatform = 'all' }) {
+  const [platform, setPlatform] = useState(defaultPlatform);
   const data = ageData[platform] || ageData.all;
 
   // Calculate totals for insight chips
@@ -44,27 +44,29 @@ export default function AgeBreakdown({ ageData }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Users size={18} className="text-violet-500" />
-          <h2 className="font-bold text-slate-900 text-lg">Audience Age & Gender</h2>
+          <h2 className="font-bold text-slate-900 text-lg">{title}</h2>
         </div>
       </div>
 
       {/* Platform tabs */}
-      <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-4 overflow-x-auto">
-        {PLATFORM_TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setPlatform(tab.id)}
-            className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              platform === tab.id
-                ? 'bg-white shadow-sm text-slate-900'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.id !== 'all' && <PlatformIcon platform={tab.id} size={14} />}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {!hideTabs && (
+        <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-4 overflow-x-auto">
+          {PLATFORM_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setPlatform(tab.id)}
+              className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                platform === tab.id
+                  ? 'bg-white shadow-sm text-slate-900'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.id !== 'all' && <PlatformIcon platform={tab.id} size={14} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Insight chips */}
       <div className="flex gap-2 mb-4 flex-wrap">

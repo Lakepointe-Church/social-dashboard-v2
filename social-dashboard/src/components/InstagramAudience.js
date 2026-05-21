@@ -17,6 +17,8 @@ export default function InstagramAudience() {
 
   const followersAgeData = useMemo(() => ({ all: followers.age || [], instagram: followers.age || [] }), [followers]);
   const viewersAgeData   = useMemo(() => ({ all: viewers.age || [], instagram: viewers.age || [] }), [viewers]);
+  const newFollowersAgeData = useMemo(() => ({ all: followers.newAge || [], instagram: followers.newAge || [] }), [followers]);
+  const newFollowersGeo   = useMemo(() => ({ cities: followers.newCities || followers.cities, countries: followers.newCountries || followers.countries }), [followers]);
 
   function fetchData() {
     setLoading(true);
@@ -75,26 +77,26 @@ export default function InstagramAudience() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <MetricCard label="Followers" value={(followers.total || platforms.instagram.followers).toLocaleString()} subtext="Account followers" icon={<Users size={18}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
         <MetricCard label="New Followers" value={followers.newFollowers ? followers.newFollowers.toLocaleString() : '—'} subtext="Last 30 days" icon={<UserPlus size={18}/>} iconBg="bg-rose-100" iconColor="text-rose-600" />
+        <MetricCard label="Followers" value={(followers.total || platforms.instagram.followers).toLocaleString()} subtext="Account followers" icon={<Users size={18}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
         <MetricCard label="Views" value={(viewers.total || Math.round(platforms.instagram.reach * 0.15)).toLocaleString()} subtext="Last 30 days" icon={<Eye size={18}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
         <MetricCard label="Profile Visits" value={followers.profileVisits ? followers.profileVisits.toLocaleString() : '—'} subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
         <MetricCard label="Engagement" value={platforms.instagram.engagement.toLocaleString()} subtext="Last 30 days" icon={<Heart size={18}/>} iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
         <MetricCard label="Shares" value={platforms.instagram.avgShares?.toLocaleString() || '—'} subtext="Avg per post" icon={<Share2 size={18}/>} iconBg="bg-orange-100" iconColor="text-orange-600" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">Followers — Age &amp; Gender</h3>
-          <AgeBreakdown ageData={followersAgeData} />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">Viewers — Age &amp; Gender</h3>
-          <AgeBreakdown ageData={viewersAgeData} />
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <AgeBreakdown ageData={newFollowersAgeData} title="New Followers Age & Gender" hideTabs defaultPlatform="instagram" />
+        <AgeBreakdown ageData={followersAgeData} title="Followers Age & Gender" hideTabs defaultPlatform="instagram" />
+        <AgeBreakdown ageData={viewersAgeData} title="Viewers Age & Gender" hideTabs defaultPlatform="instagram" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <GeoBreakdown
+          geoData={{ all: newFollowersGeo }}
+          title="New Followers Geographic Reach"
+          hideTabs
+        />
         <GeoBreakdown
           geoData={{ all: { cities: followers.cities, countries: followers.countries } }}
           title="Followers Geographic Reach"

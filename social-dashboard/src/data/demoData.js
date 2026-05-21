@@ -306,9 +306,22 @@ export const ageData = {
 export const instagramAudience = {
   followers: {
     total: platforms.instagram.followers,
+    newFollowers: platforms.instagram.growth,
+    profileVisits: 18234,
     age: ageData.instagram,
+    newAge: [
+      { age:'13–17', male:5.2,  female:7.8  },
+      { age:'18–24', male:20.1, female:27.9 },
+      { age:'25–34', male:23.8, female:28.7 },
+      { age:'35–44', male:10.5, female:12.8 },
+      { age:'45–54', male:3.7,  female:5.1  },
+      { age:'55–64', male:1.1,  female:1.6  },
+      { age:'65+',   male:0.4,  female:0.7  },
+    ],
     cities: geoData.instagram.cities,
     countries: geoData.instagram.countries,
+    newCities: geoData.instagram.cities,
+    newCountries: geoData.instagram.countries,
   },
   viewers: {
     total: Math.round(platforms.instagram.reach * 0.15),
