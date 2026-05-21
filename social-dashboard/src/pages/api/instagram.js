@@ -219,14 +219,14 @@ export default async function handler(req, res) {
     ];
 
     // ── 5. Demographics ───────────────────────────────────────────────────────
-    const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&access_token=${token}`);
+    const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}`);
     const demoData = await demoRes.json();
     const demographics = (!demoData.error) ? parseDemographics(demoData.data || []) : [];
 
     // ── 6. Geographic ─────────────────────────────────────────────────────────
     const geoResults = await Promise.allSettled([
-      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=city&access_token=${token}`).then(r => r.json()),
-      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=country&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}`).then(r => r.json()),
     ]);
     const geo = parseGeo(geoResults);
 
