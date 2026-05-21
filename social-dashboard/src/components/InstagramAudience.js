@@ -39,38 +39,39 @@ export default function InstagramAudience() {
 
   const liveFollowers    = liveData?.account || {};
   const liveInsights     = liveData?.insights || {};
-  const liveDemographics = liveData?.demographics || [];
-  const liveGeo          = liveData?.geo || {};
+  const liveDemographics = useMemo(() => liveData?.demographics || [], [liveData]);
+  const liveGeo          = useMemo(() => liveData?.geo || {}, [liveData]);
+  const hasLiveDemo      = liveDemographics.length > 0;
 
   const followersAgeData = useMemo(() => ({
     all: liveDemographics,
     instagram: liveDemographics,
   }), [liveDemographics]);
 
-  const viewersAgeData = useMemo(() => ({
-    all: liveDemographics,
-    instagram: liveDemographics,
-  }), [liveDemographics]);
-
   const newFollowersAgeData = useMemo(() => ({
-    all: liveDemographics,
-    instagram: liveDemographics,
-  }), [liveDemographics]);
+    all: [],
+    instagram: [],
+  }), []);
 
-  const newFollowersGeo = useMemo(() => ({
-    cities: liveGeo.cities || [],
-    countries: liveGeo.countries || [],
-  }), [liveGeo]);
+  const viewersAgeData = useMemo(() => ({
+    all: [],
+    instagram: [],
+  }), []);
 
   const followersGeo = useMemo(() => ({
     cities: liveGeo.cities || [],
     countries: liveGeo.countries || [],
   }), [liveGeo]);
 
+  const newFollowersGeo = useMemo(() => ({
+    cities: [],
+    countries: [],
+  }), []);
+
   const viewersGeo = useMemo(() => ({
-    cities: liveGeo.cities || [],
-    countries: liveGeo.countries || [],
-  }), [liveGeo]);
+    cities: [],
+    countries: [],
+  }), []);
 
   const liveFollowersCount = liveFollowers.followersCount ?? 0;
   const liveNewFollowersCount = liveInsights.newFollowers ?? 0;
@@ -159,27 +160,41 @@ export default function InstagramAudience() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <AgeBreakdown ageData={newFollowersAgeData} title="New Followers Age & Gender" hideTabs defaultPlatform="instagram" />
         <AgeBreakdown ageData={followersAgeData} title="Followers Age & Gender" hideTabs defaultPlatform="instagram" />
-        <AgeBreakdown ageData={viewersAgeData} title="Viewers Age & Gender" hideTabs defaultPlatform="instagram" />
+        {!hasLiveDemo && (
+          <AgeBreakdown ageData={newFollowersAgeData} title="New Followers Age & Gender" hideTabs defaultPlatform="instagram" />
+        )}
+        {!hasLiveDemo && (
+          <AgeBreakdown ageData={viewersAgeData} title="Viewers Age & Gender" hideTabs defaultPlatform="instagram" />
+        )}
       </div>
 
+      {hasLiveDemo && (
+        <div className="text-xs text-slate-500">
+          Live Instagram Graph API only exposes follower demographics/geography for this account. New follower and viewer breakdowns are not available as separate live datasets.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <GeoBreakdown
-          geoData={{ all: newFollowersGeo }}
-          title="New Followers Geographic Reach"
-          hideTabs
-        />
         <GeoBreakdown
           geoData={{ all: followersGeo }}
           title="Followers Geographic Reach"
           hideTabs
         />
-        <GeoBreakdown
-          geoData={{ all: viewersGeo }}
-          title="Viewers Geographic Reach"
-          hideTabs
-        />
+        {!hasLiveDemo && (
+          <GeoBreakdown
+            geoData={{ all: newFollowersGeo }}
+            title="New Followers Geographic Reach"
+            hideTabs
+          />
+        )}
+        {!hasLiveDemo && (
+          <GeoBreakdown
+            geoData={{ all: viewersGeo }}
+            title="Viewers Geographic Reach"
+            hideTabs
+          />
+        )}
       </div>
     </div>
   );

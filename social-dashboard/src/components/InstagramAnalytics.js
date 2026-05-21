@@ -168,6 +168,51 @@ function RateBar({ value, color, maxValue }) {
 }
 
 // ── Per-post rate insights table ──────────────────────────────────────────────
+function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment }) {
+  const [imgError, setImgError] = useState(false);
+  const emoji = p.mediaType === 'REELS' || p.mediaType === 'VIDEO' ? '🎬'
+              : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
+
+  return (
+    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+      <td className="px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
+          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
+            {p.mediaUrl && !imgError ? (
+              <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
+                onError={() => setImgError(true)} crossOrigin="anonymous" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-lg"
+                style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <a href={p.permalink} target="_blank" rel="noopener noreferrer"
+              className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
+              {truncate(p.caption, 55) || '(No caption)'}
+            </a>
+          </div>
+        </div>
+      </td>
+      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{mediaTypeLabel(p.mediaType)}</td>
+      <td className="px-3 py-2.5 text-slate-500 font-mono whitespace-nowrap">{fmtDate(p.timestamp)}</td>
+      <td className="px-3 py-2.5 text-center">
+        <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.reach)}</span>
+      </td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.shareRate}   color="#f59e0b"   maxValue={maxShare}   /></td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.likeRate}    color={IG_PINK}   maxValue={maxLike}    /></td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.saveRate}    color={IG_PURPLE} maxValue={maxSave}    /></td>
+      {!isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>}
+      {isReel  && (
+        <td className="px-3 py-2.5 text-center">
+          <span className="font-bold tabular-nums text-sm" style={{ color: '#10b981' }}>{fmtWatchTime(p.avgWatchTime)}</span>
+        </td>
+      )}
+    </tr>
+  );
+}
+
 function RateInsightsTable({ posts, type }) {
   const isReel = type === 'reel';
   const top10  = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 10);
@@ -195,49 +240,18 @@ function RateInsightsTable({ posts, type }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          {top10.map((p, i) => {
-            const [imgError, setImgError] = useState(false);
-            const emoji = p.mediaType === 'REELS' || p.mediaType === 'VIDEO' ? '🎬'
-                        : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
-            return (
-              <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
-                    <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
-                      {p.mediaUrl && !imgError ? (
-                        <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
-                          onError={() => setImgError(true)} crossOrigin="anonymous" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-lg"
-                          style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <a href={p.permalink} target="_blank" rel="noopener noreferrer"
-                        className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
-                        {truncate(p.caption, 55) || '(No caption)'}
-                      </a>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{mediaTypeLabel(p.mediaType)}</td>
-                <td className="px-3 py-2.5 text-slate-500 font-mono whitespace-nowrap">{fmtDate(p.timestamp)}</td>
-                <td className="px-3 py-2.5 text-center">
-                  <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.reach)}</span>
-                </td>
-                <td className="px-3 py-2.5 text-center"><RateBar value={p.shareRate}   color="#f59e0b"   maxValue={maxShare}   /></td>
-                <td className="px-3 py-2.5 text-center"><RateBar value={p.likeRate}    color={IG_PINK}   maxValue={maxLike}    /></td>
-                <td className="px-3 py-2.5 text-center"><RateBar value={p.saveRate}    color={IG_PURPLE} maxValue={maxSave}    /></td>
-                {!isReel && <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>}
-                {isReel  && (
-                  <td className="px-3 py-2.5 text-center">
-                    <span className="font-bold tabular-nums text-sm" style={{ color: '#10b981' }}>{fmtWatchTime(p.avgWatchTime)}</span>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
+          {top10.map((p, i) => (
+            <RateInsightsRow
+              key={p.id}
+              p={p}
+              i={i}
+              isReel={isReel}
+              maxShare={maxShare}
+              maxLike={maxLike}
+              maxSave={maxSave}
+              maxComment={maxComment}
+            />
+          ))}
         </tbody>
       </table>
     </div>
@@ -466,7 +480,7 @@ export default function InstagramAnalytics() {
               <h3 className="font-bold text-slate-900 text-base">Reel Insights — Per Post</h3>
               <span className="text-xs text-slate-400 font-mono">Top 10 by views</span>
             </div>
-            <p className="text-slate-500 text-sm">Rate metrics in Instagram's priority order for views impact</p>
+            <p className="text-slate-500 text-sm">Rate metrics in Instagram&apos;s priority order for views impact</p>
             <RateInsightsTable posts={reelsInView} type="reel" />
           </div>
         )}
