@@ -266,6 +266,9 @@ export default function FacebookAnalytics() {
   const [error,         setError]         = useState(null);
   // Default: photos, videos, text all on — streams off
   const [activeFilters, setActiveFilters] = useState(['photo', 'video', 'other']);
+  const [datePreset,    setDatePreset]    = useState('30');
+  const [customStart,   setCustomStart]   = useState('');
+  const [customEnd,     setCustomEnd]     = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -313,6 +316,17 @@ export default function FacebookAnalytics() {
 
   const { page, insights, posts = [], demographics = [], geo, fetchedAt } = data || {};
 
+  const rangeStart = datePreset === 'custom'
+    ? (customStart ? new Date(customStart) : null)
+    : new Date(Date.now() - parseInt(datePreset, 10) * 864e5);
+  const rangeEnd = datePreset === 'custom'
+    ? (customEnd ? new Date(`${customEnd}T23:59:59`) : null)
+    : new Date();
+
+  const dateLabel = datePreset === 'custom'
+    ? (customStart && customEnd ? `${customStart} → ${customEnd}` : 'Custom range')
+    : `Last ${datePreset} days`;
+
   // ── Add rate metrics to posts ──────────────────────────────────────────────
   const postsWithRates = posts.map(p => {
     const totalEngagement = p.likeCount + p.commentCount + p.shareCount;
@@ -323,7 +337,14 @@ export default function FacebookAnalytics() {
   });
 
   // ── Filtering ─────────────────────────────────────────────────────────────
-  const filteredPosts   = postsWithRates.filter(p => activeFilters.includes(p.contentType));
+  const filteredPosts   = postsWithRates
+    .filter(p => activeFilters.includes(p.contentType))
+    .filter(p => {
+      const posted = new Date(p.createdTime);
+      if (rangeStart && posted < rangeStart) return false;
+      if (rangeEnd && posted > rangeEnd) return false;
+      return true;
+    });
   const topPosts        = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
   const postsChartData  = topPosts.map(p => ({
     name:     truncate(p.message, 32) || contentTypeLabel(p.type),
@@ -365,23 +386,30 @@ export default function FacebookAnalytics() {
         </button>
       </div>
 
-      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
-        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Total Posts"      value={posts.length}                  subtext={`${filteredPosts.length} in current filter`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
-        <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
-      </div>
-
-      {/* ── Content type filter chips ──────────────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">Content Type Filter</h3>
-            <p className="text-slate-400 text-xs mt-0.5">Toggle content types to include. Deselect all to clear the view.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-mono">{filteredPosts.length} posts in view</span>
+      {/* ── Sticky control bar ────────────────────────────────────────────────── */}
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-white border-b border-slate-200 shadow-sm">
+        <div className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2 items-center min-w-0">
+            {CONTENT_FILTERS.map(f => {
+              const isActive = activeFilters.includes(f.id);
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => toggleFilter(f.id)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                    isActive ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                  style={isActive ? { background: f.color, borderColor: f.color } : {}}
+                >
+                  {f.label}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {counts[f.id] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
             {activeFilters.length === 0 && (
               <button
                 onClick={() => setActiveFilters(['photo', 'video', 'other'])}
@@ -391,31 +419,50 @@ export default function FacebookAnalytics() {
               </button>
             )}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {CONTENT_FILTERS.map(f => {
-            const isActive = activeFilters.includes(f.id);
-            return (
-              <button
-                key={f.id}
-                onClick={() => toggleFilter(f.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
-                  isActive
-                    ? 'text-white border-transparent shadow-sm'
-                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                }`}
-                style={isActive ? { background: f.color, borderColor: f.color } : {}}
-              >
-                {f.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {counts[f.id] ?? 0}
-                </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
+              {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
+                <button key={value} onClick={() => setDatePreset(value)}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === value ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                  {label}
+                </button>
+              ))}
+              <button onClick={() => setDatePreset('custom')}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === 'custom' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                Custom
               </button>
-            );
-          })}
+            </div>
+
+            {datePreset === 'custom' && (
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-blue-300" />
+                <span className="text-slate-400 text-xs">–</span>
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-blue-300" />
+              </div>
+            )}
+
+            <button onClick={fetchData} disabled={loading}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
         </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-slate-500 text-xs">
+          <span>{filteredPosts.length} posts in view</span>
+          <span>{dateLabel}</span>
+        </div>
+      </div>
+
+      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
+        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+        <StatCard label="Total Posts"      value={posts.length}                  subtext={`${filteredPosts.length} in current filter`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+        <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
 
       {/* ── Empty state ────────────────────────────────────────────────────── */}
