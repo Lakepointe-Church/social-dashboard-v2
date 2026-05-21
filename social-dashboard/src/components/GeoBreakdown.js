@@ -29,6 +29,10 @@ export default function GeoBreakdown({ geoData, activeTab, title = 'Geographic R
 
   const isTikTok = geoTab === 'tiktok';
   const data = isTikTok ? null : (geoData[geoTab] || geoData.all);
+  const cities = data?.cities || [];
+  const countries = data?.countries || [];
+  const hasCities = cities.length > 0;
+  const hasCountries = countries.length > 0;
 
   return (
     <div className="card">
@@ -83,55 +87,69 @@ export default function GeoBreakdown({ geoData, activeTab, title = 'Geographic R
           </div>
         </div>
       ) : view === 'cities' ? (
-        <div className="space-y-2">
-          {(data?.cities || []).slice(0, 8).map((city, i) => (
-            <div key={city.name} className="flex items-center gap-2">
-              <div className="text-xs text-slate-400 w-4 text-right flex-shrink-0">{i + 1}</div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-slate-700 truncate">{city.name}</span>
-                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                    <span className="text-xs text-slate-400">{city.followers?.toLocaleString()}</span>
-                    <span className="text-xs font-bold text-slate-800">{city.value}%</span>
-                  </div>
-                </div>
-                <div className="bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${(city.value / (data?.cities?.[0]?.value || 1)) * 100}%`, background: '#3B82F6' }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={data?.countries} cx="50%" cy="50%" innerRadius={45} outerRadius={72}
-                   paddingAngle={2} dataKey="value" nameKey="name">
-                {(data?.countries || []).map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+        hasCities ? (
           <div className="space-y-2">
-            {(data?.countries || []).map((c, i) => (
-              <div key={c.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i] }} />
-                  <span className="text-slate-600">{c.flag} {c.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">{c.followers?.toLocaleString()}</span>
-                  <span className="font-semibold text-slate-800">{c.value}%</span>
+            {cities.slice(0, 8).map((city, i) => (
+              <div key={city.name} className="flex items-center gap-2">
+                <div className="text-xs text-slate-400 w-4 text-right flex-shrink-0">{i + 1}</div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-slate-700 truncate">{city.name}</span>
+                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                      <span className="text-xs text-slate-400">{city.followers?.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-slate-800">{city.value}%</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${(city.value / (cities[0]?.value || 1)) * 100}%`, background: '#3B82F6' }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          <div className="flex items-center justify-center h-40 rounded-xl border border-dashed border-slate-200 text-slate-500 text-sm">
+            No geographic city data available.
+          </div>
+        )
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {hasCountries ? (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={countries} cx="50%" cy="50%" innerRadius={45} outerRadius={72}
+                       paddingAngle={2} dataKey="value" nameKey="name">
+                    {countries.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2">
+                {countries.map((c, i) => (
+                  <div key={c.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i] }} />
+                      <span className="text-slate-600">{c.flag} {c.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400">{c.followers?.toLocaleString()}</span>
+                      <span className="font-semibold text-slate-800">{c.value}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-40 rounded-xl border border-dashed border-slate-200 text-slate-500 text-sm">
+              No geographic country data available.
+            </div>
+          )}
         </div>
       )}
     </div>

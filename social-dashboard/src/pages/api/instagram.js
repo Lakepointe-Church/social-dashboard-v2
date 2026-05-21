@@ -277,8 +277,8 @@ function parseDemographics(data) {
   const ageGroups = {};
   results.forEach(({ dimension_values, value }) => {
     const [age, gender] = dimension_values;
-    if (!ageGroups[age]) ageGroups[age] = { age, M: 0, F: 0, U: 0 };
-    const g = gender === 'M' ? 'M' : gender === 'F' ? 'F' : 'U';
+    if (!ageGroups[age]) ageGroups[age] = { age, male: 0, female: 0, unknown: 0 };
+    const g = gender === 'M' ? 'male' : gender === 'F' ? 'female' : 'unknown';
     ageGroups[age][g] = (ageGroups[age][g] || 0) + value;
   });
   return Object.values(ageGroups).sort((a, b) => a.age.localeCompare(b.age));

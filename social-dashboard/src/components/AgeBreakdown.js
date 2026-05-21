@@ -32,12 +32,19 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function AgeBreakdown({ ageData, title = 'Audience Age & Gender', hideTabs = false, defaultPlatform = 'all' }) {
   const [platform, setPlatform] = useState(defaultPlatform);
-  const data = ageData[platform] || ageData.all;
+  const data = ageData[platform] || ageData.all || [];
+  const hasData = data.length > 0;
 
   // Calculate totals for insight chips
-  const maleTotal   = data.reduce((s, d) => s + d.male, 0).toFixed(1);
-  const femaleTotal = data.reduce((s, d) => s + d.female, 0).toFixed(1);
-  const peak = data.reduce((best, d) => (d.male + d.female > best.male + best.female ? d : best), data[0]);
+  const maleTotal = data.reduce((s, d) => s + (d.male || d.M || 0), 0).toFixed(1);
+  const femaleTotal = data.reduce((s, d) => s + (d.female || d.F || 0), 0).toFixed(1);
+  const peak = hasData
+    ? data.reduce((best, d) => {
+        const current = (d.male || d.M || 0) + (d.female || d.F || 0);
+        const bestScore = (best.male || best.M || 0) + (best.female || best.F || 0);
+        return current > bestScore ? d : best;
+      }, data[0])
+    : { age: '—' };
 
   return (
     <div className="card">
@@ -75,21 +82,27 @@ export default function AgeBreakdown({ ageData, title = 'Audience Age & Gender',
         <div className="badge bg-violet-100 text-violet-700">Peak: Ages {peak?.age}</div>
       </div>
 
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-          <XAxis dataKey="age" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
-          <YAxis
-            tickFormatter={v => `${v}%`}
-            tick={{ fill: '#94A3B8', fontSize: 10 }}
-            axisLine={false} tickLine={false} width={36}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-          <Bar dataKey="male"   name="Male"   fill="#3B82F6" radius={[4,4,0,0]} maxBarSize={40} />
-          <Bar dataKey="female" name="Female" fill="#EC4899" radius={[4,4,0,0]} maxBarSize={40} />
-        </BarChart>
-      </ResponsiveContainer>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+            <XAxis dataKey="age" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis
+              tickFormatter={v => `${v}%`}
+              tick={{ fill: '#94A3B8', fontSize: 10 }}
+              axisLine={false} tickLine={false} width={36}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+            <Bar dataKey="male"   name="Male"   fill="#3B82F6" radius={[4,4,0,0]} maxBarSize={40} />
+            <Bar dataKey="female" name="Female" fill="#EC4899" radius={[4,4,0,0]} maxBarSize={40} />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-40 rounded-xl border border-dashed border-slate-200 text-slate-500 text-sm">
+          No demographic data available.
+        </div>
+      )}
     </div>
   );
 }
