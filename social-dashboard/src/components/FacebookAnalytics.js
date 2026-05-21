@@ -420,7 +420,7 @@ export default function FacebookAnalytics() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-end flex-shrink-0">
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
               {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
                 <button key={value} onClick={() => setDatePreset(value)}
@@ -451,9 +451,9 @@ export default function FacebookAnalytics() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-slate-500 text-xs">
-          <span>{filteredPosts.length} posts in view</span>
-          <span>{dateLabel}</span>
+        <div className="mt-1 flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-slate-500 text-xs">
+          <span className="whitespace-nowrap">{filteredPosts.length} posts in view</span>
+          <span className="whitespace-nowrap">{dateLabel}</span>
         </div>
       </div>
 
