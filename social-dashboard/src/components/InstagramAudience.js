@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Users, Eye, TrendingUp, UserPlus, Heart, Share2, RefreshCw } from 'lucide-react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { Users, Eye, TrendingUp, UserPlus, Heart, Share2, RefreshCw, AlertCircle } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AgeBreakdown from './AgeBreakdown';
 import GeoBreakdown from './GeoBreakdown';
@@ -10,21 +10,75 @@ export default function InstagramAudience() {
   const followers = instagramAudience?.followers || {};
   const viewers   = instagramAudience?.viewers   || {};
 
+  const [liveData, setLiveData] = useState(null);
   const [datePreset, setDatePreset] = useState('30');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const followersAgeData = useMemo(() => ({ all: followers.age || [], instagram: followers.age || [] }), [followers]);
-  const viewersAgeData   = useMemo(() => ({ all: viewers.age || [], instagram: viewers.age || [] }), [viewers]);
-  const newFollowersAgeData = useMemo(() => ({ all: followers.newAge || [], instagram: followers.newAge || [] }), [followers]);
-  const newFollowersGeo   = useMemo(() => ({ cities: followers.newCities || followers.cities, countries: followers.newCountries || followers.countries }), [followers]);
-
-  function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    // Demo: no-op fetch; mimic brief loading
-    setTimeout(() => setLoading(false), 500);
-  }
+    setError(null);
+    try {
+      const res = await fetch('/api/instagram');
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errorBody.error || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      setLiveData(json);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const liveFollowers    = liveData?.account || {};
+  const liveInsights     = liveData?.insights || {};
+  const liveDemographics = liveData?.demographics || [];
+  const liveGeo          = liveData?.geo || {};
+
+  const followersAgeData = useMemo(() => {
+    const age = liveDemographics.length ? liveDemographics : followers.age || [];
+    return { all: age, instagram: age };
+  }, [liveDemographics, followers.age]);
+
+  const viewersAgeData = useMemo(() => {
+    const age = liveDemographics.length ? liveDemographics : viewers.age || [];
+    return { all: age, instagram: age };
+  }, [liveDemographics, viewers.age]);
+
+  const newFollowersAgeData = useMemo(() => {
+    const age = liveDemographics.length ? liveDemographics : followers.newAge || [];
+    return { all: age, instagram: age };
+  }, [liveDemographics, followers.newAge]);
+
+  const newFollowersGeo = useMemo(() => ({
+    cities: liveGeo.cities?.length ? liveGeo.cities : (followers.newCities || followers.cities),
+    countries: liveGeo.countries?.length ? liveGeo.countries : (followers.newCountries || followers.countries),
+  }), [liveGeo, followers.newCities, followers.cities, followers.newCountries]);
+
+  const followersGeo = useMemo(() => ({
+    cities: liveGeo.cities?.length ? liveGeo.cities : followers.cities,
+    countries: liveGeo.countries?.length ? liveGeo.countries : followers.countries,
+  }), [liveGeo, followers.cities, followers.countries]);
+
+  const viewersGeo = useMemo(() => ({
+    cities: liveGeo.cities?.length ? liveGeo.cities : viewers.cities,
+    countries: liveGeo.countries?.length ? liveGeo.countries : viewers.countries,
+  }), [liveGeo, viewers.cities, viewers.countries]);
+
+  const liveFollowersCount = liveFollowers.followersCount ?? followers.total;
+  const liveNewFollowersCount = liveInsights.newFollowers ?? followers.newFollowers;
+  const liveViewsCount = liveInsights.reach ?? viewers.total;
+  const liveProfileVisits = liveInsights.profileViews ?? followers.profileVisits;
+  const liveEngagement = liveInsights.interactions ?? platforms.instagram.engagement;
+  const liveShares = liveInsights.shares ?? platforms.instagram.avgShares;
+  const sourceLabel = liveData ? 'Live audience' : 'Demo audience';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -45,7 +99,7 @@ export default function InstagramAudience() {
       {/* Sticky control bar */}
       <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-white border-b border-slate-200 shadow-sm">
         <div className="py-2.5 flex items-center gap-3 flex-wrap">
-          <div className="flex-1 text-sm text-slate-500">Demo audience · {datePreset === 'custom' ? `${customStart || 'start'} → ${customEnd || 'end'}` : `${datePreset} days`}</div>
+          <div className="flex-1 text-sm text-slate-500">{sourceLabel} · {datePreset === 'custom' ? `${customStart || 'start'} → ${customEnd || 'end'}` : `${datePreset} days`}</div>
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
               {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
@@ -76,13 +130,32 @@ export default function InstagramAudience() {
         </div>
       </div>
 
+      {loading && !liveData && (
+        <div className="card border-slate-200 bg-slate-50 text-slate-600 flex items-center gap-3 px-4 py-4">
+          <RefreshCw size={18} className="animate-spin" />
+          <p className="text-sm">Loading live Instagram audience data…</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card border-orange-100 bg-orange-50 text-orange-700 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm">Instagram live data could not be loaded.</p>
+              <p className="text-xs text-orange-700 mt-1">{error}. Showing demo audience values.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <MetricCard label="New Followers" value={followers.newFollowers ? followers.newFollowers.toLocaleString() : '—'} subtext="Last 30 days" icon={<UserPlus size={18}/>} iconBg="bg-rose-100" iconColor="text-rose-600" />
-        <MetricCard label="Followers" value={(followers.total || platforms.instagram.followers).toLocaleString()} subtext="Account followers" icon={<Users size={18}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
-        <MetricCard label="Views" value={(viewers.total || Math.round(platforms.instagram.reach * 0.15)).toLocaleString()} subtext="Last 30 days" icon={<Eye size={18}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
-        <MetricCard label="Profile Visits" value={followers.profileVisits ? followers.profileVisits.toLocaleString() : '—'} subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <MetricCard label="Engagement" value={platforms.instagram.engagement.toLocaleString()} subtext="Last 30 days" icon={<Heart size={18}/>} iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
-        <MetricCard label="Shares" value={platforms.instagram.avgShares?.toLocaleString() || '—'} subtext="Avg per post" icon={<Share2 size={18}/>} iconBg="bg-orange-100" iconColor="text-orange-600" />
+        <MetricCard label="New Followers" value={liveNewFollowersCount != null ? liveNewFollowersCount.toLocaleString() : '—'} subtext="Last 30 days" icon={<UserPlus size={18}/>} iconBg="bg-rose-100" iconColor="text-rose-600" />
+        <MetricCard label="Followers" value={liveFollowersCount != null ? liveFollowersCount.toLocaleString() : platforms.instagram.followers.toLocaleString()} subtext="Account followers" icon={<Users size={18}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+        <MetricCard label="Views" value={liveViewsCount != null ? liveViewsCount.toLocaleString() : Math.round(platforms.instagram.reach * 0.15).toLocaleString()} subtext="Last 30 days" icon={<Eye size={18}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <MetricCard label="Profile Visits" value={liveProfileVisits != null ? liveProfileVisits.toLocaleString() : '—'} subtext="Last 30 days" icon={<TrendingUp size={18}/>} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+        <MetricCard label="Engagement" value={liveEngagement != null ? liveEngagement.toLocaleString() : platforms.instagram.engagement.toLocaleString()} subtext="Last 30 days" icon={<Heart size={18}/>} iconBg="bg-fuchsia-100" iconColor="text-fuchsia-600" />
+        <MetricCard label="Shares" value={liveShares != null ? liveShares.toLocaleString() : platforms.instagram.avgShares?.toLocaleString() || '—'} subtext="Avg per post" icon={<Share2 size={18}/>} iconBg="bg-orange-100" iconColor="text-orange-600" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -98,12 +171,12 @@ export default function InstagramAudience() {
           hideTabs
         />
         <GeoBreakdown
-          geoData={{ all: { cities: followers.cities, countries: followers.countries } }}
+          geoData={{ all: followersGeo }}
           title="Followers Geographic Reach"
           hideTabs
         />
         <GeoBreakdown
-          geoData={{ all: { cities: viewers.cities, countries: viewers.countries } }}
+          geoData={{ all: viewersGeo }}
           title="Viewers Geographic Reach"
           hideTabs
         />
