@@ -444,16 +444,15 @@ export default function FacebookAnalytics() {
               </div>
             )}
 
+            <div className="flex flex-wrap items-center gap-2 text-slate-500 text-xs whitespace-nowrap">
+              <span>{filteredPosts.length} posts in view</span>
+              <span>{dateLabel}</span>
+            </div>
             <button onClick={fetchData} disabled={loading}
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
           </div>
-        </div>
-
-        <div className="mt-1 flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-slate-500 text-xs">
-          <span className="whitespace-nowrap">{filteredPosts.length} posts in view</span>
-          <span className="whitespace-nowrap">{dateLabel}</span>
         </div>
       </div>
 
