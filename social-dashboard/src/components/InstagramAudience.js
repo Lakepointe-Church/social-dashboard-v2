@@ -42,43 +42,43 @@ export default function InstagramAudience() {
   const liveDemographics = liveData?.demographics || [];
   const liveGeo          = liveData?.geo || {};
 
-  const followersAgeData = useMemo(() => {
-    const age = liveDemographics.length ? liveDemographics : followers.age || [];
-    return { all: age, instagram: age };
-  }, [liveDemographics, followers.age]);
+  const followersAgeData = useMemo(() => ({
+    all: liveDemographics,
+    instagram: liveDemographics,
+  }), [liveDemographics]);
 
-  const viewersAgeData = useMemo(() => {
-    const age = liveDemographics.length ? liveDemographics : viewers.age || [];
-    return { all: age, instagram: age };
-  }, [liveDemographics, viewers.age]);
+  const viewersAgeData = useMemo(() => ({
+    all: liveDemographics,
+    instagram: liveDemographics,
+  }), [liveDemographics]);
 
-  const newFollowersAgeData = useMemo(() => {
-    const age = liveDemographics.length ? liveDemographics : followers.newAge || [];
-    return { all: age, instagram: age };
-  }, [liveDemographics, followers.newAge]);
+  const newFollowersAgeData = useMemo(() => ({
+    all: liveDemographics,
+    instagram: liveDemographics,
+  }), [liveDemographics]);
 
   const newFollowersGeo = useMemo(() => ({
-    cities: liveGeo.cities?.length ? liveGeo.cities : (followers.newCities || followers.cities),
-    countries: liveGeo.countries?.length ? liveGeo.countries : (followers.newCountries || followers.countries),
-  }), [liveGeo, followers.newCities, followers.cities, followers.newCountries]);
+    cities: liveGeo.cities || [],
+    countries: liveGeo.countries || [],
+  }), [liveGeo]);
 
   const followersGeo = useMemo(() => ({
-    cities: liveGeo.cities?.length ? liveGeo.cities : followers.cities,
-    countries: liveGeo.countries?.length ? liveGeo.countries : followers.countries,
-  }), [liveGeo, followers.cities, followers.countries]);
+    cities: liveGeo.cities || [],
+    countries: liveGeo.countries || [],
+  }), [liveGeo]);
 
   const viewersGeo = useMemo(() => ({
-    cities: liveGeo.cities?.length ? liveGeo.cities : viewers.cities,
-    countries: liveGeo.countries?.length ? liveGeo.countries : viewers.countries,
-  }), [liveGeo, viewers.cities, viewers.countries]);
+    cities: liveGeo.cities || [],
+    countries: liveGeo.countries || [],
+  }), [liveGeo]);
 
-  const liveFollowersCount = liveFollowers.followersCount ?? followers.total;
-  const liveNewFollowersCount = liveInsights.newFollowers ?? followers.newFollowers;
-  const liveViewsCount = liveInsights.reach ?? viewers.total;
-  const liveProfileVisits = liveInsights.profileViews ?? followers.profileVisits;
-  const liveEngagement = liveInsights.interactions ?? platforms.instagram.engagement;
-  const liveShares = liveInsights.shares ?? platforms.instagram.avgShares;
-  const sourceLabel = liveData ? 'Live audience' : 'Demo audience';
+  const liveFollowersCount = liveFollowers.followersCount ?? 0;
+  const liveNewFollowersCount = liveInsights.newFollowers ?? 0;
+  const liveViewsCount = liveInsights.reach ?? 0;
+  const liveProfileVisits = liveInsights.profileViews ?? 0;
+  const liveEngagement = liveInsights.interactions ?? 0;
+  const liveShares = liveInsights.shares ?? 0;
+  const sourceLabel = liveData ? 'Live audience' : (loading ? 'Fetching live audience' : 'No live data');
 
   return (
     <div className="space-y-6 animate-fade-in">
