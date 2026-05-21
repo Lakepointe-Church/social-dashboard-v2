@@ -230,7 +230,10 @@ export default async function handler(req, res) {
     ]);
     const geo = parseGeo(geoResults);
 
-    return res.status(200).json({
+    // If debug flag is present, include raw responses so we can inspect what Meta returned
+    const rawMode = req.query && (req.query.raw === '1' || req.query.raw === 'true');
+
+    const payload = {
       account: {
         name:           accountData.name,
         username:       accountData.username,
@@ -244,7 +247,16 @@ export default async function handler(req, res) {
       demographics,
       geo,
       fetchedAt: new Date().toISOString(),
-    });
+    };
+
+    if (rawMode) {
+      payload.raw = {
+        demographicsRaw: demoData,
+        geoRaw: geoResults,
+      };
+    }
+
+    return res.status(200).json(payload);
 
   } catch (err) {
     console.error('Instagram API error:', err);
