@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle, Share2 } from 'lucide-react';
 
 const FB_BLUE = '#1877F2';
 
@@ -112,16 +112,16 @@ function PostCard({ post, rank }) {
       {/* Breakdown */}
       <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.likeCount)}</div>
-          <div className="text-slate-400 text-[10px]">Likes</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.likeCount)}</div>
+          <div className="text-slate-400 text-slate-400 mt-1"><Heart size={12} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.commentCount)}</div>
-          <div className="text-slate-400 text-[10px]">Comments</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.commentCount)}</div>
+          <div className="text-slate-400 mt-1"><MessageCircle size={12} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.shareCount)}</div>
-          <div className="text-slate-400 text-[10px]">Shares</div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.shareCount)}</div>
+          <div className="text-slate-400 mt-1"><Share2 size={12} className="mx-auto" /></div>
         </div>
       </div>
     </a>
