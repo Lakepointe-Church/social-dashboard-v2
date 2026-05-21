@@ -90,6 +90,16 @@ social-dashboard/
   - `plays` and `clips_replays_count` are **deprecated in v22.0+** — do not add them back. Including either in a batch request breaks the whole request.
 - **Reel thumbnails:** Use `thumbnail_url` (cover image). `media_url` for reels is a `.mp4` video file and cannot be rendered in an `<img>` tag.
 - **Debug route:** `src/pages/api/instagram-debug.js` — temporary endpoint at `/api/instagram-debug` that tests each metric individually against the most recent reel. Useful for diagnosing future API changes. Can be removed once stable.
+- **Collab debug route:** `src/pages/api/instagram-collab-debug.js` — temporary endpoint at `/api/instagram-collab-debug` that diagnoses incoming collab fetching. Can be removed once resolved.
+
+### Incoming Collab Posts (Josh posts, invites LP as collaborator)
+- **Status:** Not yet working. Three approaches were investigated and all blocked.
+- **Approach 1 — Business Discovery by username:** `GET /{LP_ID}?fields=business_discovery.fields(id)&username=joshhowerton` → fails with `(#100) The parameter username is required` regardless of URL encoding strategy. Root cause unknown — may be a permissions gate or @joshhowerton not being a Business/Creator account.
+- **Approach 2 — LP's own `/media` with `collaborators` field:** Collab posts where LP accepted Josh's invite do NOT appear in `/{LP_ID}/media`. The Graph API `/media` endpoint only returns posts where the account is the primary (owner) author, not co-author collabs.
+- **Approach 3 — Josh's Facebook Page ID lookup:** `GET /379215606172427?fields=instagram_business_account` → fails with permission error requiring `Page Public Content Access` feature (gated behind Meta App Review).
+- **If Josh's IG account ID becomes available** (from his team directly): skip Business Discovery entirely and try `GET /{josh-ig-id}/media?fields=...,collaborators` — may work without Business Discovery since that was the lookup step, not necessarily the access gate.
+- **Workaround:** Ask Josh's team to consistently include `@lpconnect`, `@joshhowerton`, or `live free` in collab post captions — caption-based detection already picks those up.
+- **Real fix:** Meta App Review (unlocks Business Discovery + Page Public Content Access).
 
 ### `/api/youtube`
 - **Auth:** `YOUTUBE_API_KEY` (public API key — no OAuth yet)
@@ -138,6 +148,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 
 - [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access.
 - [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level)
+- [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — apply same changes as Instagram: 2×2 top posts grid (Views/Engagement/Shares/Saves), per-post insights table with Type+Date columns, sticky control bar with date range + content filters, numbered+sortable+paginated All Posts table
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
@@ -151,6 +162,17 @@ This is expected. The app needs to be submitted for App Review and published bef
 - **Jolie Roberson** — Digital Platform Specialist, Lakepointe Church. Primary developer/owner of this repo.
 - **Paul** — Stakeholder providing feedback on dashboard design and metrics.
 - **Plafata** — Original creator of the repo (boss). Repo was duplicated from their personal account to the church org.
+
+---
+
+## Agent Workflow
+
+For multi-step feature work, use this pattern at the start of a session:
+1. **Explore agent** — search the codebase to locate relevant files before touching anything. Useful for "where is X implemented?" or "what files reference Y?"
+2. **Plan agent** — design the implementation strategy. Use before writing code on anything non-trivial (new sections, API changes, layout redesigns).
+3. **Run skill** — defined in `.claude/skills/run/SKILL.md`. Launches `npm run dev` on `localhost:3000` so Claude can test UI changes in a browser without the user manually running the server.
+
+Suggested invocation: start a session by asking Claude to use an Explore agent to survey relevant files, then a Plan agent to draft the approach, then implement, then run to verify.
 
 ---
 
