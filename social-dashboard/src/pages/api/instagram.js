@@ -128,6 +128,96 @@ export default async function handler(req, res) {
       })
     );
 
+    // ── 4b. Incoming collabs — Josh posts, Lakepointe invited as collaborator ──
+    const incomingCollabMedia = [];
+    try {
+      // Find Josh's IG account via Business Discovery
+      const discRes  = await fetch(
+        `${base}/${IG_ID}?fields=business_discovery.fields(id,username)&username=joshhowerton&access_token=${token}`
+      );
+      const discData = await discRes.json();
+      const joshId   = discData.business_discovery?.id;
+
+      if (joshId) {
+        const joshMediaRes = await fetch(
+          `${base}/${joshId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}`
+        );
+        const joshMediaData = await joshMediaRes.json();
+
+        if (!joshMediaData.error) {
+          const collabPosts = (joshMediaData.data || []).filter(m =>
+            (m.collaborators?.data || []).some(c => c.id === IG_ID)
+          );
+
+          const processed = await Promise.all(
+            collabPosts.map(async m => {
+              const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
+              const metricList = isReel
+                ? 'views,saved,total_interactions,shares,ig_reels_avg_watch_time'
+                : 'reach,saved,total_interactions,shares';
+
+              let mi = {};
+              try {
+                const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}`);
+                const miData = await miRes.json();
+                if (miData.error) {
+                  console.error(`[IG collab insights] ${m.id}: ${miData.error.message}`);
+                } else if (miData.data) {
+                  miData.data.forEach(i => { mi[i.name] = i.values?.[0]?.value ?? i.value ?? 0; });
+                }
+              } catch (e) {
+                console.error(`[IG collab insights] fetch failed for ${m.id}:`, e.message);
+              }
+
+              const reach    = isReel ? (mi.views || 0) : (mi.reach || 0);
+              const likes    = m.like_count || 0;
+              const comments = m.comments_count || 0;
+              const saves    = mi.saved || 0;
+              const shares   = mi.shares || 0;
+              const engaged  = mi.total_interactions || (likes + comments);
+              const engRate  = reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0;
+
+              return {
+                id:             m.id,
+                caption:        m.caption || '',
+                mediaType:      m.media_type,
+                mediaUrl:       isReel ? (m.thumbnail_url || null) : (m.media_url || m.thumbnail_url || null),
+                permalink:      m.permalink,
+                timestamp:      m.timestamp,
+                likeCount:      likes,
+                commentsCount:  comments,
+                reach,
+                saved:          saves,
+                shares,
+                avgWatchTime:   mi.ig_reels_avg_watch_time || 0,
+                engagement:     engaged,
+                engagementRate: engRate,
+                likeRate:    reach > 0 ? parseFloat((likes    / reach * 100).toFixed(2)) : 0,
+                saveRate:    reach > 0 ? parseFloat((saves    / reach * 100).toFixed(2)) : 0,
+                shareRate:   reach > 0 ? parseFloat((shares   / reach * 100).toFixed(2)) : 0,
+                commentRate: reach > 0 ? parseFloat((comments / reach * 100).toFixed(2)) : 0,
+                contentType: 'collab',
+              };
+            })
+          );
+          incomingCollabMedia.push(...processed);
+        } else {
+          console.error('[IG incoming collabs] Josh media error:', joshMediaData.error?.message);
+        }
+      } else {
+        console.error('[IG incoming collabs] Business Discovery returned no id:', JSON.stringify(discData));
+      }
+    } catch (e) {
+      console.error('[IG incoming collabs] unexpected error:', e.message);
+    }
+
+    // Merge Lakepointe's own media + incoming collabs, deduplicating by post ID
+    const existingIds = new Set(mediaWithInsights.map(m => m.id));
+    const allMedia    = [
+      ...mediaWithInsights,
+      ...incomingCollabMedia.filter(m => !existingIds.has(m.id)),
+    ];
+
     // ── 5. Demographics ───────────────────────────────────────────────────────
     const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&access_token=${token}`);
     const demoData = await demoRes.json();
@@ -150,7 +240,7 @@ export default async function handler(req, res) {
         profilePicture: accountData.profile_picture_url || null,
       },
       insights: { ...insights, newFollowers },
-      media:    mediaWithInsights,
+      media:    allMedia,
       demographics,
       geo,
       fetchedAt: new Date().toISOString(),
