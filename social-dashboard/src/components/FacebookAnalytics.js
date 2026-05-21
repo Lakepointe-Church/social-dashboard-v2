@@ -3,7 +3,7 @@
 // Multi-select content type filters — all toggleable including streams
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe } from 'lucide-react';
 
 const FB_BLUE = '#1877F2';
@@ -269,6 +269,7 @@ export default function FacebookAnalytics() {
   const [datePreset,    setDatePreset]    = useState('30');
   const [customStart,   setCustomStart]   = useState('');
   const [customEnd,     setCustomEnd]     = useState('');
+  const [tableLimit,    setTableLimit]    = useState(20);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -288,6 +289,7 @@ export default function FacebookAnalytics() {
     setActiveFilters(prev =>
       prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
     );
+    setTableLimit(20);
   }
 
   if (loading && !data) return (
@@ -345,13 +347,9 @@ export default function FacebookAnalytics() {
       if (rangeEnd && posted > rangeEnd) return false;
       return true;
     });
-  const topPosts        = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
-  const postsChartData  = topPosts.map(p => ({
-    name:     truncate(p.message, 32) || contentTypeLabel(p.type),
-    Likes:    p.likeCount    || 0,
-    Comments: p.commentCount || 0,
-    Shares:   p.shareCount   || 0,
-  }));
+  const sortedFilteredPosts = [...filteredPosts].sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+  const visiblePosts        = sortedFilteredPosts.slice(0, tableLimit);
+
 
   // ── Counts per type ───────────────────────────────────────────────────────
   const counts = { photo: 0, video: 0, other: 0, stream: 0 };
@@ -423,12 +421,12 @@ export default function FacebookAnalytics() {
           <div className="flex flex-wrap items-center gap-2 justify-end flex-shrink-0">
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
               {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
-                <button key={value} onClick={() => setDatePreset(value)}
+                <button key={value} onClick={() => { setDatePreset(value); setTableLimit(20); }}
                   className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === value ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
                   {label}
                 </button>
               ))}
-              <button onClick={() => setDatePreset('custom')}
+              <button onClick={() => { setDatePreset('custom'); setTableLimit(20); }}
                 className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${datePreset === 'custom' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
                 Custom
               </button>
@@ -436,10 +434,10 @@ export default function FacebookAnalytics() {
 
             {datePreset === 'custom' && (
               <div className="flex items-center gap-1.5">
-                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                <input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setTableLimit(20); }}
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-blue-300" />
                 <span className="text-slate-400 text-xs">–</span>
-                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                <input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setTableLimit(20); }}
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-blue-300" />
               </div>
             )}
@@ -497,43 +495,6 @@ export default function FacebookAnalytics() {
           </div>
           <p className="text-slate-500 text-sm">Breakdown of how likes, comments, and shares contribute to engagement</p>
           <RateInsightsTable posts={filteredPosts} />
-        </div>
-      )}
-
-      {/* ── Charts ────────────────────────────────────────────────────────── */}
-      {filteredPosts.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Likes</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts by total engagement</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-                <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Likes" radius={[0, 4, 4, 0]}>
-                  {postsChartData.map((_, i) => (
-                    <Cell key={i} fill={i === postsChartData.length - 1 ? FB_BLUE : '#93c5fd'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="card">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Top Posts — Comments &amp; Shares</h3>
-            <p className="text-slate-500 text-sm mb-4">Top {topPosts.length} posts</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={postsChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-                <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Comments" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="Shares"   fill="#a78bfa" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
       )}
 
@@ -616,8 +577,8 @@ export default function FacebookAnalytics() {
       {filteredPosts.length > 0 && (
         <div className="card p-0 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 text-base">Posts</h3>
-            <p className="text-slate-500 text-sm">{filteredPosts.length} posts · filtered view · Live from Facebook</p>
+            <h3 className="font-bold text-slate-900 text-base">All Posts</h3>
+            <p className="text-slate-500 text-sm">Showing {visiblePosts.length} of {filteredPosts.length} posts · filtered view · Live from Facebook</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -633,7 +594,7 @@ export default function FacebookAnalytics() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredPosts.map(p => (
+                {visiblePosts.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-3 max-w-xs">
                       <a
@@ -657,6 +618,14 @@ export default function FacebookAnalytics() {
               </tbody>
             </table>
           </div>
+          {tableLimit < sortedFilteredPosts.length && (
+            <div className="px-6 py-4 border-t border-slate-100 text-center">
+              <button onClick={() => setTableLimit(prev => prev + 20)}
+                className="text-sm font-semibold text-blue-600 border border-blue-200 rounded-lg px-5 py-2 hover:bg-blue-50 transition-all">
+                Load 20 more · {sortedFilteredPosts.length - tableLimit} remaining
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
