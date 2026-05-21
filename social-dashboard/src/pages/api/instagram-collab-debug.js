@@ -7,87 +7,35 @@ export default async function handler(req, res) {
   const base = `https://graph.facebook.com/v21.0`;
   const out  = { IG_ID, steps: {} };
 
-  // Step 1a: Business Discovery — fields without 'username' sub-field (avoid param conflict)
-  try {
-    const url = `${base}/${IG_ID}?fields=business_discovery.fields(id,name)&username=joshhowerton&access_token=${token}`;
-    const r = await fetch(url);
-    out.steps.discoveryA_noUsernamefield = await r.json();
-  } catch (e) {
-    out.steps.discoveryA_noUsernamefield = { fetchError: e.message };
-  }
-
-  // Step 1b: Business Discovery — URL-encode the fields value so parens don't confuse parsers
-  try {
-    const fields = encodeURIComponent('business_discovery.fields(id,name)');
-    const url = `${base}/${IG_ID}?fields=${fields}&username=joshhowerton&access_token=${token}`;
-    const r = await fetch(url);
-    out.steps.discoveryB_encodedFields = await r.json();
-  } catch (e) {
-    out.steps.discoveryB_encodedFields = { fetchError: e.message };
-  }
-
-  // Step 1c: Business Discovery — use URLSearchParams for safe encoding of all params
-  try {
-    const params = new URLSearchParams({
-      fields: 'business_discovery.fields(id,name)',
-      username: 'joshhowerton',
-      access_token: token,
-    });
-    const url = `${base}/${IG_ID}?${params.toString()}`;
-    const r = await fetch(url);
-    out.steps.discoveryC_urlSearchParams = await r.json();
-  } catch (e) {
-    out.steps.discoveryC_urlSearchParams = { fetchError: e.message };
-  }
-
-  // Find the first successful joshId across the three attempts
-  const joshId =
-    out.steps.discoveryA_noUsernamefield?.business_discovery?.id ||
-    out.steps.discoveryB_encodedFields?.business_discovery?.id ||
-    out.steps.discoveryC_urlSearchParams?.business_discovery?.id;
-
-  if (!joshId) {
-    return res.json({
-      ...out,
-      note: 'All Business Discovery attempts failed — cannot proceed to media fetch. Check if @joshhowerton is a Business/Creator account.',
-    });
-  }
-
-  out.joshId = joshId;
-
-  // Step 2: Fetch Josh's recent media WITH collaborators field
+  // Fetch Lakepointe's own media WITH the collaborators field.
+  // Collab posts accepted by Lakepointe appear on their own profile grid,
+  // so they should already be in /media — we just need to surface the collaborators field.
   try {
     const r = await fetch(
-      `${base}/${joshId}/media?fields=id,caption,media_type,permalink,timestamp,collaborators&limit=10&access_token=${token}`
+      `${base}/${IG_ID}/media?fields=id,caption,media_type,permalink,timestamp,collaborators&limit=50&access_token=${token}`
     );
-    out.steps.joshMedia = await r.json();
+    const data = await r.json();
+    out.steps.lpMedia = {
+      error: data.error || null,
+      totalCount: data.data?.length || 0,
+      postsWithCollaborators: (data.data || [])
+        .filter(m => m.collaborators?.data?.length > 0)
+        .map(m => ({
+          id:            m.id,
+          media_type:    m.media_type,
+          timestamp:     m.timestamp,
+          permalink:     m.permalink,
+          collaborators: m.collaborators?.data,
+          captionSnippet: (m.caption || '').slice(0, 100),
+        })),
+      // Also show a sample of posts with NO collaborators field to confirm field is being returned
+      sampleNoCollab: (data.data || [])
+        .filter(m => !m.collaborators?.data?.length)
+        .slice(0, 3)
+        .map(m => ({ id: m.id, media_type: m.media_type, collaborators: m.collaborators })),
+    };
   } catch (e) {
-    out.steps.joshMedia = { fetchError: e.message };
-  }
-
-  // Step 3: Check which posts have Lakepointe as collaborator
-  const posts = out.steps.joshMedia?.data || [];
-  out.steps.collabMatches = posts
-    .map(m => ({
-      id:          m.id,
-      media_type:  m.media_type,
-      timestamp:   m.timestamp,
-      collaborators: m.collaborators,
-      lpconnectIsCollaborator: (m.collaborators?.data || []).some(c => c.id === IG_ID),
-    }));
-
-  // Step 4: For any matches, try fetching insights with Lakepointe's token
-  const matches = out.steps.collabMatches.filter(m => m.lpconnectIsCollaborator);
-  out.steps.insightAttempts = {};
-  for (const m of matches.slice(0, 3)) {
-    try {
-      const r = await fetch(
-        `${base}/${m.id}/insights?metric=views,reach,saved,total_interactions,shares&access_token=${token}`
-      );
-      out.steps.insightAttempts[m.id] = await r.json();
-    } catch (e) {
-      out.steps.insightAttempts[m.id] = { fetchError: e.message };
-    }
+    out.steps.lpMedia = { fetchError: e.message };
   }
 
   return res.json(out);
