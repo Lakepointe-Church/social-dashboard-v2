@@ -23,8 +23,8 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
-export default function GeoBreakdown({ geoData, activeTab }) {
-  const [geoTab, setGeoTab] = useState('all');
+export default function GeoBreakdown({ geoData, activeTab, title = 'Geographic Reach', hideTabs = false }) {
+  const [geoTab, setGeoTab] = useState(activeTab || 'all');
   const [view,   setView]   = useState('cities'); // cities | countries
 
   const isTikTok = geoTab === 'tiktok';
@@ -35,7 +35,7 @@ export default function GeoBreakdown({ geoData, activeTab }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <MapPin size={18} className="text-blue-500" />
-          <h2 className="font-bold text-slate-900 text-lg">Geographic Reach</h2>
+          <h2 className="font-bold text-slate-900 text-lg">{title}</h2>
         </div>
         {/* Cities / Countries toggle */}
         {!isTikTok && (
@@ -55,23 +55,24 @@ export default function GeoBreakdown({ geoData, activeTab }) {
         )}
       </div>
 
-      {/* Platform filter tabs */}
-      <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-4 overflow-x-auto">
-        {PLATFORM_TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setGeoTab(tab.id)}
-            className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              geoTab === tab.id
-                ? 'bg-white shadow-sm text-slate-900'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.id !== 'all' && <PlatformIcon platform={tab.id} size={14} />}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {!hideTabs && (
+        <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-4 overflow-x-auto">
+          {PLATFORM_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setGeoTab(tab.id)}
+              className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                geoTab === tab.id
+                  ? 'bg-white shadow-sm text-slate-900'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.id !== 'all' && <PlatformIcon platform={tab.id} size={14} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isTikTok ? (
         <div className="flex flex-col items-center justify-center h-40 text-center">

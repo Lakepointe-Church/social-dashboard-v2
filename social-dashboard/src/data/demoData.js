@@ -302,6 +302,22 @@ export const ageData = {
   ],
 };
 
+// ── Instagram audience demo (followers + viewers) ───────────────────────────
+export const instagramAudience = {
+  followers: {
+    total: platforms.instagram.followers,
+    age: ageData.instagram,
+    cities: geoData.instagram.cities,
+    countries: geoData.instagram.countries,
+  },
+  viewers: {
+    total: Math.round(platforms.instagram.reach * 0.15),
+    age: ageData.instagram,
+    cities: geoData.instagram.cities,
+    countries: geoData.instagram.countries,
+  },
+};
+
 // ── Milestones ────────────────────────────────────────────────────────────────
 export const milestones = [
   { platform:'youtube',   label:'100K Subscribers',  current:89234, target:100000, color:'#FF0000', daysAway:10,  emoji:'🎯' },
