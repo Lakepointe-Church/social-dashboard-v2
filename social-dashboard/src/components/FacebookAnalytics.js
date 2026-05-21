@@ -59,6 +59,195 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   );
 }
 
+// ── Post card ─────────────────────────────────────────────────────────────────
+function PostCard({ post, rank }) {
+  const [imgError, setImgError] = useState(false);
+  const rankColors = ['#1877F2', '#3b82f6', '#0ea5e9', '#06b6d4'];
+  const engaged = post.likeCount + post.commentCount + post.shareCount;
+  
+  return (
+    <a href={getFbPostUrl(post.id)} target="_blank" rel="noopener noreferrer"
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+      {/* Image */}
+      <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
+        {post.thumbnail && !imgError ? (
+          <img
+            src={post.thumbnail}
+            alt={truncate(post.message, 40)}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+            crossOrigin="anonymous"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #e0f2fe, #f0f4ff)' }}>
+            <span className="text-4xl">{contentTypeLabel(post.type).split(' ')[0]}</span>
+            <span className="text-xs text-slate-400 px-4 text-center line-clamp-2">{truncate(post.message, 60) || '(No caption)'}</span>
+          </div>
+        )}
+        {/* Rank badge */}
+        <div className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md"
+          style={{ background: rankColors[rank] || '#64748b' }}>
+          {rank + 1}
+        </div>
+        {/* Type badge */}
+        <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+          {contentTypeLabel(post.type)}
+        </div>
+      </div>
+      {/* Caption + date */}
+      <div className="px-3 pt-2.5 pb-1">
+        <p className="text-slate-700 text-xs leading-snug line-clamp-2 min-h-[32px]">
+          {truncate(post.message, 80) || '(No caption)'}
+        </p>
+        <p className="text-slate-400 text-[10px] mt-1 font-mono">{fmtDate(post.createdTime)}</p>
+      </div>
+      {/* Engagement metric */}
+      <div className="px-3 pb-3 pt-1">
+        <div className="text-lg font-bold tabular-nums" style={{ color: rankColors[rank] || '#64748b' }}>
+          {fmtBig(engaged)}
+        </div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">ENGAGED</div>
+      </div>
+      {/* Breakdown */}
+      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.likeCount)}</div>
+          <div className="text-slate-400 text-[10px]">Likes</div>
+        </div>
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.commentCount)}</div>
+          <div className="text-slate-400 text-[10px]">Comments</div>
+        </div>
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-xs tabular-nums">{fmtBig(post.shareCount)}</div>
+          <div className="text-slate-400 text-[10px]">Shares</div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+// ── Top 4 section ─────────────────────────────────────────────────────────────
+function Top4Section({ title, posts, metric, metricLabel }) {
+  const sorted = [...posts].sort((a, b) => {
+    const aVal = a[metric] || 0;
+    const bVal = b[metric] || 0;
+    return bVal - aVal;
+  }).slice(0, 4);
+  if (sorted.length === 0) return null;
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
+        <span className="text-xs text-slate-400">Top 4</span>
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {sorted.map((post, i) => (
+          <PostCard key={post.id} post={post} rank={i} />
+        ))}
+        {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
+          <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '3/4' }}>
+            No post
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Rate bar ───────────────────────────────────────────────────────────────────
+function RateBar({ value, color, maxValue }) {
+  const pct = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs font-bold font-mono" style={{ color }}>{value.toFixed(1)}%</span>
+      <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Per-post engagement rate row ──────────────────────────────────────────────
+function RateInsightsRow({ p, i, maxLike, maxComment, maxShare }) {
+  const [imgError, setImgError] = useState(false);
+  
+  return (
+    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+      <td className="px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
+          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
+            {p.thumbnail && !imgError ? (
+              <img src={p.thumbnail} alt="" className="w-full h-full object-cover"
+                onError={() => setImgError(true)} crossOrigin="anonymous" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-lg"
+                style={{ background: 'linear-gradient(135deg,#e0f2fe,#f0f4ff)' }}>
+                {contentTypeLabel(p.type).split(' ')[0]}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <a href={getFbPostUrl(p.id)} target="_blank" rel="noopener noreferrer"
+              className="text-slate-700 font-medium hover:text-blue-600 transition-colors line-clamp-1 block">
+              {truncate(p.message, 55) || '(No caption)'}
+            </a>
+          </div>
+        </div>
+      </td>
+      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{contentTypeLabel(p.type)}</td>
+      <td className="px-3 py-2.5 text-slate-500 font-mono whitespace-nowrap">{fmtDate(p.createdTime)}</td>
+      <td className="px-3 py-2.5 text-center">
+        <span className="font-bold text-slate-800 tabular-nums text-sm">{fmtBig(p.engaged)}</span>
+      </td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.likeRate}    color={FB_BLUE}   maxValue={maxLike}   /></td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.commentRate} color="#6366f1" maxValue={maxComment} /></td>
+      <td className="px-3 py-2.5 text-center"><RateBar value={p.shareRate}   color="#f59e0b"   maxValue={maxShare}   /></td>
+    </tr>
+  );
+}
+
+function RateInsightsTable({ posts }) {
+  const top10 = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, 10);
+  if (top10.length === 0) return null;
+
+  const maxLike    = Math.max(...top10.map(p => p.likeRate),    0.01);
+  const maxComment = Math.max(...top10.map(p => p.commentRate), 0.01);
+  const maxShare   = Math.max(...top10.map(p => p.shareRate),   0.01);
+
+  return (
+    <div className="overflow-x-auto mt-4">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50">
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide min-w-[200px]">Post</th>
+            <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Type</th>
+            <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Date</th>
+            <th className="text-center px-3 py-2.5 font-semibold text-slate-700 uppercase tracking-wide whitespace-nowrap">Engaged</th>
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: FB_BLUE }}>❤️ Like %</th>
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#6366f1' }}>💬 Comment %</th>
+            <th className="text-center px-3 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: '#f59e0b' }}>🔗 Share %</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {top10.map((p, i) => (
+            <RateInsightsRow
+              key={p.id}
+              p={p}
+              i={i}
+              maxLike={maxLike}
+              maxComment={maxComment}
+              maxShare={maxShare}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -124,8 +313,17 @@ export default function FacebookAnalytics() {
 
   const { page, insights, posts = [], demographics = [], geo, fetchedAt } = data || {};
 
+  // ── Add rate metrics to posts ──────────────────────────────────────────────
+  const postsWithRates = posts.map(p => {
+    const totalEngagement = p.likeCount + p.commentCount + p.shareCount;
+    const likeRate    = totalEngagement > 0 ? parseFloat((p.likeCount / totalEngagement * 100).toFixed(2)) : 0;
+    const commentRate = totalEngagement > 0 ? parseFloat((p.commentCount / totalEngagement * 100).toFixed(2)) : 0;
+    const shareRate   = totalEngagement > 0 ? parseFloat((p.shareCount / totalEngagement * 100).toFixed(2)) : 0;
+    return { ...p, likeRate, commentRate, shareRate };
+  });
+
   // ── Filtering ─────────────────────────────────────────────────────────────
-  const filteredPosts   = posts.filter(p => activeFilters.includes(p.contentType));
+  const filteredPosts   = postsWithRates.filter(p => activeFilters.includes(p.contentType));
   const topPosts        = [...filteredPosts].sort((a, b) => b.engaged - a.engaged).slice(0, 8).reverse();
   const postsChartData  = topPosts.map(p => ({
     name:     truncate(p.message, 32) || contentTypeLabel(p.type),
@@ -230,6 +428,29 @@ export default function FacebookAnalytics() {
           >
             Reset to default
           </button>
+        </div>
+      )}
+
+      {/* ── Top posts 2×2 grid ───────────────────────────────────────────────── */}
+      {filteredPosts.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Top4Section title="🏆 Top Posts by Likes"      posts={filteredPosts} metric="likeCount"    metricLabel="Likes"   />
+          <Top4Section title="💬 Top Posts by Comments"  posts={filteredPosts} metric="commentCount" metricLabel="Comments" />
+          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredPosts} metric="shareCount"   metricLabel="Shares"  />
+          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredPosts} metric="engaged"      metricLabel="Engaged" />
+        </div>
+      )}
+
+      {/* ── Per-post engagement rates ─────────────────────────────────────── */}
+      {filteredPosts.length > 0 && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">📊</span>
+            <h3 className="font-bold text-slate-900 text-base">Engagement Rates — Per Post</h3>
+            <span className="text-xs text-slate-400 font-mono">Top 10 by engagement</span>
+          </div>
+          <p className="text-slate-500 text-sm">Breakdown of how likes, comments, and shares contribute to engagement</p>
+          <RateInsightsTable posts={filteredPosts} />
         </div>
       )}
 
