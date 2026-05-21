@@ -293,7 +293,15 @@ function parseDemographics(data) {
     const g = gender === 'M' ? 'male' : gender === 'F' ? 'female' : 'unknown';
     ageGroups[age][g] = (ageGroups[age][g] || 0) + value;
   });
-  return Object.values(ageGroups).sort((a, b) => a.age.localeCompare(b.age));
+  const total = Object.values(ageGroups).reduce((sum, group) => sum + group.male + group.female + group.unknown, 0);
+  return Object.values(ageGroups)
+    .sort((a, b) => a.age.localeCompare(b.age))
+    .map(group => ({
+      age: group.age,
+      male: total > 0 ? parseFloat(((group.male / total) * 100).toFixed(1)) : 0,
+      female: total > 0 ? parseFloat(((group.female / total) * 100).toFixed(1)) : 0,
+      unknown: total > 0 ? parseFloat(((group.unknown / total) * 100).toFixed(1)) : 0,
+    }));
 }
 
 function parseGeo(geoResults) {
@@ -304,9 +312,10 @@ function parseGeo(geoResults) {
     const results = metric.total_value?.breakdowns?.[0]?.results || [];
     const total   = results.reduce((s, r) => s + r.value, 0);
     return results.sort((a, b) => b.value - a.value).slice(0, limit).map(r => ({
-      name:  r.dimension_values?.[0] || 'Unknown',
-      value: r.value,
-      pct:   total > 0 ? parseFloat((r.value / total * 100).toFixed(1)) : 0,
+      name:      r.dimension_values?.[0] || 'Unknown',
+      followers: r.value,
+      value:     total > 0 ? parseFloat((r.value / total * 100).toFixed(1)) : 0,
+      pct:       total > 0 ? parseFloat((r.value / total * 100).toFixed(1)) : 0,
     }));
   };
   return {

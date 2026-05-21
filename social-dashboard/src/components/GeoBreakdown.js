@@ -15,10 +15,11 @@ const PLATFORM_TABS = [
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
+  const payloadValue = payload[0]?.payload?.value ?? payload[0]?.value;
   return (
     <div className="bg-slate-900 rounded-xl px-3 py-2 shadow-xl text-xs">
       <div className="text-white font-semibold">{payload[0].name}</div>
-      <div className="text-slate-300">{payload[0].value}% of audience</div>
+      <div className="text-slate-300">{payloadValue}% of audience</div>
     </div>
   );
 };
