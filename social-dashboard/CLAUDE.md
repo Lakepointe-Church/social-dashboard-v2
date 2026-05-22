@@ -57,26 +57,28 @@ social-dashboard/
 
 ## Environment Variables (Vercel)
 
-| Key | Description |
-|-----|-------------|
+| Key                      | Description                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------- |
 | `META_PAGE_ACCESS_TOKEN` | Long-lived Facebook Page token (expires ~60 days, must be refreshed manually) |
-| `META_PAGE_ID` | `142188242493004` — Lakepointe Church Facebook Page |
-| `META_INSTAGRAM_ID` | `17841400949863101` — @lpconnect Instagram Business account |
-| `META_APP_SECRET` | Lakepointe Social Dashboard app secret |
-| `YOUTUBE_API_KEY` | YouTube Data API v3 key (Google Cloud) |
-| `ANTHROPIC_API_KEY` | Powers the AI Analyst chat panel |
+| `META_PAGE_ID`           | `142188242493004` — Lakepointe Church Facebook Page                           |
+| `META_INSTAGRAM_ID`      | `17841400949863101` — @lpconnect Instagram Business account                   |
+| `META_APP_SECRET`        | Lakepointe Social Dashboard app secret                                        |
+| `YOUTUBE_API_KEY`        | YouTube Data API v3 key (Google Cloud)                                        |
+| `ANTHROPIC_API_KEY`      | Powers the AI Analyst chat panel                                              |
 
 ---
 
 ## API Routes
 
 ### `/api/facebook`
+
 - **Auth:** `META_PAGE_ACCESS_TOKEN` (Page token)
 - **Data:** Page followers, 30-day insights (reach, impressions, engaged users, page views), recent posts with likes/comments/shares, fan demographics, fan cities/countries
 - **Content classification:** `stream` (service streams), `photo`, `video`, `other`
 - **Date range:** Accepts `?since=UNIX&until=UNIX`
 
 ### `/api/instagram`
+
 - **Auth:** `META_PAGE_ACCESS_TOKEN` (same token works for linked Instagram Business account)
 - **Instagram ID:** `META_INSTAGRAM_ID`
 - **Data:** Account summary, 30-day insights, new followers, 50 recent media with per-post insights, demographics, geo
@@ -93,6 +95,7 @@ social-dashboard/
 - **Collab debug route:** `src/pages/api/instagram-collab-debug.js` — temporary endpoint at `/api/instagram-collab-debug` that diagnoses incoming collab fetching. Can be removed once resolved.
 
 ### Incoming Collab Posts (Josh posts, invites LP as collaborator)
+
 - **Status:** Not yet working. Three approaches were investigated and all blocked.
 - **Approach 1 — Business Discovery by username:** `GET /{LP_ID}?fields=business_discovery.fields(id)&username=joshhowerton` → fails with `(#100) The parameter username is required` regardless of URL encoding strategy. Root cause unknown — may be a permissions gate or @joshhowerton not being a Business/Creator account.
 - **Approach 2 — LP's own `/media` with `collaborators` field:** Collab posts where LP accepted Josh's invite do NOT appear in `/{LP_ID}/media`. The Graph API `/media` endpoint only returns posts where the account is the primary (owner) author, not co-author collabs.
@@ -102,6 +105,7 @@ social-dashboard/
 - **Real fix:** Meta App Review (unlocks Business Discovery + Page Public Content Access).
 
 ### `/api/youtube`
+
 - **Auth:** `YOUTUBE_API_KEY` (public API key — no OAuth yet)
 - **Channel:** `UC5f7yO3WU_Ns0WDCQuP5bAw` (Lakepointe Church)
 - **Data:** Channel stats, paginated video list (50 per page) with per-video stats
@@ -125,14 +129,18 @@ social-dashboard/
 ## Key Design Decisions
 
 ### Token Management
+
 - Facebook/Instagram uses a **long-lived Page Access Token** stored in Vercel env vars. Expires every ~60 days. Manually refresh via: Meta Graph API Explorer → generate token → `142188242493004?fields=name,fan_count,access_token` → Access Token Debugger → Extend Access Token → update `META_PAGE_ACCESS_TOKEN` in Vercel → Redeploy.
 - YouTube uses a simple **API key** (no OAuth). Advanced analytics (watch time, CTR) will require OAuth when Lakepointe YouTube account access is obtained.
 
 ### Content Filters (Instagram & Facebook)
+
 Both live tabs use multi-select filter chips. Deselecting all shows an empty state with a reset button. Filters are client-side only — all posts are fetched then filtered in the browser.
 
 ### Meta API Limitations (Development Mode)
+
 Several metrics return 0 until the app completes Meta App Review:
+
 - `page_engaged_users`, `page_video_views` (Facebook)
 - `profile_visits`, `total_interactions`, `shares` (Instagram account-level)
 - Per-reel metrics may also be gated
@@ -140,6 +148,7 @@ Several metrics return 0 until the app completes Meta App Review:
 This is expected. The app needs to be submitted for App Review and published before these unlock.
 
 ### Demo Data
+
 `demoData.js` contains 365 days of seeded fake data for Facebook, Instagram, YouTube, TikTok. The `getDataContext()` function exports a text summary used by the AI Analyst. Eventually the demo tabs and this file will be replaced with real data.
 
 ---
@@ -168,6 +177,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 ## Agent Workflow
 
 For multi-step feature work, use this pattern at the start of a session:
+
 1. **Explore agent** — search the codebase to locate relevant files before touching anything. Useful for "where is X implemented?" or "what files reference Y?"
 2. **Plan agent** — design the implementation strategy. Use before writing code on anything non-trivial (new sections, API changes, layout redesigns).
 3. **Run skill** — defined in `.claude/skills/run/SKILL.md`. Launches `npm run dev` on `localhost:3000` so Claude can test UI changes in a browser without the user manually running the server.
@@ -187,6 +197,7 @@ git push origin main
 ```
 
 If Vercel doesn't auto-deploy or you need to force it:
+
 - Go to vercel.com/plafatas-projects/social-dashboard-v2
 - Deployments → find latest commit → promote to production
 
