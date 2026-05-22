@@ -203,3 +203,43 @@ If Vercel doesn't auto-deploy or you need to force it:
 7. Go to Tools → Access Token Debugger → paste token → Debug → **Extend Access Token**
 8. Copy the new long-lived token
 9. Go to Vercel → social-dashboard-v2 → Environment Variables → edit `META_PAGE_ACCESS_TOKEN` → paste → Save → Redeploy
+
+---
+
+## Recent Changes (May 2026)
+
+Documenting UI tweaks and behavior changes made May 21–22, 2026.
+
+- Commits:
+  - `5a5f3f3` — Add numbered sortable All Posts table for Facebook Analytics (defaults to newest first)
+  - `9e45382` — Replace text labels with icons in Facebook Top Posts cards; tighten font size
+  - `4d02eb7` — Apply same Top Posts icon + sizing changes to Instagram
+
+- Files changed:
+  - [src/components/FacebookAnalytics.js](src/components/FacebookAnalytics.js)
+  - [src/components/InstagramAnalytics.js](src/components/InstagramAnalytics.js)
+
+- What changed (summary):
+  - Top Posts cards: data font size reduced slightly for tighter spacing; metric labels (Likes, Comments, Shares/Views) replaced with icons to save horizontal space and reduce wrapping.
+  - Facebook All Posts table: numbered rows, sortable columns (click header to toggle asc/desc), default sort by `createdTime` descending (most recent first), paginated `20` rows with Load more.
+  - Instagram Top Posts grid now matches Facebook styling (icons + reduced font size).
+
+- How to test locally:
+  1. Run the dev server:
+
+     ```bash
+     cd ~/social-dashboard-v2/social-dashboard
+     npm install
+     npm run dev
+     ```
+
+  2. Open `http://localhost:3000` and switch to the Facebook and Instagram tabs.
+  3. Verify the Top Posts cards show small metric numbers and icons (❤️, 💬/Message, 🔗/Share, 👁️/View) and that labels do not wrap.
+  4. In the Facebook All Posts table, confirm:
+     - Rows are numbered starting at 1 for the visible page.
+     - Clicking column headers toggles sort direction and updates the visual arrow.
+     - Default load order is newest posts first.
+     - "Load 20 more" loads additional rows and updates the remaining count.
+
+- Revert or tweak:
+  - To revert these changes, checkout the prior commit before `5a5f3f3` and push. For selective reverts, use `git restore` on the modified files and recommit.
