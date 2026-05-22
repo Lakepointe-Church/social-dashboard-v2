@@ -340,6 +340,7 @@ export default function InstagramAnalytics() {
   const sortedMedia   = [...filteredMedia].sort((a, b) => {
     const mul = tableSort.dir === 'asc' ? 1 : -1;
     if (tableSort.key === 'timestamp') return mul * (new Date(a.timestamp) - new Date(b.timestamp));
+    if (tableSort.key === 'contentType') return mul * (a.contentType || '').localeCompare(b.contentType || '');
     return mul * ((a[tableSort.key] || 0) - (b[tableSort.key] || 0));
   });
   const visibleMedia  = sortedMedia.slice(0, tableLimit);
@@ -582,7 +583,11 @@ export default function InstagramAnalytics() {
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-center px-3 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-8">#</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Post</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                  <th
+                    className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none whitespace-nowrap transition-colors ${tableSort.key === 'contentType' ? 'text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    onClick={() => { setTableSort(prev => ({ key: 'contentType', dir: prev.key === 'contentType' && prev.dir === 'desc' ? 'asc' : 'desc' })); setTableLimit(20); }}>
+                    Type{tableSort.key === 'contentType' ? (tableSort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
                   {[
                     { label: 'Date',      key: 'timestamp',      left: true  },
                     { label: 'Views',     key: 'reach'                        },
