@@ -120,15 +120,15 @@ function PostCard({ post, rank, metric = 'engaged', metricLabel = 'Engaged' }) {
       <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 text-[10px] text-slate-500">
         <div className="px-2 py-2 text-center">
           <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(reach)}</div>
-          <div className="mt-1 uppercase tracking-wide">Reach</div>
+          <div className="mt-1 text-slate-400"><Eye size={11} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
           <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(engagement)}</div>
-          <div className="mt-1 uppercase tracking-wide">Engagement</div>
+          <div className="mt-1 text-slate-400"><MessageCircle size={11} className="mx-auto" /></div>
         </div>
         <div className="px-2 py-2 text-center">
           <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.shareCount)}</div>
-          <div className="mt-1 uppercase tracking-wide">Shares</div>
+          <div className="mt-1 text-slate-400"><Share2 size={11} className="mx-auto" /></div>
         </div>
       </div>
     </a>
