@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -352,9 +352,6 @@ export default function InstagramAnalytics() {
   const hasReels        = activeFilters.includes('reel') && reelsInView.length > 0;
   const hasPhotos       = (activeFilters.includes('photo') || activeFilters.includes('carousel')) && photosInView.length > 0;
 
-  const demoChartData   = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
-  const cityData        = (geo?.cities    || []).slice(0, 8);
-  const countryData     = (geo?.countries || []).slice(0, 6);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -479,7 +476,7 @@ export default function InstagramAnalytics() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">🎬</span>
               <h3 className="font-bold text-slate-900 text-base">Reel Insights — Per Post</h3>
-              <span className="text-xs text-slate-400 font-mono">Top 10 by views</span>
+              <span className="text-xs text-slate-400 font-mono">Top {Math.min(10, reelsInView.length)} by views</span>
             </div>
             <p className="text-slate-500 text-sm">Rate metrics in Instagram&apos;s priority order for views impact</p>
             <RateInsightsTable posts={reelsInView} type="reel" />
@@ -492,7 +489,7 @@ export default function InstagramAnalytics() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">📷</span>
               <h3 className="font-bold text-slate-900 text-base">Photo &amp; Carousel Insights — Per Post</h3>
-              <span className="text-xs text-slate-400 font-mono">Top 10 by views</span>
+              <span className="text-xs text-slate-400 font-mono">Top {Math.min(10, photosInView.length)} by views</span>
             </div>
             <p className="text-slate-500 text-sm">Engagement rate breakdown per post</p>
             <RateInsightsTable posts={photosInView} type="photo" />
@@ -500,75 +497,6 @@ export default function InstagramAnalytics() {
         )}
 
       </>)}
-
-      {/* ── Demographics ──────────────────────────────────────────────────── */}
-      {demoChartData.length > 0 && (
-        <div className="card">
-          <h3 className="font-bold text-slate-900 text-base mb-1">Audience Age &amp; Gender</h3>
-          <p className="text-slate-500 text-sm mb-4">Follower demographics</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={demoChartData} margin={{ left: 8, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="age" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="Male"   fill={IG_PURPLE} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Female" fill={IG_PINK}   radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* ── Geographic ────────────────────────────────────────────────────── */}
-      {(cityData.length > 0 || countryData.length > 0) && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {cityData.length > 0 && (
-            <div className="card">
-              <div className="flex items-center gap-2 mb-4"><MapPin size={16} className="text-slate-400" /><h3 className="font-bold text-slate-900 text-base">Top Cities</h3></div>
-              <div className="space-y-2">
-                {cityData.map((c, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-slate-400 text-xs font-mono w-4">{i + 1}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-slate-700 text-sm font-medium">{c.name}</span>
-                        <span className="text-slate-500 text-xs font-mono">{c.pct}%</span>
-                      </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${c.pct}%`, background: IG_PINK }} />
-                      </div>
-                    </div>
-                    <span className="text-slate-400 text-xs font-mono w-12 text-right">{fmtBig(c.value)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {countryData.length > 0 && (
-            <div className="card">
-              <div className="flex items-center gap-2 mb-4"><Globe size={16} className="text-slate-400" /><h3 className="font-bold text-slate-900 text-base">Top Countries</h3></div>
-              <div className="space-y-2">
-                {countryData.map((c, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-slate-400 text-xs font-mono w-4">{i + 1}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-slate-700 text-sm font-medium">{c.name}</span>
-                        <span className="text-slate-500 text-xs font-mono">{c.pct}%</span>
-                      </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${c.pct}%`, background: IG_PURPLE }} />
-                      </div>
-                    </div>
-                    <span className="text-slate-400 text-xs font-mono w-12 text-right">{fmtBig(c.value)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Full table ─────────────────────────────────────────────────────── */}
       {filteredMedia.length > 0 && (
