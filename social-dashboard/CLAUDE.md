@@ -121,8 +121,9 @@ social-dashboard/
 - **Profile Overview KPI cards** — labeled "Account-wide · not affected by filters" because these pull from account-level insights (not per-post), so content type and date filters don't change them.
 - **Date range filter** — client-side, defaults to last 30 days. Filters all content sections (top posts, insights tables, all posts table). Does NOT re-fetch from API — always works on the 50 most recently fetched posts.
 - **Top posts grid** — 2×2 layout: Views, Engagement, Shares, Saves. Each section is half the screen width with 4 posts in a horizontal row. Images use 3:4 portrait aspect ratio.
-- **Reel & Photo insights tables** — top 10 per type, sorted by views. Columns: Post, Type, Date, Views, rate metrics. Reels also show Avg Watch Time. Skip Rate and Repost Rate were removed when Instagram deprecated the `plays` and `clips_replays_count` metrics in v22.0.
-- **All Posts table** — numbered rows, sortable columns (click header to toggle asc/desc, active column highlighted pink), paginated 20 at a time with "Load More" button showing remaining count.
+- **Reel & Photo insights tables** — top N per type (dynamic count, max 10), sorted by views. Columns: Post, Type, Date, Views, rate metrics. Reels also show Avg Watch Time. Skip Rate and Repost Rate were removed when Instagram deprecated the `plays` and `clips_replays_count` metrics in v22.0.
+- **All Posts table** — numbered rows, sortable columns including Type (click header to toggle asc/desc, active column highlighted pink), paginated 20 at a time with "Load More" button showing remaining count.
+- **Demographics & geo removed** — Age & Gender chart, Top Cities, and Top Countries were removed from the Instagram tab (May 2026) to revisit later.
 
 ---
 
@@ -147,6 +148,8 @@ Several metrics return 0 until the app completes Meta App Review:
 
 This is expected. The app needs to be submitted for App Review and published before these unlock.
 
+**Critical:** Do NOT embed `insights.metric(post_impressions_unique, post_engaged_users)` as a sub-field in the `/posts` Graph API query. These metrics are gated behind App Review, and embedding them causes the **entire posts request to fail** (not just return 0s). Fetch per-post insights separately after App Review is approved.
+
 ### Demo Data
 
 `demoData.js` contains 365 days of seeded fake data for Facebook, Instagram, YouTube, TikTok. The `getDataContext()` function exports a text summary used by the AI Analyst. Eventually the demo tabs and this file will be replaced with real data.
@@ -158,7 +161,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access.
 - [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level). Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
-- [ ] **Facebook tab updates** — apply same changes as Instagram: 2×2 top posts grid (Views/Engagement/Shares/Saves), per-post insights table with Type+Date columns, sticky control bar with date range + content filters, numbered+sortable+paginated All Posts table
+- [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
 - [ ] **Remove demo tabs** — once all 4 platforms have live data, the demo tabs (All, Facebook, Instagram, YouTube, TikTok) and `demoData.js` can be removed
@@ -196,6 +199,8 @@ git push origin main
 # Vercel auto-deploys on push to main
 ```
 
+Use the `/ship` slash command (`.claude/commands/ship.md`) to stage, commit, and push in one step: `/ship your message here`
+
 If Vercel doesn't auto-deploy or you need to force it:
 
 - Go to vercel.com/plafatas-projects/social-dashboard-v2
@@ -219,38 +224,17 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ## Recent Changes (May 2026)
 
-Documenting UI tweaks and behavior changes made May 21–22, 2026.
+### May 22, 2026 (session 2)
 
-- Commits:
-  - `5a5f3f3` — Add numbered sortable All Posts table for Facebook Analytics (defaults to newest first)
-  - `9e45382` — Replace text labels with icons in Facebook Top Posts cards; tighten font size
-  - `4d02eb7` — Apply same Top Posts icon + sizing changes to Instagram
+- `08af423` — Fix Facebook data load failure: removed `insights.metric()` sub-field from `/posts` query (gated behind App Review, caused entire request to fail)
+- `dfc4cc4` — Replace Reach/Engagement/Shares text labels with Eye/MessageCircle/Share2 icons in Facebook top-post breakdown row
+- `0b4c848` — Upgrade Next.js 14.2.3 → 14.2.35 (patches critical CVE); add `/ship` slash command
+- `2bdf3c7` — Make Type column sortable in Instagram All Posts table
+- `1632788` — Fix dynamic Top N label in reel/photo insights (was hardcoded "Top 10"); remove Age & Gender, Top Cities, Top Countries from Instagram tab
 
-- Files changed:
-  - [src/components/FacebookAnalytics.js](src/components/FacebookAnalytics.js)
-  - [src/components/InstagramAnalytics.js](src/components/InstagramAnalytics.js)
+### May 22, 2026 (session 1)
 
-- What changed (summary):
-  - Top Posts cards: data font size reduced slightly for tighter spacing; metric labels (Likes, Comments, Shares/Views) replaced with icons to save horizontal space and reduce wrapping.
-  - Facebook All Posts table: numbered rows, sortable columns (click header to toggle asc/desc), default sort by `createdTime` descending (most recent first), paginated `20` rows with Load more.
-  - Instagram Top Posts grid now matches Facebook styling (icons + reduced font size).
-
-- How to test locally:
-  1. Run the dev server:
-
-     ```bash
-     cd ~/social-dashboard-v2/social-dashboard
-     npm install
-     npm run dev
-     ```
-
-  2. Open `http://localhost:3000` and switch to the Facebook and Instagram tabs.
-  3. Verify the Top Posts cards show small metric numbers and icons (❤️, 💬/Message, 🔗/Share, 👁️/View) and that labels do not wrap.
-  4. In the Facebook All Posts table, confirm:
-     - Rows are numbered starting at 1 for the visible page.
-     - Clicking column headers toggles sort direction and updates the visual arrow.
-     - Default load order is newest posts first.
-     - "Load 20 more" loads additional rows and updates the remaining count.
-
-- Revert or tweak:
-  - To revert these changes, checkout the prior commit before `5a5f3f3` and push. For selective reverts, use `git restore` on the modified files and recommit.
+- `5a5f3f3` — Add numbered sortable All Posts table for Facebook Analytics (defaults to newest first)
+- `9e45382` — Replace text labels with icons in Facebook Top Posts cards; tighten font size
+- `4d02eb7` — Apply same Top Posts icon + sizing changes to Instagram
+- `cb572f9` — Update Facebook top-post cards to show Reach/Engagement/Shares breakdown; fetch `post_impressions_unique` and `post_engaged_users` per post (note: these were later removed from the sub-field query in `08af423` due to App Review gating)
