@@ -156,7 +156,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 ## Pending Work
 
 - [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access.
-- [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level)
+- [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level). Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — apply same changes as Instagram: 2×2 top posts grid (Views/Engagement/Shares/Saves), per-post insights table with Type+Date columns, sticky control bar with date range + content filters, numbered+sortable+paginated All Posts table
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
