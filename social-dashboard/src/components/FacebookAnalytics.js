@@ -60,10 +60,12 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
 }
 
 // ── Post card ─────────────────────────────────────────────────────────────────
-function PostCard({ post, rank }) {
+function PostCard({ post, rank, metric = 'engaged', metricLabel = 'Engaged' }) {
   const [imgError, setImgError] = useState(false);
   const rankColors = ['#1877F2', '#3b82f6', '#0ea5e9', '#06b6d4'];
   const engaged = post.likeCount + post.commentCount + post.shareCount;
+  const reach = post.reach ?? 0;
+  const engagement = post.engagement ?? engaged;
   
   return (
     <a href={getFbPostUrl(post.id)} target="_blank" rel="noopener noreferrer"
@@ -102,26 +104,31 @@ function PostCard({ post, rank }) {
         </p>
         <p className="text-slate-400 text-[10px] mt-1 font-mono">{fmtDate(post.createdTime)}</p>
       </div>
-      {/* Engagement metric */}
+      {/* Primary metric */}
       <div className="px-3 pb-3 pt-1">
         <div className="text-lg font-bold tabular-nums" style={{ color: rankColors[rank] || '#64748b' }}>
-          {fmtBig(engaged)}
+          {(() => {
+            if (metric === 'likeCount') return fmtBig(post.likeCount);
+            if (metric === 'commentCount') return fmtBig(post.commentCount);
+            if (metric === 'shareCount') return fmtBig(post.shareCount);
+            return fmtBig(engaged);
+          })()}
         </div>
-        <div className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">ENGAGED</div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">{(metricLabel || 'Engaged').toUpperCase()}</div>
       </div>
       {/* Breakdown */}
-      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
+      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 text-[10px] text-slate-500">
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.likeCount)}</div>
-          <div className="text-slate-400 text-slate-400 mt-1"><Heart size={12} className="mx-auto" /></div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(reach)}</div>
+          <div className="mt-1 uppercase tracking-wide">Reach</div>
         </div>
         <div className="px-2 py-2 text-center">
-          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.commentCount)}</div>
-          <div className="text-slate-400 mt-1"><MessageCircle size={12} className="mx-auto" /></div>
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(engagement)}</div>
+          <div className="mt-1 uppercase tracking-wide">Engagement</div>
         </div>
         <div className="px-2 py-2 text-center">
           <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(post.shareCount)}</div>
-          <div className="text-slate-400 mt-1"><Share2 size={12} className="mx-auto" /></div>
+          <div className="mt-1 uppercase tracking-wide">Shares</div>
         </div>
       </div>
     </a>
@@ -144,7 +151,7 @@ function Top4Section({ title, posts, metric, metricLabel }) {
       </div>
       <div className="grid grid-cols-4 gap-3">
         {sorted.map((post, i) => (
-          <PostCard key={post.id} post={post} rank={i} />
+          <PostCard key={post.id} post={post} rank={i} metric={metric} metricLabel={metricLabel} />
         ))}
         {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
           <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '3/4' }}>

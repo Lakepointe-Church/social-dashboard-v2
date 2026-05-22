@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     // ── 3. Recent posts with likes + comments + shares ────────────────────────
     const postsRes  = await fetch(
-      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares&limit=50&access_token=${token}`
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,insights.metric(post_impressions_unique,post_engaged_users)&limit=50&access_token=${token}`
     );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
@@ -60,8 +60,15 @@ export default async function handler(req, res) {
       const comments = p.comments?.summary?.total_count || 0;
       const shares   = p.shares?.count || 0;
       const engaged  = likes + comments + shares;
-      const type     = p.attachments?.data?.[0]?.type || 'status';
-      const message  = p.message || p.story || '';
+      const insightMetrics = Array.isArray(p.insights?.data) ? p.insights.data.reduce((acc, item) => {
+        const value = item.values?.[0]?.value || 0;
+        acc[item.name] = value;
+        return acc;
+      }, {}) : {};
+      const reach      = insightMetrics.post_impressions_unique || 0;
+      const engagement = insightMetrics.post_engaged_users || engaged;
+      const type       = p.attachments?.data?.[0]?.type || 'status';
+      const message    = p.message || p.story || '';
 
       return {
         id:           p.id,
@@ -74,6 +81,8 @@ export default async function handler(req, res) {
         likeCount:    likes,
         commentCount: comments,
         shareCount:   shares,
+        reach,
+        engagement,
       };
     });
 
