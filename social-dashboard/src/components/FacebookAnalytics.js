@@ -372,7 +372,12 @@ export default function FacebookAnalytics() {
 
   // ── Counts per type ───────────────────────────────────────────────────────
   const counts = { photo: 0, video: 0, other: 0, stream: 0 };
-  posts.forEach(p => { if (counts[p.contentType] !== undefined) counts[p.contentType]++; });
+  postsWithRates.filter(p => {
+    const posted = new Date(p.createdTime);
+    if (rangeStart && posted < rangeStart) return false;
+    if (rangeEnd   && posted > rangeEnd)   return false;
+    return true;
+  }).forEach(p => { if (counts[p.contentType] !== undefined) counts[p.contentType]++; });
 
   const demoChartData = demographics.map(d => ({ age: d.age, Male: d.M, Female: d.F }));
   const cityData      = (geo?.cities    || []).slice(0, 8);
