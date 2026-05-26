@@ -219,17 +219,29 @@ export default async function handler(req, res) {
       ...incomingCollabMedia.filter(m => !existingIds.has(m.id)),
     ];
 
-    // ── 5. Demographics ───────────────────────────────────────────────────────
+    // ── 5. Follower demographics ──────────────────────────────────────────────
     const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}`);
     const demoData = await demoRes.json();
-    const demographics = (!demoData.error) ? parseDemographics(demoData.data || []) : [];
+    const demographics = (!demoData.error) ? parseDemographics(demoData.data || [], 'follower_demographics') : [];
 
-    // ── 6. Geographic ─────────────────────────────────────────────────────────
+    // ── 6. Follower geographic ────────────────────────────────────────────────
     const geoResults = await Promise.allSettled([
       fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}`).then(r => r.json()),
       fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}`).then(r => r.json()),
     ]);
-    const geo = parseGeo(geoResults);
+    const geo = parseGeo(geoResults, 'follower_demographics');
+
+    // ── 7. Reached audience demographics (gated behind App Review) ────────────
+    const reachedDemoRes  = await fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}`);
+    const reachedDemoData = await reachedDemoRes.json();
+    const reachedDemographics = (!reachedDemoData.error) ? parseDemographics(reachedDemoData.data || [], 'reached_audience_demographics') : [];
+
+    // ── 8. Reached audience geographic (gated behind App Review) ─────────────
+    const reachedGeoResults = await Promise.allSettled([
+      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}`).then(r => r.json()),
+    ]);
+    const reachedGeo = parseGeo(reachedGeoResults, 'reached_audience_demographics');
 
     // If debug flag is present, include raw responses so we can inspect what Meta returned
     const rawMode = req.query && (req.query.raw === '1' || req.query.raw === 'true');
@@ -247,6 +259,8 @@ export default async function handler(req, res) {
       media:    allMedia,
       demographics,
       geo,
+      reachedDemographics,
+      reachedGeo,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -283,8 +297,8 @@ function parseInsights(data) {
   };
 }
 
-function parseDemographics(data) {
-  const metric = data.find(d => d.name === 'follower_demographics');
+function parseDemographics(data, metricName = 'follower_demographics') {
+  const metric = data.find(d => d.name === metricName);
   if (!metric) return [];
   const results = metric.total_value?.breakdowns?.[0]?.results || [];
   const ageGroups = {};
@@ -305,10 +319,10 @@ function parseDemographics(data) {
     }));
 }
 
-function parseGeo(geoResults) {
+function parseGeo(geoResults, metricName = 'follower_demographics') {
   const parseBreakdown = (result, limit) => {
     if (result.status !== 'fulfilled' || result.value.error) return [];
-    const metric  = (result.value.data || []).find(d => d.name === 'follower_demographics');
+    const metric  = (result.value.data || []).find(d => d.name === metricName);
     if (!metric) return [];
     const results = metric.total_value?.breakdowns?.[0]?.results || [];
     const total   = results.reduce((s, r) => s + r.value, 0);
