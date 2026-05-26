@@ -1,12 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTubeAnalytics — sticky control bar, date filter, OAuth-pending metrics,
-// content breakdown section, numbered video table with client-side pagination
+// content breakdown, top-10 video cards, sortable all-videos table
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
-} from 'recharts';
 import {
   TrendingUp, Eye, ThumbsUp, MessageSquare, RefreshCw, AlertCircle,
   ChevronDown, Clock, MousePointer, Lock, Activity,
@@ -43,6 +39,10 @@ const CONTENT_FILTERS = [
 
 const ALL_FILTER_IDS = CONTENT_FILTERS.map(f => f.id);
 
+const TYPE_MAP = Object.fromEntries(CONTENT_FILTERS.map(f => [f.id, f]));
+
+const RANK_COLORS = ['#FF0000', '#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   return (
@@ -76,70 +76,167 @@ function PendingCard({ label, icon }) {
   );
 }
 
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
+// ── Video card (top-10 sections) ──────────────────────────────────────────────
+function VideoCard({ video, rank, metricValue, metricLabel }) {
+  const [imgError, setImgError] = useState(false);
+  const typeConfig = TYPE_MAP[video.contentType] || { emoji: '📹', color: '#64748b', label: 'Video' };
+  const rankColor  = RANK_COLORS[rank] || '#64748b';
+  const thumbUrl   = `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`;
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-xs">
-      <p className="font-semibold text-slate-700 mb-1 max-w-[200px] leading-snug">{label}</p>
-      {payload.map(p => (
-        <p key={p.name} style={{ color: p.color }} className="font-mono">
-          {p.name}: {fmtBig(p.value)}
-        </p>
-      ))}
-    </div>
+    <a
+      href={`https://youtube.com/watch?v=${video.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block"
+    >
+      {/* Thumbnail */}
+      <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        {!imgError ? (
+          <img
+            src={thumbUrl}
+            alt={video.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #fff1f2, #ffe4e6)' }}
+          >
+            <span className="text-4xl">{typeConfig.emoji}</span>
+            <span className="text-xs text-slate-400 px-4 text-center line-clamp-2">{truncate(video.title, 60)}</span>
+          </div>
+        )}
+        {/* Rank badge */}
+        <div
+          className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md"
+          style={{ background: rankColor }}
+        >
+          {rank + 1}
+        </div>
+        {/* Content type badge */}
+        <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+          {typeConfig.emoji} {typeConfig.label}
+        </div>
+      </div>
+
+      {/* Title + date */}
+      <div className="px-3 pt-2.5 pb-1">
+        <p className="text-slate-700 text-xs leading-snug line-clamp-2 min-h-[32px]">{video.title}</p>
+        <p className="text-slate-400 text-[10px] mt-1 font-mono">{fmtDate(video.publishedAt)}</p>
+      </div>
+
+      {/* Primary metric */}
+      <div className="px-3 pb-2 pt-1">
+        <div className="text-lg font-bold tabular-nums" style={{ color: rankColor }}>{metricValue}</div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">{metricLabel}</div>
+      </div>
+
+      {/* Stats footer */}
+      <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(video.viewCount)}</div>
+          <div className="text-slate-400 mt-1"><Eye size={12} className="mx-auto" /></div>
+        </div>
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(video.likeCount)}</div>
+          <div className="text-slate-400 mt-1"><ThumbsUp size={12} className="mx-auto" /></div>
+        </div>
+        <div className="px-2 py-2 text-center">
+          <div className="text-slate-900 font-bold text-[11px] tabular-nums">{fmtBig(video.commentCount)}</div>
+          <div className="text-slate-400 mt-1"><MessageSquare size={12} className="mx-auto" /></div>
+        </div>
+      </div>
+    </a>
   );
 }
 
-function ContentTypeCharts({ videos }) {
+// ── Top 10 section — two columns ──────────────────────────────────────────────
+function Top10Section({ videos }) {
   if (!videos.length) return (
     <div className="card text-center py-12 text-slate-400 text-sm">No videos match the current filters.</div>
   );
 
-  const chartVideos = [...videos].slice(0, 10).reverse();
-
-  const viewsData = chartVideos.map(v => ({ name: truncate(v.title, 32), Views: v.viewCount }));
-  const engData   = chartVideos.map(v => ({ name: truncate(v.title, 32), Likes: v.likeCount, Comments: v.commentCount }));
+  const byViews = [...videos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
+  const byEng   = [...videos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <div className="card">
-        <h3 className="font-bold text-slate-900 text-base mb-1">Views</h3>
-        <p className="text-slate-500 text-sm mb-4">Most recent {chartVideos.length}</p>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={viewsData} layout="vertical" margin={{ left: 8, right: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-            <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="Views" radius={[0, 4, 4, 0]}>
-              {viewsData.map((_, i) => (
-                <Cell key={i} fill={i === viewsData.length - 1 ? '#FF0000' : '#FF000066'} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      {/* Top 10 by Views */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-slate-900 text-sm">🏆 Top 10 by Views</h3>
+          <span className="text-xs text-slate-400">Top {byViews.length}</span>
+        </div>
+        <div className="space-y-3">
+          {byViews.map((v, i) => (
+            <VideoCard
+              key={v.id}
+              video={v}
+              rank={i}
+              metricValue={fmtBig(v.viewCount)}
+              metricLabel="Views"
+            />
+          ))}
+        </div>
       </div>
-      <div className="card">
-        <h3 className="font-bold text-slate-900 text-base mb-1">Likes &amp; Comments</h3>
-        <p className="text-slate-500 text-sm mb-4">Most recent {chartVideos.length}</p>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={engData} layout="vertical" margin={{ left: 8, right: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtBig} />
-            <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="Likes"    fill="#fb923c" radius={[0, 4, 4, 0]} />
-            <Bar dataKey="Comments" fill="#a78bfa" radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+
+      {/* Top 10 by Engagement Rate */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-slate-900 text-sm">❤️ Top 10 by Engagement Rate</h3>
+          <span className="text-xs text-slate-400">Top {byEng.length}</span>
+        </div>
+        <div className="space-y-3">
+          {byEng.map((v, i) => (
+            <VideoCard
+              key={v.id}
+              video={v}
+              rank={i}
+              metricValue={`${v.engagementRate.toFixed(2)}%`}
+              metricLabel="Eng. Rate"
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function VideoTable({ videos, tableLimit, onLoadMore }) {
-  const visible = videos.slice(0, tableLimit);
+// ── All videos table (sortable) ───────────────────────────────────────────────
+function AllVideosTable({ videos, tableLimit, onLoadMore }) {
+  const [sort, setSort] = useState({ key: 'publishedAt', dir: 'desc' });
+
+  const toggleSort = (key) =>
+    setSort(prev => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
+
+  const arrow = (key) => sort.key === key ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : '';
+
+  const thClass = (key) =>
+    `text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none transition-colors hover:text-slate-700 ${
+      sort.key === key ? 'text-red-600' : 'text-slate-500'
+    }`;
+
+  const thClassLeft = (key) =>
+    `text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none transition-colors hover:text-slate-700 ${
+      sort.key === key ? 'text-red-600' : 'text-slate-500'
+    }`;
+
+  const mul = sort.dir === 'asc' ? 1 : -1;
+
+  const sorted = [...videos].sort((a, b) => {
+    if (sort.key === 'publishedAt') return mul * (new Date(a.publishedAt) - new Date(b.publishedAt));
+    if (sort.key === 'title')       return mul * a.title.localeCompare(b.title);
+    if (sort.key === 'contentType') return mul * (a.contentType || '').localeCompare(b.contentType || '');
+    if (sort.key === 'durationSecs') return mul * ((a.durationSecs || 0) - (b.durationSecs || 0));
+    return mul * ((a[sort.key] || 0) - (b[sort.key] || 0));
+  });
+
+  const visible = sorted.slice(0, tableLimit);
+
   if (!videos.length) return null;
+
   return (
     <div className="space-y-3">
       <div className="card p-0 overflow-hidden">
@@ -148,17 +245,35 @@ function VideoTable({ videos, tableLimit, onLoadMore }) {
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Title</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Published</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Duration</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Views</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Likes</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Eng. Rate</th>
+                <th className={thClassLeft('title')} onClick={() => toggleSort('title')}>
+                  Title{arrow('title')}
+                </th>
+                <th className={thClassLeft('contentType')} onClick={() => toggleSort('contentType')}>
+                  Type{arrow('contentType')}
+                </th>
+                <th className={thClassLeft('publishedAt')} onClick={() => toggleSort('publishedAt')}>
+                  Published{arrow('publishedAt')}
+                </th>
+                <th className={thClass('durationSecs')} onClick={() => toggleSort('durationSecs')}>
+                  Duration{arrow('durationSecs')}
+                </th>
+                <th className={thClass('viewCount')} onClick={() => toggleSort('viewCount')}>
+                  Views{arrow('viewCount')}
+                </th>
+                <th className={thClass('likeCount')} onClick={() => toggleSort('likeCount')}>
+                  Likes{arrow('likeCount')}
+                </th>
+                <th className={thClass('commentCount')} onClick={() => toggleSort('commentCount')}>
+                  Comments{arrow('commentCount')}
+                </th>
+                <th className={thClass('engagementRate')} onClick={() => toggleSort('engagementRate')}>
+                  Eng. Rate{arrow('engagementRate')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {visible.map((v, i) => {
+                const typeConfig = TYPE_MAP[v.contentType] || { emoji: '📹', color: '#64748b', label: v.contentType };
                 const engColor =
                   v.engagementRate > 5 ? 'text-emerald-600' :
                   v.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
@@ -176,12 +291,20 @@ function VideoTable({ videos, tableLimit, onLoadMore }) {
                         {v.title}
                       </a>
                     </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: typeConfig.color + '18', color: typeConfig.color }}
+                      >
+                        {typeConfig.emoji} {typeConfig.label}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(v.publishedAt)}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs font-mono whitespace-nowrap">{v.duration}</td>
+                    <td className="px-4 py-3 text-right text-slate-500 text-xs font-mono whitespace-nowrap">{v.duration}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{v.viewCount.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{v.likeCount.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{v.commentCount.toLocaleString()}</td>
-                    <td className={`px-6 py-3 text-right font-mono font-semibold ${engColor}`}>{v.engagementRate.toFixed(2)}%</td>
+                    <td className={`px-4 py-3 text-right font-mono font-semibold ${engColor}`}>{v.engagementRate.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -284,21 +407,20 @@ export default function YouTubeAnalytics() {
     ? []
     : dateFilteredVideos.filter(v => activeFilters.includes(v.contentType));
 
-  // Counts per type (for chips badge)
   const counts = {};
   CONTENT_FILTERS.forEach(f => {
     counts[f.id] = dateFilteredVideos.filter(v => v.contentType === f.id).length;
   });
 
   // ── Filtered-view KPIs ─────────────────────────────────────────────────────
-  const totalViews  = filteredVideos.reduce((s, v) => s + v.viewCount, 0);
-  const avgViews    = Math.round(avg(filteredVideos, 'viewCount'));
-  const avgEngRate  = filteredVideos.length
+  const totalViews = filteredVideos.reduce((s, v) => s + v.viewCount, 0);
+  const avgViews   = Math.round(avg(filteredVideos, 'viewCount'));
+  const avgEngRate = filteredVideos.length
     ? (filteredVideos.reduce((s, v) => s + v.engagementRate, 0) / filteredVideos.length).toFixed(2)
     : '0.00';
-  const topVideo    = filteredVideos.reduce((best, v) => (!best || v.viewCount > best.viewCount) ? v : best, null);
+  const topVideo   = filteredVideos.reduce((best, v) => (!best || v.viewCount > best.viewCount) ? v : best, null);
 
-  // ── Per-type breakdown (all date-filtered) ─────────────────────────────────
+  // ── Per-type breakdown ─────────────────────────────────────────────────────
   const typeBreakdown = CONTENT_FILTERS.map(f => {
     const vids = dateFilteredVideos.filter(v => v.contentType === f.id);
     return {
@@ -363,7 +485,6 @@ export default function YouTubeAnalytics() {
       {/* ── Sticky control bar ────────────────────────────────────────────── */}
       <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-white border-b border-slate-200 shadow-sm">
         <div className="py-2.5 flex items-center gap-3 flex-wrap">
-          {/* Content type chips */}
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 items-center">
             {CONTENT_FILTERS.map(f => {
               const isActive = activeFilters.includes(f.id);
@@ -389,9 +510,7 @@ export default function YouTubeAnalytics() {
             )}
             <span className="text-xs text-slate-400 font-mono">{filteredVideos.length} videos</span>
           </div>
-          {/* Divider */}
           <div className="h-5 w-px bg-slate-200 flex-shrink-0 hidden sm:block" />
-          {/* Date presets + refresh */}
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
               {[{ label: '7d', value: '7' }, { label: '30d', value: '30' }, { label: '90d', value: '90' }].map(({ label, value }) => (
@@ -429,10 +548,10 @@ export default function YouTubeAnalytics() {
           <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Channel-wide · not affected by filters</span>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Subscribers"       value={fmtBig(channel?.subscriberCount)}          subtext="YouTube channel"            icon={<TrendingUp size={20}/>}   iconBg="bg-red-100"    iconColor="text-red-600"    />
-          <StatCard label="Total Views"        value={fmtBig(channel?.viewCount)}                subtext="All-time across all videos"  icon={<Eye size={20}/>}          iconBg="bg-orange-100" iconColor="text-orange-600" />
-          <StatCard label="Videos Published"   value={channel?.videoCount?.toLocaleString() ?? '—'} subtext="Total on channel"        icon={<MessageSquare size={20}/>} iconBg="bg-pink-100"   iconColor="text-pink-600"   />
-          <StatCard label="Avg Views / Video"  value={fmtBig(channel?.avgViewsPerVideo)}         subtext="All-time average"           icon={<ThumbsUp size={20}/>}     iconBg="bg-rose-100"   iconColor="text-rose-600"   />
+          <StatCard label="Subscribers"      value={fmtBig(channel?.subscriberCount)}              subtext="YouTube channel"            icon={<TrendingUp size={20}/>}   iconBg="bg-red-100"    iconColor="text-red-600"    />
+          <StatCard label="Total Views"       value={fmtBig(channel?.viewCount)}                   subtext="All-time across all videos"  icon={<Eye size={20}/>}          iconBg="bg-orange-100" iconColor="text-orange-600" />
+          <StatCard label="Videos Published"  value={channel?.videoCount?.toLocaleString() ?? '—'} subtext="Total on channel"            icon={<MessageSquare size={20}/>} iconBg="bg-pink-100"   iconColor="text-pink-600"   />
+          <StatCard label="Avg Views / Video" value={fmtBig(channel?.avgViewsPerVideo)}            subtext="All-time average"            icon={<ThumbsUp size={20}/>}     iconBg="bg-rose-100"   iconColor="text-rose-600"   />
         </div>
       </div>
 
@@ -484,7 +603,7 @@ export default function YouTubeAnalytics() {
         </div>
       </div>
 
-      {/* ── Empty state — no filters selected ────────────────────────────── */}
+      {/* ── Empty states ──────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (
         <div className="card text-center py-12">
           <p className="text-slate-500 text-sm font-medium mb-2">No content types selected</p>
@@ -493,7 +612,6 @@ export default function YouTubeAnalytics() {
         </div>
       )}
 
-      {/* ── Empty state — date range has no results ───────────────────────── */}
       {activeFilters.length > 0 && filteredVideos.length === 0 && allVideos.length > 0 && (
         <div className="card text-center py-12 text-slate-400 text-sm">
           No videos published in this date range.
@@ -503,7 +621,7 @@ export default function YouTubeAnalytics() {
       {/* ── Filtered content ──────────────────────────────────────────────── */}
       {filteredVideos.length > 0 && (
         <>
-          {/* Summary KPIs for filtered view */}
+          {/* Summary KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="card">
               <div className="text-slate-500 text-xs font-medium mb-1">Videos in View</div>
@@ -548,16 +666,16 @@ export default function YouTubeAnalytics() {
             </div>
           )}
 
-          {/* Charts */}
-          <ContentTypeCharts videos={filteredVideos} />
+          {/* Top 10 cards */}
+          <Top10Section videos={filteredVideos} />
 
-          {/* Video table */}
+          {/* All Videos table */}
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 text-base">Video Catalogue</h3>
-            <span className="text-xs text-slate-400 font-mono">{filteredVideos.length} videos · sorted newest first</span>
+            <h3 className="font-bold text-slate-900 text-base">All Videos</h3>
+            <span className="text-xs text-slate-400 font-mono">{filteredVideos.length} videos · click headers to sort</span>
           </div>
 
-          <VideoTable
+          <AllVideosTable
             videos={filteredVideos}
             tableLimit={tableLimit}
             onLoadMore={() => setTableLimit(t => t + 20)}
