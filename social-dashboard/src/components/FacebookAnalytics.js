@@ -40,7 +40,7 @@ function getFbPostUrl(postId) {
 
 function contentTypeLabel(type) {
   if (type === 'photo')  return '📷 Photo';
-  if (type === 'album')  return '🖼️ Album';
+  if (type === 'album')  return '🖼️ Carousel';
   if (type === 'video_inline' || type === 'video') return '🎬 Video';
   if (type === 'status') return '📝 Status';
   return type || '—';
@@ -531,7 +531,7 @@ export default function FacebookAnalytics() {
                   <h3 className="font-bold text-slate-900 text-base">Photo Insights</h3>
                   <span className="text-xs text-slate-400 font-mono">Top {Math.min(photoPosts.length, 10)} by engagement</span>
                 </div>
-                <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for photos &amp; albums</p>
+                <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for photos &amp; carousels</p>
                 <RateInsightsTable posts={photoPosts} />
               </div>
             )}
