@@ -8,8 +8,8 @@ This file gives Claude context about the project so it can help effectively with
 
 A live social media analytics dashboard for **Lakepointe Church** (@lpconnect). Built with **Next.js 14 + Tailwind CSS**, deployed on **Vercel**. The dashboard has two layers:
 
-- **Demo tabs** (All, Facebook, Instagram, YouTube, TikTok) — use hardcoded data from `src/data/demoData.js`. These will eventually be replaced with live data or removed.
-- **Live tabs** (Facebook LIVE, Instagram LIVE, YouTube LIVE) — pull real data from Meta Graph API and YouTube Data API v3 via serverless functions.
+- **Live tabs** (Overview, Facebook, Instagram, Instagram Audience, YouTube) — pull real data from Meta Graph API and YouTube Data API v3 via serverless functions. The demo All tab has been removed.
+- **Demo data** (`src/data/demoData.js`) — still present but only used by the AI Analyst `getDataContext()`. Will be fully removed once remaining demo tabs are gone.
 
 **GitHub repo:** `github.com/Lakepointe-Church/social-dashboard-v2`
 **Live URL:** `social-dashboard-v2.vercel.app`
@@ -29,24 +29,29 @@ social-dashboard/
 │       └── youtube.js            ← YouTube Data API v3 proxy
 ├── src/
 │   ├── components/
+│   │   ├── AllOverview.js        ← Cross-platform Overview tab (live)
 │   │   ├── FacebookAnalytics.js  ← Facebook LIVE tab component
 │   │   ├── InstagramAnalytics.js ← Instagram LIVE tab component
 │   │   ├── YouTubeAnalytics.js   ← YouTube LIVE tab component
 │   │   ├── Header.js             ← Top nav bar
-│   │   ├── MetricCard.js         ← KPI card (demo tabs)
-│   │   ├── PlatformCard.js       ← Platform summary card (demo tabs)
+│   │   ├── MetricCard.js         ← KPI card component
+│   │   ├── PlatformCard.js       ← Platform summary card
 │   │   ├── FollowerGrowthChart.js
 │   │   ├── EngagementChart.js
-│   │   ├── TopContent.js
+│   │   ├── TopContent.js         ← Cross-platform top posts, ranked by engagement
 │   │   ├── GeoBreakdown.js
-│   │   ├── ContentTypeChart.js
+│   │   ├── ContentTypeChart.js   ← Bar chart by content type (accepts barKey/barLabel props)
 │   │   ├── AgeBreakdown.js
-│   │   ├── MilestoneTracker.js
+│   │   ├── MilestoneTracker.js   ← Follower milestone progress bars
 │   │   ├── BestTimeToPost.js
 │   │   ├── AIChatPanel.js        ← AI Analyst chat (uses /api/chat)
 │   │   └── CustomViewBuilder.js  ← Widget toggle UI
+│   ├── lib/
+│   │   ├── igDataCache.js        ← 5-min client-side cache for /api/instagram
+│   │   ├── fbDataCache.js        ← 5-min client-side cache for /api/facebook
+│   │   └── ytDataCache.js        ← 5-min client-side cache for /api/youtube
 │   └── data/
-│       └── demoData.js           ← All hardcoded demo data + getDataContext()
+│       └── demoData.js           ← Hardcoded demo data + getDataContext() for AI Analyst
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
@@ -73,8 +78,9 @@ social-dashboard/
 ### `/api/facebook`
 
 - **Auth:** `META_PAGE_ACCESS_TOKEN` (Page token)
-- **Data:** Page followers, 30-day insights (reach, impressions, engaged users, page views), recent posts with likes/comments/shares, fan demographics, fan cities/countries
+- **Data:** Page followers, 30-day insights (reach, impressions, engaged users, page views, new fans), recent posts with likes/comments/shares, fan demographics, fan cities/countries
 - **Content classification:** `stream` (service streams), `photo`, `video`, `other`
+- **`page_fan_adds`** included in insight metrics — returns new followers in the 28-day window. Exposed as `insights.newFans` in the API response. Shown in the Overview tab FB card as "New Followers (30d)".
 - **Date range:** Accepts `?since=UNIX&until=UNIX`
 
 ### `/api/instagram`
@@ -166,7 +172,8 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
-- [ ] **Remove demo tabs** — once all 4 platforms have live data, the demo tabs (All, Facebook, Instagram, YouTube, TikTok) and `demoData.js` can be removed
+- [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
+- [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` (except `getDataContext()` for AI Analyst) can be removed once TikTok has live data
 - [ ] **Top nav redesign** — the current header (90 Days, Customize, AI Analyst) will be redesigned. Date range selector has been moved to individual live tab headers.
 
 ---
@@ -203,6 +210,8 @@ git push origin main
 
 Use the `/ship` slash command (`.claude/commands/ship.md`) to stage, commit, and push in one step: `/ship your message here`
 
+Use the `/doc` slash command (`.claude/commands/doc.md`) to update CLAUDE.md with the current session's changes and push: `/doc`
+
 If Vercel doesn't auto-deploy or you need to force it:
 
 - Go to vercel.com/plafatas-projects/social-dashboard-v2
@@ -225,6 +234,21 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (May 2026)
+
+### May 26, 2026
+
+- `8a9a50e` / `f1f0cd8` — Add live Overview tab (`AllOverview.js`): cross-platform KPIs, per-platform cards, best post by channel grid, milestone tracker, top performing content, content type performance, best time to post. Remove demo All tab.
+- `aad8819` — Fix Overview polish: content type `avgEngagement` changed from raw count to reach-based rate (fixes "21967% engagement" bug); add `permalink` to YT posts so Shorts are clickable; change Best Post thumbnails from `aspect-video` to `aspect-square`; add `page_fan_adds` to FB API and show "New Followers (30d)" in FB overview card
+- `b751cbd` — Update YouTube milestone target to 1M subscribers (was 100K)
+- New `/doc` slash command added at `.claude/commands/doc.md` — updates and commits CLAUDE.md with session changes
+
+#### Overview tab architecture notes
+- Tab uses lazy mount + keep-alive pattern (mounted once, hidden with `display:none` on tab switch) — same as other live tabs
+- Data fetched in parallel via `Promise.allSettled` from all 3 platform caches (`fbDataCache`, `igDataCache`, `ytDataCache`). Partial failures show error badges without blocking the rest of the page.
+- `normalizePosts()` merges FB/IG/YT posts to a common shape sorted by engagement descending
+- `computeContentTypeData()` groups into 9 buckets: FB Sermon/Photo/Video, IG Reel/Photo+Carousel/Collab, YT Short/Podcast/Sermon. `avgEngagement` = `totalEng / totalReach * 100` (rate, not count). FB buckets show `null` for `avgEngagement` since FB reach is 0 pre-App Review.
+- Milestones: FB 250K followers, IG 300K followers, YT 1M subscribers
+- Best Time to Post uses FB + IG post timestamps only (YT excluded — algorithmic reach)
 
 ### May 22, 2026 (session 2)
 
