@@ -152,7 +152,7 @@ function VideoCard({ video, rank, metricValue, metricLabel }) {
   );
 }
 
-// ── Top 10 section — two columns ──────────────────────────────────────────────
+// ── Top 10 section — horizontal scrollable rows ───────────────────────────────
 function Top10Section({ videos }) {
   if (!videos.length) return (
     <div className="card text-center py-12 text-slate-400 text-sm">No videos match the current filters.</div>
@@ -161,45 +161,28 @@ function Top10Section({ videos }) {
   const byViews = [...videos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
   const byEng   = [...videos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
 
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      {/* Top 10 by Views */}
+  function Row({ title, items, metricFn, metricLabel }) {
+    return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-slate-900 text-sm">🏆 Top 10 by Views</h3>
-          <span className="text-xs text-slate-400">Top {byViews.length}</span>
+          <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
+          <span className="text-xs text-slate-400">Top {items.length} · scroll to see all</span>
         </div>
-        <div className="space-y-3">
-          {byViews.map((v, i) => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              rank={i}
-              metricValue={fmtBig(v.viewCount)}
-              metricLabel="Views"
-            />
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {items.map((v, i) => (
+            <div key={v.id} className="flex-shrink-0 w-56">
+              <VideoCard video={v} rank={i} metricValue={metricFn(v)} metricLabel={metricLabel} />
+            </div>
           ))}
         </div>
       </div>
+    );
+  }
 
-      {/* Top 10 by Engagement Rate */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-slate-900 text-sm">❤️ Top 10 by Engagement Rate</h3>
-          <span className="text-xs text-slate-400">Top {byEng.length}</span>
-        </div>
-        <div className="space-y-3">
-          {byEng.map((v, i) => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              rank={i}
-              metricValue={`${v.engagementRate.toFixed(2)}%`}
-              metricLabel="Eng. Rate"
-            />
-          ))}
-        </div>
-      </div>
+  return (
+    <div className="space-y-6">
+      <Row title="🏆 Top 10 by Views"           items={byViews} metricFn={v => fmtBig(v.viewCount)}                    metricLabel="Views"    />
+      <Row title="❤️ Top 10 by Engagement Rate" items={byEng}   metricFn={v => `${v.engagementRate.toFixed(2)}%`}      metricLabel="Eng. Rate" />
     </div>
   );
 }
