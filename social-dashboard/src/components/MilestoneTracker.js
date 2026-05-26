@@ -16,9 +16,11 @@ export default function MilestoneTracker({ milestones }) {
             <div key={m.platform} className="bg-slate-50 rounded-2xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <PlatformIcon platform={m.platform} size={28} />
-                <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
-                  ~{m.daysAway}d away
-                </span>
+                {m.daysAway != null && (
+                  <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
+                    ~{m.daysAway}d away
+                  </span>
+                )}
               </div>
               <div>
                 <div className="text-xs text-slate-500 mb-0.5">{m.label}</div>

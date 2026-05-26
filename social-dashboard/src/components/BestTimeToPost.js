@@ -47,7 +47,13 @@ export default function BestTimeToPost({ data }) {
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="badge badge-green">🏆 Best day: {bestDay.day}</div>
         <div className="badge badge-green">🕗 Best hour: {bestHour.hour}</div>
-        <div className="badge badge-blue">Sunday is 3.1× better than avg</div>
+        {(() => {
+          const avgEng = data.byDay.reduce((s, d) => s + d.engagement, 0) / Math.max(1, data.byDay.filter(d => d.engagement > 0).length);
+          const ratio  = avgEng > 0 ? (bestDay.engagement / avgEng).toFixed(1) : null;
+          return ratio && ratio > 1 ? (
+            <div className="badge badge-blue">{bestDay.day} is {ratio}× better than avg</div>
+          ) : null;
+        })()}
       </div>
 
       <ResponsiveContainer width="100%" height={180}>

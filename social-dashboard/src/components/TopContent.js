@@ -44,12 +44,20 @@ export default function TopContent({ posts }) {
             </div>
 
             {/* Thumbnail */}
-            <div
-              className="w-16 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-              style={{ background: PLATFORM_COLORS[post.platform] }}
-            >
-              {post.platformName.slice(0, 2).toUpperCase()}
-            </div>
+            {post.thumbnail ? (
+              <img
+                src={post.thumbnail}
+                alt=""
+                className="w-16 h-9 rounded-lg flex-shrink-0 object-cover"
+              />
+            ) : (
+              <div
+                className="w-16 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                style={{ background: PLATFORM_COLORS[post.platform] }}
+              >
+                {(post.platformName || post.platform || '').slice(0, 2).toUpperCase()}
+              </div>
+            )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">
@@ -74,7 +82,7 @@ export default function TopContent({ posts }) {
                 <Eye size={11} /> {fmt(post.reach)}
               </div>
               <div className="text-xs font-bold text-emerald-600">
-                {post.engagementRate}%
+                {post.engagementRate != null ? `${post.engagementRate}%` : '—'}
               </div>
             </div>
           </div>

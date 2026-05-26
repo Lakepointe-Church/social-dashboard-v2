@@ -9,12 +9,12 @@ export default function MetricCard({
         <div className={`${iconBg} ${iconColor} w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0`}>
           {icon}
         </div>
-        <span className={`badge ${changePositive ? 'badge-green' : 'badge-red'} text-xs`}>
-          {changePositive
-            ? <TrendingUp size={11} />
-            : <TrendingDown size={11} />}
-          {change}
-        </span>
+        {change && (
+          <span className={`badge ${changePositive ? 'badge-green' : 'badge-red'} text-xs`}>
+            {changePositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            {change}
+          </span>
+        )}
       </div>
       <div className="mt-3">
         <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>

@@ -1,5 +1,5 @@
-export default function ContentTypeChart({ data }) {
-  const maxReach = Math.max(...data.map(d => d.avgReach));
+export default function ContentTypeChart({ data, barKey = 'avgReach', barLabel = 'reach' }) {
+  const maxReach = Math.max(...data.map(d => d[barKey] || 0), 1);
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -11,22 +11,26 @@ export default function ContentTypeChart({ data }) {
             {d.type}
           </div>
 
-          {/* Reach bar */}
+          {/* Bar */}
           <div className="bg-slate-200 rounded-full h-1.5 mb-2 overflow-hidden">
             <div
               className="h-full bg-blue-500 rounded-full"
-              style={{ width: `${(d.avgReach / maxReach) * 100}%` }}
+              style={{ width: `${((d[barKey] || 0) / maxReach) * 100}%` }}
             />
           </div>
 
           <div className="text-xs text-slate-500">
             <span className="font-bold text-slate-800">
-              {(d.avgReach / 1000).toFixed(0)}K
-            </span>{' '}reach
+              {barKey === 'avgReach'
+                ? `${((d.avgReach || 0) / 1000).toFixed(0)}K`
+                : (d[barKey] || 0).toLocaleString()}
+            </span>{' '}{barLabel}
           </div>
-          <div className="text-xs text-slate-500 mt-0.5">
-            <span className="font-bold text-emerald-600">{d.avgEngagement}%</span>{' '}eng.
-          </div>
+          {barKey === 'avgReach' && (
+            <div className="text-xs text-slate-500 mt-0.5">
+              <span className="font-bold text-emerald-600">{d.avgEngagement}%</span>{' '}eng.
+            </div>
+          )}
           <div className="text-xs text-slate-400 mt-1">{d.posts} posts</div>
         </div>
       ))}
