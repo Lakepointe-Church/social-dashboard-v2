@@ -307,6 +307,44 @@ function AllVideosTable({ videos, tableLimit, onLoadMore }) {
   );
 }
 
+// ── Outside date range disclosure ────────────────────────────────────────────
+function OutsideDateRangeNote({ videos }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="text-slate-500">
+          <span className="font-semibold text-slate-700">{videos.length} video{videos.length !== 1 ? 's' : ''}</span> loaded but outside the current date range
+        </span>
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-red-600 hover:text-red-700 font-semibold ml-4 flex-shrink-0"
+        >
+          {expanded ? 'Hide' : 'Show titles'}
+        </button>
+      </div>
+      {expanded && (
+        <ul className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
+          {videos.map(v => (
+            <li key={v.id} className="flex items-start gap-3">
+              <span className="text-slate-400 font-mono w-20 flex-shrink-0">{fmtDate(v.publishedAt)}</span>
+              <a
+                href={`https://youtube.com/watch?v=${v.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-700 hover:text-red-600 transition-colors"
+              >
+                {v.title}
+              </a>
+              <span className="ml-auto flex-shrink-0 text-slate-400">{TYPE_MAP[v.contentType]?.emoji} {v.contentType}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function YouTubeAnalytics() {
   const [channel,       setChannel]       = useState(null);
@@ -401,7 +439,10 @@ export default function YouTubeAnalytics() {
   const avgEngRate = filteredVideos.length
     ? (filteredVideos.reduce((s, v) => s + v.engagementRate, 0) / filteredVideos.length).toFixed(2)
     : '0.00';
-  const topVideo   = filteredVideos.reduce((best, v) => (!best || v.viewCount > best.viewCount) ? v : best, null);
+
+  // Videos loaded but outside the current date range
+  const dateFilteredIds    = new Set(dateFilteredVideos.map(v => v.id));
+  const outsideDateRange   = allVideos.filter(v => !dateFilteredIds.has(v.id));
 
   // ── Per-type breakdown ─────────────────────────────────────────────────────
   const typeBreakdown = CONTENT_FILTERS.map(f => {
@@ -567,7 +608,7 @@ export default function YouTubeAnalytics() {
                 <span className="font-semibold text-slate-800 text-sm">{t.label}</span>
                 <span className="ml-auto text-xs text-slate-400 font-mono">{t.count} videos</span>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-3 gap-3 text-xs">
                 <div>
                   <div className="text-slate-400 mb-0.5">Total Views</div>
                   <div className="font-bold tabular-nums" style={{ color: t.color }}>{fmtBig(t.totalViews)}</div>
@@ -585,6 +626,11 @@ export default function YouTubeAnalytics() {
           ))}
         </div>
       </div>
+
+      {/* ── Outside date range notice ─────────────────────────────────────── */}
+      {outsideDateRange.length > 0 && (
+        <OutsideDateRangeNote videos={outsideDateRange} />
+      )}
 
       {/* ── Empty states ──────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (
@@ -627,27 +673,6 @@ export default function YouTubeAnalytics() {
               <div className="text-slate-400 text-xs mt-1">likes + comments / views</div>
             </div>
           </div>
-
-          {/* Top performer callout */}
-          {topVideo && (
-            <div className="card border-l-4 border-l-red-500">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">🏆 Top Performer</div>
-              <a
-                href={`https://youtube.com/watch?v=${topVideo.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-slate-800 hover:text-red-600 transition-colors"
-              >
-                {topVideo.title}
-              </a>
-              <div className="flex gap-4 mt-2 text-xs text-slate-500 font-mono">
-                <span>{topVideo.viewCount.toLocaleString()} views</span>
-                <span>{topVideo.likeCount.toLocaleString()} likes</span>
-                <span>{topVideo.engagementRate.toFixed(2)}% eng.</span>
-                <span>{fmtDate(topVideo.publishedAt)}</span>
-              </div>
-            </div>
-          )}
 
           {/* Top 10 cards */}
           <Top10Section videos={filteredVideos} />
