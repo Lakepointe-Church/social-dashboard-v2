@@ -6,9 +6,10 @@ const IG_ID = process.env.META_INSTAGRAM_ID;
 
 const COLLAB_MARKERS = ['josh howerton', 'live free', '@joshhowerton', '@livefreewjh'];
 
-function classifyMedia(mediaType, caption) {
+function classifyMedia(mediaType, caption, collaborators = []) {
   const cap = (caption || '').toLowerCase();
   if (COLLAB_MARKERS.some(m => cap.includes(m))) return 'collab';
+  if (collaborators.length > 0) return 'collab';
   // VIDEO and REELS both become 'reel'
   if (mediaType === 'REELS' || mediaType === 'VIDEO') return 'reel';
   if (mediaType === 'IMAGE')          return 'photo';
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
 
     // ── 4. Recent media with per-post insights ────────────────────────────────
     const mediaRes = await fetch(
-      `${base}/${IG_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=50&access_token=${token}`
+      `${base}/${IG_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}`
     );
     const mediaData = await mediaRes.json();
     if (mediaData.error) throw new Error(mediaData.error.message);
@@ -123,7 +124,7 @@ export default async function handler(req, res) {
           saveRate,
           shareRate,
           commentRate,
-          contentType:    classifyMedia(m.media_type, m.caption),
+          contentType:    classifyMedia(m.media_type, m.caption, m.collaborators?.data || []),
         };
       })
     );
