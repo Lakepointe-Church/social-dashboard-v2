@@ -97,11 +97,13 @@ social-dashboard/
 ### Incoming Collab Posts (Josh posts, invites LP as collaborator)
 
 - **Status:** Not yet working. Three approaches were investigated and all blocked.
-- **Approach 1 — Business Discovery by username:** `GET /{LP_ID}?fields=business_discovery.fields(id)&username=joshhowerton` → fails with `(#100) The parameter username is required` regardless of URL encoding strategy. Root cause unknown — may be a permissions gate or @joshhowerton not being a Business/Creator account.
+- **Root cause of Approach 1 failure:** Business Discovery requires the target to be a Business or Creator IG account. Josh's @joshhowerton account is almost certainly a **personal account**, which is why Discovery fails with `(#100) The parameter username is required` regardless of syntax — that error is misleading; the real gate is account type.
+- **Approach 1 — Business Discovery by username:** `GET /{LP_ID}?fields=business_discovery.fields(id)&username=joshhowerton` → fails. Unblocked by asking Josh to switch his account to Creator (free, instant in IG settings) — no App Review needed.
 - **Approach 2 — LP's own `/media` with `collaborators` field:** Collab posts where LP accepted Josh's invite do NOT appear in `/{LP_ID}/media`. The Graph API `/media` endpoint only returns posts where the account is the primary (owner) author, not co-author collabs.
 - **Approach 3 — Josh's Facebook Page ID lookup:** `GET /379215606172427?fields=instagram_business_account` → fails with permission error requiring `Page Public Content Access` feature (gated behind Meta App Review).
-- **If Josh's IG account ID becomes available** (from his team directly): skip Business Discovery entirely and try `GET /{josh-ig-id}/media?fields=...,collaborators` — may work without Business Discovery since that was the lookup step, not necessarily the access gate.
-- **Workaround:** Ask Josh's team to consistently include `@lpconnect`, `@joshhowerton`, or `live free` in collab post captions — caption-based detection already picks those up.
+- **If Josh's IG account ID becomes available** (from his team directly): hardcode it and skip Business Discovery entirely — try `GET /{josh-ig-id}/media?fields=...,collaborators` filtered for posts where LP's IG ID appears in `collaborators.data`. The code in `instagram.js` already handles this at line ~141; it just needs `joshId` to be populated.
+- **Fastest path to a fix:** Ask Josh to (a) switch to a Creator account, OR (b) have his team share his numeric IG account ID. Either removes the Business Discovery blocker without waiting on App Review.
+- **Workaround (already live):** Caption-based detection picks up LP's own posts that mention Josh. Ask Josh's team to consistently include `@lpconnect`, `@joshhowerton`, or `live free` in collab captions on Josh's side too.
 - **Real fix:** Meta App Review (unlocks Business Discovery + Page Public Content Access).
 
 ### `/api/youtube`
