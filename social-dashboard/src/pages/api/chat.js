@@ -9,7 +9,7 @@ import { getDataContext } from '../../data/demoData';
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM_PROMPT = `
-You are a world-class social media analytics expert and strategic advisor for Lake Pointe Church.
+You are a world-class social media analytics expert and strategic advisor for Lakepointe Church.
 Your role is to analyze the church's social media data and deliver clear, actionable insights
 that help leadership understand their digital reach and engagement.
 
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { message, history = [] } = req.body;
+  const { message, history = [], context } = req.body;
 
   if (!message?.trim()) {
     return res.status(400).json({ error: 'Message is required' });
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const dataContext = getDataContext();
+    const dataContext = context || getDataContext();
 
     // Build message history for multi-turn
     const messages = [

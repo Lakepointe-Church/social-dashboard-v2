@@ -85,7 +85,7 @@ function UserMessage({ text }) {
   );
 }
 
-export default function AIChatPanel({ open, onClose }) {
+export default function AIChatPanel({ open, onClose, liveContext }) {
   const [messages,  setMessages]  = useState([]);
   const [input,     setInput]     = useState('');
   const [loading,   setLoading]   = useState(false);
@@ -117,7 +117,7 @@ export default function AIChatPanel({ open, onClose }) {
       const res = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ message: userText, history }),
+        body:    JSON.stringify({ message: userText, history, context: liveContext }),
       });
 
       const data = await res.json();
@@ -250,7 +250,7 @@ export default function AIChatPanel({ open, onClose }) {
             </button>
           </form>
           <div className="text-center mt-2 text-xs text-slate-400">
-            Powered by Claude AI • Analyzing 90 days of Lake Pointe social data
+            Powered by Claude AI • Analyzing live Lakepointe social data
           </div>
         </div>
       </div>
