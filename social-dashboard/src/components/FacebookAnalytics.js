@@ -217,12 +217,13 @@ function RateInsightsRow({ p, i, maxLike, maxComment, maxShare }) {
 }
 
 function RateInsightsTable({ posts }) {
-  const top10 = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, 10);
-  if (top10.length === 0) return null;
+  const topN = Math.min(posts.length, 10);
+  const top  = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, topN);
+  if (top.length === 0) return null;
 
-  const maxLike    = Math.max(...top10.map(p => p.likeRate),    0.01);
-  const maxComment = Math.max(...top10.map(p => p.commentRate), 0.01);
-  const maxShare   = Math.max(...top10.map(p => p.shareRate),   0.01);
+  const maxLike    = Math.max(...top.map(p => p.likeRate),    0.01);
+  const maxComment = Math.max(...top.map(p => p.commentRate), 0.01);
+  const maxShare   = Math.max(...top.map(p => p.shareRate),   0.01);
 
   return (
     <div className="overflow-x-auto mt-4">
@@ -239,7 +240,7 @@ function RateInsightsTable({ posts }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          {top10.map((p, i) => (
+          {top.map((p, i) => (
             <RateInsightsRow
               key={p.id}
               p={p}
@@ -504,17 +505,39 @@ export default function FacebookAnalytics() {
       )}
 
       {/* ── Per-post engagement rates ─────────────────────────────────────── */}
-      {filteredPosts.length > 0 && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">📊</span>
-            <h3 className="font-bold text-slate-900 text-base">Engagement Rates — Per Post</h3>
-            <span className="text-xs text-slate-400 font-mono">Top 10 by engagement</span>
-          </div>
-          <p className="text-slate-500 text-sm">Breakdown of how likes, comments, and shares contribute to engagement</p>
-          <RateInsightsTable posts={filteredPosts} />
-        </div>
-      )}
+      {(() => {
+        const videoPosts = filteredPosts.filter(p => p.contentType === 'video');
+        const photoPosts = filteredPosts.filter(p => p.contentType === 'photo');
+        const hasVideos  = activeFilters.includes('video') && videoPosts.length > 0;
+        const hasPhotos  = activeFilters.includes('photo') && photoPosts.length > 0;
+        if (!hasVideos && !hasPhotos) return null;
+        return (
+          <>
+            {hasVideos && (
+              <div className="card">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🎬</span>
+                  <h3 className="font-bold text-slate-900 text-base">Video Insights</h3>
+                  <span className="text-xs text-slate-400 font-mono">Top {Math.min(videoPosts.length, 10)} by engagement</span>
+                </div>
+                <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for videos &amp; reels</p>
+                <RateInsightsTable posts={videoPosts} />
+              </div>
+            )}
+            {hasPhotos && (
+              <div className="card">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">📷</span>
+                  <h3 className="font-bold text-slate-900 text-base">Photo Insights</h3>
+                  <span className="text-xs text-slate-400 font-mono">Top {Math.min(photoPosts.length, 10)} by engagement</span>
+                </div>
+                <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for photos &amp; albums</p>
+                <RateInsightsTable posts={photoPosts} />
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Demographics ──────────────────────────────────────────────────── */}
       {demoChartData.length > 0 && (
