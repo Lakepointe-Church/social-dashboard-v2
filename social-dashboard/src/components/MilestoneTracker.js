@@ -8,10 +8,11 @@ export default function MilestoneTracker({ milestones }) {
         <Target size={18} className="text-amber-500" />
         <h2 className="font-bold text-slate-900 text-lg">Upcoming Milestones</h2>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {milestones.map(m => {
-          const pct = Math.min(100, (m.current / m.target) * 100);
-          const remaining = (m.target - m.current).toLocaleString();
+          const exceeded  = m.current >= m.target;
+          const pct       = Math.min(100, (m.current / m.target) * 100);
+          const remaining = exceeded ? null : (m.target - m.current).toLocaleString();
           return (
             <div key={m.platform} className="bg-slate-50 rounded-2xl p-4 flex flex-col gap-3 items-center text-center">
               <div className="flex flex-col items-center gap-2">
@@ -22,13 +23,16 @@ export default function MilestoneTracker({ milestones }) {
                   </span>
                 )}
               </div>
-              <div>
+              <div className="text-center">
                 <div className="text-xs text-slate-500 mb-0.5">{m.label}</div>
                 <div className="text-lg font-bold text-slate-900 tabular-nums">
                   {m.current.toLocaleString()}
                   <span className="text-sm text-slate-400 font-normal"> / {m.target.toLocaleString()}</span>
                 </div>
-                <div className="text-xs text-slate-500 mt-0.5">{remaining} to go</div>
+                {exceeded
+                  ? <div className="text-xs text-emerald-600 font-semibold mt-0.5">🎉 Goal reached!</div>
+                  : <div className="text-xs text-slate-500 mt-0.5">{remaining} to go</div>
+                }
               </div>
               {/* Progress bar */}
               <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">

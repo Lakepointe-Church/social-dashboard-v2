@@ -61,6 +61,7 @@ function normalizePosts(fbData, igData, ytData) {
     platformName:   'YouTube',
     title:          v.title || 'YouTube video',
     thumbnail:      v.thumbnail || null,
+    permalink:      `https://www.youtube.com/watch?v=${v.id}`,
     contentType:    v.contentType,
     type:           v.contentType.charAt(0).toUpperCase() + v.contentType.slice(1),
     date:           new Date(v.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -109,7 +110,7 @@ function computeContentTypeData(fbData, igData, ytData) {
       icon:          b.icon,
       posts:         b.posts,
       avgReach:      b.posts > 0 ? Math.round(b.totalReach / b.posts) : 0,
-      avgEngagement: b.posts > 0 ? Math.round(b.totalEng   / b.posts) : 0,
+      avgEngagement: b.totalReach > 0 ? parseFloat((b.totalEng / b.totalReach * 100).toFixed(1)) : null,
     }));
 }
 
@@ -160,9 +161,9 @@ function ChannelHighlight({ label, color, tabId, post, error, onNavigate }) {
          className="block relative rounded-xl overflow-hidden mb-3 group"
          onClick={e => !post.permalink && e.preventDefault()}>
         {post.thumbnail ? (
-          <img src={post.thumbnail} alt="" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
+          <img src={post.thumbnail} alt="" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" />
         ) : (
-          <div className="w-full aspect-video flex items-center justify-center text-white text-2xl font-bold rounded-xl"
+          <div className="w-full aspect-square flex items-center justify-center text-white text-2xl font-bold rounded-xl"
                style={{ background: color }}>
             {label.slice(0, 2).toUpperCase()}
           </div>
@@ -384,14 +385,9 @@ export default function AllOverview({ onNavigate }) {
           label="Facebook" color="#1877F2" tabId="facebook-live"
           error={fbError} onNavigate={onNavigate}
           stats={[
-            { label: 'Page Followers', value: fmtBig(fbData?.page?.followersCount) },
-            { label: '30-Day Reach',   value: fmtBig(fbData?.insights?.reach) },
-            {
-              label: 'Engaged Users',
-              value: fbData?.insights?.engagedUsers > 0
-                ? fmtBig(fbData.insights.engagedUsers)
-                : '0 — pending App Review',
-            },
+            { label: 'Page Followers',     value: fmtBig(fbData?.page?.followersCount) },
+            { label: '30-Day Reach',       value: fmtBig(fbData?.insights?.reach) },
+            { label: 'New Followers (30d)', value: fmtBig(fbData?.insights?.newFans) },
           ]}
         />
         <PlatformOverviewCard

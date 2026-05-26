@@ -26,7 +26,7 @@ export default function ContentTypeChart({ data, barKey = 'avgReach', barLabel =
                 : (d[barKey] || 0).toLocaleString()}
             </span>{' '}{barLabel}
           </div>
-          {barKey === 'avgReach' && (
+          {barKey === 'avgReach' && d.avgEngagement != null && (
             <div className="text-[10px] text-slate-500 mt-0.5">
               <span className="font-bold text-emerald-600">{d.avgEngagement}%</span>{' '}eng.
             </div>

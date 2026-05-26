@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     if (pageData.error) throw new Error(pageData.error.message);
 
     // ── 2. Page insights ──────────────────────────────────────────────────────
-    const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total'];
+    const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total', 'page_fan_adds'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
         fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=week&since=${daysAgo(28)}&until=${today()}&access_token=${token}`)
@@ -124,7 +124,7 @@ function parseInsights(data) {
       return s + val;
     }, 0);
   });
-  return { impressions: totals.page_impressions || 0, reach: totals.page_impressions_unique || 0, engagedUsers: totals.page_engaged_users || 0, pageViews: totals.page_views_total || 0 };
+  return { impressions: totals.page_impressions || 0, reach: totals.page_impressions_unique || 0, engagedUsers: totals.page_engaged_users || 0, pageViews: totals.page_views_total || 0, newFans: totals.page_fan_adds || 0 };
 }
 
 function parseDemographics(data) {
