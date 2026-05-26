@@ -68,6 +68,7 @@ function LiveTabIcon({ id }) {
 
 export default function Dashboard() {
   const [activeTab,   setActiveTab]   = useState('All');
+  const [mountedTabs, setMountedTabs] = useState(new Set());
   const [dateRange,   setDateRange]   = useState('90 Days');
   const [startISO,    setStartISO]    = useState(daysAgo(90));
   const [endISO,      setEndISO]      = useState(DATA_END_DATE);
@@ -130,7 +131,7 @@ export default function Dashboard() {
             ))}
             <div className="w-px bg-slate-200 mx-1 self-stretch" />
             {LIVE_TABS.map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setMountedTabs(prev => new Set([...prev, tab.id])); }}
                 className={`flex items-center gap-2 flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
                   activeTab === tab.id ? 'tab-active' : 'tab-inactive'
                 }`}>
@@ -143,11 +144,15 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Live views */}
-          {activeTab === 'facebook-live'  && <FacebookAnalytics />}
-          {activeTab === 'instagram-live' && <InstagramAnalytics />}
-          {activeTab === 'instagram-audience' && <InstagramAudience />}
-          {activeTab === 'youtube-live'   && <YouTubeAnalytics />}
+          {/* Live views — lazy mount + keep-alive */}
+          {LIVE_TABS.map(tab => mountedTabs.has(tab.id) && (
+            <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none' }}>
+              {tab.id === 'facebook-live'      && <FacebookAnalytics />}
+              {tab.id === 'instagram-live'     && <InstagramAnalytics />}
+              {tab.id === 'instagram-audience' && <InstagramAudience />}
+              {tab.id === 'youtube-live'       && <YouTubeAnalytics />}
+            </div>
+          ))}
 
           {/* Demo views */}
           {!isLiveTab && (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
 import { Users, UserPlus, Eye, TrendingUp, RefreshCw, AlertCircle, Lock } from 'lucide-react';
 import AgeBreakdown from './AgeBreakdown';
 import GeoBreakdown from './GeoBreakdown';
@@ -49,13 +50,12 @@ export default function InstagramAudience() {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/instagram');
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
-      setData(await res.json());
+      if (forceRefresh) invalidateInstagramCache();
+      setData(await fetchInstagramData());
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
@@ -97,7 +97,7 @@ export default function InstagramAudience() {
         <div>
           <p className="font-semibold text-red-700 text-sm">Failed to load audience data</p>
           <p className="text-red-500 text-xs mt-1">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs font-semibold text-red-600 flex items-center gap-1">
+          <button onClick={() => fetchData(true)} className="mt-3 text-xs font-semibold text-red-600 flex items-center gap-1">
             <RefreshCw size={12} /> Try again
           </button>
         </div>
@@ -125,7 +125,7 @@ export default function InstagramAudience() {
             </p>
           </div>
         </div>
-        <button onClick={fetchData} disabled={loading}
+        <button onClick={() => fetchData(true)} disabled={loading}
           className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>

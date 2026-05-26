@@ -2,6 +2,7 @@
 // InstagramAnalytics — live data from /api/instagram
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
+import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
 
@@ -279,12 +280,11 @@ export default function InstagramAnalytics() {
   const [customStart,   setCustomStart]   = useState('');
   const [customEnd,     setCustomEnd]     = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/instagram');
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
-      setData(await res.json());
+      if (forceRefresh) invalidateInstagramCache();
+      setData(await fetchInstagramData());
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
@@ -312,7 +312,7 @@ export default function InstagramAnalytics() {
         <div>
           <p className="font-semibold text-red-700 text-sm">Failed to load Instagram data</p>
           <p className="text-red-500 text-xs mt-1">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs font-semibold text-red-600 flex items-center gap-1">
+          <button onClick={() => fetchData(true)} className="mt-3 text-xs font-semibold text-red-600 flex items-center gap-1">
             <RefreshCw size={12} /> Try again
           </button>
         </div>
@@ -429,7 +429,7 @@ export default function InstagramAnalytics() {
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-pink-300" />
               </div>
             )}
-            <button onClick={fetchData} disabled={loading}
+            <button onClick={() => fetchData(true)} disabled={loading}
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
