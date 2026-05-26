@@ -13,8 +13,8 @@ export default function MilestoneTracker({ milestones }) {
           const pct = Math.min(100, (m.current / m.target) * 100);
           const remaining = (m.target - m.current).toLocaleString();
           return (
-            <div key={m.platform} className="bg-slate-50 rounded-2xl p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+            <div key={m.platform} className="bg-slate-50 rounded-2xl p-4 flex flex-col gap-3 items-center text-center">
+              <div className="flex flex-col items-center gap-2">
                 <PlatformIcon platform={m.platform} size={28} />
                 {m.daysAway != null && (
                   <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
@@ -31,13 +31,13 @@ export default function MilestoneTracker({ milestones }) {
                 <div className="text-xs text-slate-500 mt-0.5">{remaining} to go</div>
               </div>
               {/* Progress bar */}
-              <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${pct}%`, background: m.color }}
                 />
               </div>
-              <div className="text-xs font-semibold text-right" style={{ color: m.color }}>
+              <div className="text-xs font-semibold" style={{ color: m.color }}>
                 {pct.toFixed(1)}%
               </div>
             </div>

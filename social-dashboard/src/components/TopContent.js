@@ -10,7 +10,9 @@ const PLATFORM_COLORS = {
 
 function fmt(n) {
   if (!n) return '—';
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString();
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
 }
 
 export default function TopContent({ posts }) {
@@ -24,16 +26,22 @@ export default function TopContent({ posts }) {
 
   return (
     <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <Trophy size={18} className="text-amber-500" />
-        <h2 className="font-bold text-slate-900 text-lg">Top Performing Content</h2>
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <Trophy size={18} className="text-amber-500" />
+          <h2 className="font-bold text-slate-900 text-lg">Top Performing Content</h2>
+        </div>
+        <p className="text-slate-400 text-xs mt-0.5 ml-7">Ranked by total engagement · click any post to view</p>
       </div>
 
       <div className="space-y-3">
         {posts.slice(0, 6).map((post, idx) => (
-          <div
+          <a
             key={post.id}
-            className="flex gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 group"
+            href={post.permalink || undefined}
+            target={post.permalink ? '_blank' : undefined}
+            rel="noopener noreferrer"
+            className={`flex gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 group ${post.permalink ? 'cursor-pointer' : 'cursor-default'}`}
           >
             {/* Rank */}
             <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold
@@ -79,13 +87,15 @@ export default function TopContent({ posts }) {
             {/* Stats */}
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
               <div className="flex items-center gap-1 text-xs text-slate-500">
-                <Eye size={11} /> {fmt(post.reach)}
+                <Eye size={11} />
+                <span>{fmt(post.reach)}</span>
+                <span className="text-slate-300 text-[10px]">{post.platform === 'youtube' ? 'views' : 'reach'}</span>
               </div>
               <div className="text-xs font-bold text-emerald-600">
-                {post.engagementRate != null ? `${post.engagementRate}%` : '—'}
+                {post.engagementRate != null ? `${post.engagementRate}% rate` : '—'}
               </div>
             </div>
-          </div>
+          </a>
         ))}
       </div>
     </div>

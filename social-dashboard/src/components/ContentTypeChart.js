@@ -2,12 +2,12 @@ export default function ContentTypeChart({ data, barKey = 'avgReach', barLabel =
   const maxReach = Math.max(...data.map(d => d[barKey] || 0), 1);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+    <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
       {data.map(d => (
-        <div key={d.type} className="bg-slate-50 hover:bg-slate-100 rounded-xl p-3
+        <div key={d.type} className="bg-slate-50 hover:bg-slate-100 rounded-xl p-2
                                      transition-colors duration-150 text-center group">
-          <div className="text-2xl mb-2">{d.icon}</div>
-          <div className="text-xs font-semibold text-slate-700 mb-3 leading-tight min-h-[32px] flex items-center justify-center">
+          <div className="text-xl mb-1">{d.icon}</div>
+          <div className="text-[10px] font-semibold text-slate-700 mb-2 leading-tight min-h-[28px] flex items-center justify-center">
             {d.type}
           </div>
 
@@ -19,19 +19,19 @@ export default function ContentTypeChart({ data, barKey = 'avgReach', barLabel =
             />
           </div>
 
-          <div className="text-xs text-slate-500">
+          <div className="text-[10px] text-slate-500">
             <span className="font-bold text-slate-800">
               {barKey === 'avgReach'
-                ? `${((d.avgReach || 0) / 1000).toFixed(0)}K`
+                ? (d.avgReach >= 1000 ? `${(d.avgReach / 1000).toFixed(0)}K` : d.avgReach.toLocaleString())
                 : (d[barKey] || 0).toLocaleString()}
             </span>{' '}{barLabel}
           </div>
           {barKey === 'avgReach' && (
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="text-[10px] text-slate-500 mt-0.5">
               <span className="font-bold text-emerald-600">{d.avgEngagement}%</span>{' '}eng.
             </div>
           )}
-          <div className="text-xs text-slate-400 mt-1">{d.posts} posts</div>
+          <div className="text-[10px] text-slate-400 mt-1">{d.posts} posts</div>
         </div>
       ))}
     </div>

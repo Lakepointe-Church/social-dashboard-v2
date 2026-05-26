@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     // ── 3. Recent posts with likes + comments + shares ────────────────────────
     const postsRes  = await fetch(
-      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares&limit=50&access_token=${token}`
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,permalink_url&limit=50&access_token=${token}`
     );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
@@ -72,6 +72,7 @@ export default async function handler(req, res) {
         thumbnail:    p.attachments?.data?.[0]?.media?.image?.src || null,
         type,
         contentType:  classifyPost(message, type), // 'stream' | 'photo' | 'video' | 'other'
+        permalink:    p.permalink_url || null,
         engaged,
         likeCount:    likes,
         commentCount: comments,

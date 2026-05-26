@@ -29,6 +29,7 @@ function normalizePosts(fbData, igData, ytData) {
     platformName:   'Facebook',
     title:          (p.message || 'Facebook post').slice(0, 80),
     thumbnail:      p.thumbnail || null,
+    permalink:      p.permalink || null,
     contentType:    p.contentType,
     type:           p.contentType.charAt(0).toUpperCase() + p.contentType.slice(1),
     date:           new Date(p.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -44,6 +45,7 @@ function normalizePosts(fbData, igData, ytData) {
     platformName:   'Instagram',
     title:          (m.caption || 'Instagram post').slice(0, 80),
     thumbnail:      m.mediaUrl || null,
+    permalink:      m.permalink || null,
     contentType:    m.contentType,
     type:           m.contentType.charAt(0).toUpperCase() + m.contentType.slice(1),
     date:           new Date(m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -82,13 +84,14 @@ function computeContentTypeData(fbData, igData, ytData) {
   };
 
   (fbData?.posts || []).forEach(p => {
-    const map = { stream: ['FB Stream', '📺'], photo: ['FB Photo', '📷'], video: ['FB Video', '🎬'] };
+    const map = { stream: ['FB Sermon', '⛪'], photo: ['FB Photo', '📷'], video: ['FB Video', '🎬'] };
     const entry = map[p.contentType];
-    if (entry) add(entry[0], entry[1], p.engaged || 0, 0);
+    if (entry) add(entry[0], entry[1], p.engaged || 0, 0); // FB reach unavailable pre-App Review
   });
 
   (igData?.media || []).forEach(m => {
-    const map = { reel: ['IG Reel', '🎬'], carousel: ['IG Carousel', '🖼️'], photo: ['IG Photo', '📷'], collab: ['IG Collab', '🤝'] };
+    // Photo and Carousel merged into one bucket
+    const map = { reel: ['IG Reel', '🎬'], carousel: ['IG Photo/Carousel', '📷'], photo: ['IG Photo/Carousel', '📷'], collab: ['IG Collab', '🤝'] };
     const entry = map[m.contentType];
     if (entry) add(entry[0], entry[1], m.engagement || (m.likeCount + (m.commentsCount || 0)), m.reach || 0);
   });
@@ -139,6 +142,72 @@ function computeBestTimeData(fbData, igData) {
     byDay:  DAY_NAMES.map(day => ({ day, engagement: avg(byDayMap[day]), posts: byDayMap[day].length })),
     byHour: byHourBuckets.map((vals, i) => ({ hour: formatHour(i), engagement: avg(vals), posts: vals.length })),
   };
+}
+
+function ChannelHighlight({ label, color, tabId, post, error, onNavigate }) {
+  const body = error ? (
+    <div className="h-32 flex items-center justify-center rounded-xl bg-slate-50">
+      <p className="text-slate-400 text-xs">Data unavailable</p>
+    </div>
+  ) : !post ? (
+    <div className="h-32 flex items-center justify-center rounded-xl bg-slate-50">
+      <p className="text-slate-400 text-xs">Loading…</p>
+    </div>
+  ) : (
+    <>
+      <a href={post.permalink || undefined} target={post.permalink ? '_blank' : undefined}
+         rel="noopener noreferrer"
+         className="block relative rounded-xl overflow-hidden mb-3 group"
+         onClick={e => !post.permalink && e.preventDefault()}>
+        {post.thumbnail ? (
+          <img src={post.thumbnail} alt="" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
+        ) : (
+          <div className="w-full aspect-video flex items-center justify-center text-white text-2xl font-bold rounded-xl"
+               style={{ background: color }}>
+            {label.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl" />
+      </a>
+
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: color }}>
+          {post.type}
+        </span>
+        <span className="text-xs text-slate-400">{post.date}</span>
+      </div>
+
+      <p className="text-sm text-slate-700 leading-snug line-clamp-2 mb-3" title={post.title}>
+        {post.title}
+      </p>
+
+      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+        <div className="flex items-center gap-1">
+          <Heart size={11} className="text-pink-400" />
+          <span className="font-semibold text-slate-700">{fmtBig(post.engagement)}</span> engaged
+        </div>
+        {post.reach > 0 && (
+          <div className="flex items-center gap-1">
+            <Eye size={11} className="text-purple-400" />
+            <span className="font-semibold text-slate-700">{fmtBig(post.reach)}</span>
+            {post.platform === 'youtube' ? ' views' : ' reach'}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="card overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-bold" style={{ color }}>{label}</span>
+        {post?.engagementRate != null && (
+          <span className="text-xs font-semibold text-emerald-600">{post.engagementRate}% rate</span>
+        )}
+      </div>
+      {body}
+    </div>
+  );
 }
 
 function PlatformErrorBadge({ platform, error }) {
@@ -245,7 +314,11 @@ export default function AllOverview({ onNavigate }) {
   }));
 
   // ── Derived sections ───────────────────────────────────────────────────────
-  const allPosts        = normalizePosts(fbData, igData, ytData).slice(0, 6);
+  const allPostsRanked  = normalizePosts(fbData, igData, ytData);
+  const allPosts        = allPostsRanked.slice(0, 6);
+  const topFbPost       = allPostsRanked.find(p => p.platform === 'facebook')  || null;
+  const topIgPost       = allPostsRanked.find(p => p.platform === 'instagram') || null;
+  const topYtPost       = allPostsRanked.find(p => p.platform === 'youtube')   || null;
   const contentTypeData = computeContentTypeData(fbData, igData, ytData);
   const bestTimeData    = (fbData || igData) ? computeBestTimeData(fbData, igData) : null;
 
@@ -341,6 +414,19 @@ export default function AllOverview({ onNavigate }) {
         />
       </div>
 
+      {/* ── Best Post per Channel ───────────────────────────────────────────── */}
+      <div>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Best Post by Channel</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <ChannelHighlight label="Facebook"  color="#1877F2" tabId="facebook-live"
+            post={topFbPost} error={fbError} onNavigate={onNavigate} />
+          <ChannelHighlight label="Instagram" color="#E1306C" tabId="instagram-live"
+            post={topIgPost} error={igError} onNavigate={onNavigate} />
+          <ChannelHighlight label="YouTube"   color="#FF0000" tabId="youtube-live"
+            post={topYtPost} error={ytError} onNavigate={onNavigate} />
+        </div>
+      </div>
+
       {/* ── Milestones ───────────────────────────────────────────────────────── */}
       <MilestoneTracker milestones={liveMilestones} />
 
@@ -409,9 +495,9 @@ export default function AllOverview({ onNavigate }) {
         <div className="card">
           <div className="mb-4">
             <h2 className="font-bold text-slate-900 text-lg">Content Type Performance</h2>
-            <p className="text-slate-500 text-sm">Avg engagement actions per post · FB + IG + YT</p>
+            <p className="text-slate-500 text-sm">Avg reach / views per post by content format · IG + YT · FB pending App Review</p>
           </div>
-          <ContentTypeChart data={contentTypeData} barKey="avgEngagement" barLabel="avg eng." />
+          <ContentTypeChart data={contentTypeData} barKey="avgReach" barLabel="avg reach" />
         </div>
       )}
 
