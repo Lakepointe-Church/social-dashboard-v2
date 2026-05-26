@@ -344,8 +344,13 @@ export default function InstagramAnalytics() {
     return mul * ((a[tableSort.key] || 0) - (b[tableSort.key] || 0));
   });
   const visibleMedia  = sortedMedia.slice(0, tableLimit);
-  const counts          = { photo: 0, carousel: 0, reel: 0, collab: 0, other: 0 };
-  media.forEach(m => { if (counts[m.contentType] !== undefined) counts[m.contentType]++; });
+  const counts = { photo: 0, carousel: 0, reel: 0, collab: 0, other: 0 };
+  media.filter(m => {
+    const t = new Date(m.timestamp);
+    if (rangeStart && t < rangeStart) return false;
+    if (rangeEnd   && t > rangeEnd)   return false;
+    return true;
+  }).forEach(m => { if (counts[m.contentType] !== undefined) counts[m.contentType]++; });
 
   const reelsInView     = filteredMedia.filter(m => m.contentType === 'reel');
   const photosInView    = filteredMedia.filter(m => m.contentType === 'photo' || m.contentType === 'carousel');
