@@ -83,7 +83,7 @@ social-dashboard/
 - **Instagram ID:** `META_INSTAGRAM_ID`
 - **Data:** Account summary, 30-day insights, new followers, 50 recent media with per-post insights, demographics, geo
 - **Content classification:** `photo`, `carousel`, `reel` (VIDEO + REELS merged), `collab`, `other`
-- **Collab detection:** (1) Caption contains "josh howerton", "live free", "@joshhowerton", "@livefreewjh" — OR — (2) Post has a non-empty `collaborators` field (formal Instagram collab invite accepted by both parties). The collaborators field automatically covers guest pastors, @lpespanol, school of ministry, college accounts, and any future collab partner without code changes.
+- **Collab detection:** (1) Caption contains "josh howerton", "live free", "@joshhowerton", "@livefreewjh" — OR — (2) Post has a non-empty `collaborators` field (formal Instagram collab invite accepted by both parties). The collaborators field automatically covers guest pastors, @lpespanol, school of ministry, college accounts, and any future collab partner without code changes. **Note:** The `collaborators` field is silently dropped by the API in dev mode (confirmed 2026-05-26) — gated behind Meta App Review. Code is already wired up and will auto-activate once App Review is approved.
 - **Rate metrics per post:** likeRate, saveRate, shareRate, commentRate (reels), avgWatchTime (reels)
 - **Metric split by type (Graph API v22.0+):**
   - Photos/carousels fetch: `reach, saved, total_interactions, shares`
