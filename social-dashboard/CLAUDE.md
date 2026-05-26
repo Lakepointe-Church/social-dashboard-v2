@@ -22,18 +22,20 @@ A live social media analytics dashboard for **Lakepointe Church** (@lpconnect). 
 ```
 social-dashboard/
 ├── pages/
-│   ├── index.js                  ← Main dashboard — all tabs wired here
+│   ├── index.js                  ← Main dashboard — all tabs + AI panel wired here
 │   └── api/
 │       ├── facebook.js           ← Meta Graph API proxy (Facebook Page)
 │       ├── instagram.js          ← Meta Graph API proxy (Instagram @lpconnect)
-│       └── youtube.js            ← YouTube Data API v3 proxy
+│       ├── youtube.js            ← YouTube Data API v3 proxy
+│       └── chat.js               ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
 ├── src/
 │   ├── components/
 │   │   ├── AllOverview.js        ← Cross-platform Overview tab (live)
 │   │   ├── FacebookAnalytics.js  ← Facebook LIVE tab component
 │   │   ├── InstagramAnalytics.js ← Instagram LIVE tab component
-│   │   ├── YouTubeAnalytics.js   ← YouTube LIVE tab component
-│   │   ├── Header.js             ← Top nav bar
+│   │   ├── InstagramAudience.js  ← Instagram Audience tab component
+│   │   ├── YouTubeAnalytics.js   ← YouTube LIVE tab component (fully built out)
+│   │   ├── Header.js             ← Top nav bar (simplified — no props, no Demo Mode badge)
 │   │   ├── MetricCard.js         ← KPI card component
 │   │   ├── PlatformCard.js       ← Platform summary card
 │   │   ├── FollowerGrowthChart.js
@@ -44,14 +46,15 @@ social-dashboard/
 │   │   ├── AgeBreakdown.js
 │   │   ├── MilestoneTracker.js   ← Follower milestone progress bars
 │   │   ├── BestTimeToPost.js
-│   │   ├── AIChatPanel.js        ← AI Analyst chat (uses /api/chat)
+│   │   ├── AIChatPanel.js        ← AI Analyst slide-up chat panel (wired to live data)
+│   │   ├── DynamicViz.js         ← Renders AI Analyst chart/table responses
 │   │   └── CustomViewBuilder.js  ← Widget toggle UI
 │   ├── lib/
 │   │   ├── igDataCache.js        ← 5-min client-side cache for /api/instagram
 │   │   ├── fbDataCache.js        ← 5-min client-side cache for /api/facebook
 │   │   └── ytDataCache.js        ← 5-min client-side cache for /api/youtube
 │   └── data/
-│       └── demoData.js           ← Hardcoded demo data + getDataContext() for AI Analyst
+│       └── demoData.js           ← Hardcoded demo data + getDataContext() for AI Analyst fallback
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
@@ -123,6 +126,41 @@ social-dashboard/
 
 ---
 
+## YouTubeAnalytics.js — Current Features (as of May 2026)
+
+- **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips (Podcast, Sermon, Short with emoji + color), date range presets (7d/30d/90d + custom), Refresh button. Multi-select: deselecting all shows empty state with reset.
+- **Channel Overview KPIs** — Subscribers, Total Views, Total Videos, Avg Views/Video. Labeled "Channel-wide · not affected by filters" since these are lifetime channel stats.
+- **Advanced Metrics (Pending OAuth)** — Total Watch Time, Avg Watch Time/Video, Impression CTR shown as `0 🔒` with amber "Pending · YouTube OAuth required" badge. These require YouTube Analytics API + OAuth which is blocked until Lakepointe YouTube account access is obtained.
+- **Content Breakdown** — `grid-cols-3` inside each content type card: Total Views, Avg Views, Avg Engagement Rate all in one row.
+- **Top 10 sections** — Two side-by-side horizontal scroll rows: "Top 10 by Views" and "Top 10 by Engagement". Cards are `w-56 flex-shrink-0` in a `flex gap-3 overflow-x-auto pb-2` row. Each card shows thumbnail (16:9 via `aspect-video`, using `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` — public, no API key needed), title, rank badge, and primary metric.
+- **All Videos table** — sortable by all columns including Type. Self-contained `sort` state `{ key, dir }`. Uses `durationSecs` (numeric) for duration sorting instead of the display string. Colored pill for Type column (green=short, blue=podcast, violet=sermon). Paginated with "Load More" button.
+- **OutsideDateRangeNote** — collapsible notice at the bottom of the video list that lists videos which were fetched but fall outside the selected date window (with title + content type). This explains count discrepancies like "50 loaded but 45 in view."
+- **Content type classification** (in `/api/youtube.js`): `short` (≤180s), `podcast` (title contains "Live Free with Josh Howerton" or "Live Free"), `sermon` (everything else). All videos get exactly one of these three labels — no unclassified bucket.
+
+---
+
+## AIChatPanel.js — AI Analyst (Live Data, as of May 2026)
+
+The AI Analyst is a slide-up chat panel powered by `claude-sonnet-4-6` via the Anthropic API.
+
+**Architecture:**
+- Floating "Ask AI Analyst" button (`fixed bottom-6 right-6`) in `index.js` toggles the panel
+- `AIChatPanel.js` accepts a `liveContext` prop (a pre-built text summary string)
+- On send, the client POSTs `{ message, history, context: liveContext }` to `/api/chat`
+- `/api/chat` uses `req.body.context` if provided; falls back to `getDataContext()` (demo data) if all platform fetches failed
+
+**Live context building (in `index.js`):**
+- `buildLiveContext(fbData, igData, ytData)` — called once on mount via `useEffect` + `Promise.allSettled`
+- Calls all 3 caches in parallel; partial failures produce `null` for that platform (graceful degradation)
+- Produces a structured text summary: followers, reach/impressions, top 3 posts per platform with caption snippet, engagement rates
+- Client-side only — the three data caches use relative `fetch('/api/xxx')` URLs and cannot be imported in server-side code
+
+**Suggested questions** — 8 preset prompt chips shown on the welcome screen. Can be updated to match what Jolie/leadership actually ask most.
+
+**`/api/chat` system prompt:** Instructs Claude to always return valid JSON in the shape `{ message, highlights, visualization }`. The `DynamicViz.js` component renders the `visualization` field as a Recharts chart or table.
+
+---
+
 ## InstagramAnalytics.js — Current Features (as of May 2026)
 
 - **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips, date range presets (7d/30d/90d + custom), and Refresh button stay pinned below the main app header while scrolling. `top-16` accounts for the main `Header.js` which is `h-16 sticky top-0`.
@@ -166,15 +204,17 @@ This is expected. The app needs to be submitted for App Review and published bef
 
 ## Pending Work
 
-- [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access.
+- [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access. The Advanced Metrics section in the YouTube tab shows these as `0 🔒` with "Pending · YouTube OAuth required" until resolved.
 - [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level). Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
 - [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
-- [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` (except `getDataContext()` for AI Analyst) can be removed once TikTok has live data
-- [ ] **Top nav redesign** — the current header (90 Days, Customize, AI Analyst) will be redesigned. Date range selector has been moved to individual live tab headers.
+- [x] **YouTube tab** — fully built out: sticky filter bar, content type chips, date filter, channel KPIs, content breakdown (single row), top-10 horizontal scroll rows, sortable All Videos table, OutsideDateRangeNote, pending OAuth placeholders
+- [x] **AI Analyst** — wired to live data: `buildLiveContext()` in `index.js` fetches all 3 platforms on mount and passes context string to `AIChatPanel`, which forwards it to `/api/chat`. Falls back to demo data if all fetches fail.
+- [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` (except `getDataContext()` fallback for AI Analyst) can be removed once TikTok has live data
+- [ ] **AI Analyst suggested questions** — update the 8 preset prompt chips in `AIChatPanel.js` to reflect questions Jolie/leadership actually ask most often
 
 ---
 
@@ -235,7 +275,21 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ## Recent Changes (May 2026)
 
-### May 26, 2026
+### May 26, 2026 (session 2)
+
+- `7637361` — Add sticky control bar, date filter, content type filter chips, pending OAuth placeholder cards, and content breakdown section to YouTube tab
+- `24d6edb` — Replace YouTube bar charts with top-10 video card columns; add sortable All Videos table with Content Type column
+- `9d69f51` — Switch YouTube top-10 from stacked columns to horizontal scrollable rows (matching Instagram's top posts layout)
+- `621e570` — Polish YouTube tab: move content breakdown metrics to single row (Total Views / Avg Views / Avg Eng Rate), remove redundant "top performer" card, add `OutsideDateRangeNote` component that surfaces videos outside the date window with title + type
+- `0fe0d6d` — Wire AI Analyst to live data: restore `AIChatPanel` + floating button in `index.js`; add `buildLiveContext()` that fetches all 3 platform caches via `Promise.allSettled` on mount and formats a structured context string; `AIChatPanel` sends `context` in POST body; `/api/chat` uses it if present, falls back to `getDataContext()`; fix "Lake Pointe" → "Lakepointe" in system prompt and panel footer; fix browser tab title; remove Demo Mode badge from header
+
+#### Key decisions this session
+- YouTube thumbnails use `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` — publicly available, no API key needed
+- Duration sorting uses `durationSecs` (numeric field already in API response) rather than trying to sort the display string
+- Live context is built client-side (the 3 caches use relative `fetch('/api/xxx')` URLs and cannot be imported server-side). Context string is passed in the POST body — server uses it if provided.
+- All videos get exactly one of three content type labels (short/podcast/sermon). "50 loaded but 45 in view" discrepancy was NOT a labeling bug — 5 videos were simply outside the selected date range. `OutsideDateRangeNote` now surfaces these explicitly.
+
+### May 26, 2026 (session 1)
 
 - `8a9a50e` / `f1f0cd8` — Add live Overview tab (`AllOverview.js`): cross-platform KPIs, per-platform cards, best post by channel grid, milestone tracker, top performing content, content type performance, best time to post. Remove demo All tab.
 - `aad8819` — Fix Overview polish: content type `avgEngagement` changed from raw count to reach-based rate (fixes "21967% engagement" bug); add `permalink` to YT posts so Shorts are clickable; change Best Post thumbnails from `aspect-video` to `aspect-square`; add `page_fan_adds` to FB API and show "New Followers (30d)" in FB overview card
