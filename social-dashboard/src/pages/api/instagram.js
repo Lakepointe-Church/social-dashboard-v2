@@ -71,6 +71,11 @@ export default async function handler(req, res) {
 
     const mediaItems = mediaData.data || [];
 
+    // Temporary: log collaborators field for any post that has it populated
+    mediaItems.forEach(m => {
+      if (m.collaborators) console.log(`[IG collab field] ${m.id}:`, JSON.stringify(m.collaborators));
+    });
+
     const mediaWithInsights = await Promise.all(
       mediaItems.map(async m => {
         const isReel = m.media_type === 'REELS' || m.media_type === 'VIDEO';
