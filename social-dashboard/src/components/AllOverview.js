@@ -115,9 +115,10 @@ function computeContentTypeData(fbData, igData, ytData) {
 }
 
 function computeBestTimeData(fbData, igData) {
-  const DAY_NAMES     = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const byDayMap      = Object.fromEntries(DAY_NAMES.map(d => [d, []]));
-  const byHourBuckets = Array.from({ length: 24 }, () => []);
+  const DAY_NAMES       = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const byDayMap        = Object.fromEntries(DAY_NAMES.map(d => [d, []]));
+  const byHourBuckets   = Array.from({ length: 24 }, () => []);
+  const byDayHourMap    = Object.fromEntries(DAY_NAMES.map(d => [d, Array.from({ length: 24 }, () => [])]));
 
   const formatHour = h => {
     if (h === 0)  return '12am';
@@ -127,14 +128,22 @@ function computeBestTimeData(fbData, igData) {
 
   (fbData?.posts || []).forEach(p => {
     const d = new Date(p.createdTime);
-    byDayMap[DAY_NAMES[d.getDay()]].push(p.engaged || 0);
-    byHourBuckets[d.getHours()].push(p.engaged || 0);
+    const dayName = DAY_NAMES[d.getDay()];
+    const hour = d.getHours();
+    const val = p.engaged || 0;
+    byDayMap[dayName].push(val);
+    byHourBuckets[hour].push(val);
+    byDayHourMap[dayName][hour].push(val);
   });
 
   (igData?.media || []).forEach(m => {
     const d = new Date(m.timestamp);
-    byDayMap[DAY_NAMES[d.getDay()]].push(m.engagement || (m.likeCount + (m.commentsCount || 0)));
-    byHourBuckets[d.getHours()].push(m.engagement || (m.likeCount + (m.commentsCount || 0)));
+    const dayName = DAY_NAMES[d.getDay()];
+    const hour = d.getHours();
+    const val = m.engagement || (m.likeCount + (m.commentsCount || 0));
+    byDayMap[dayName].push(val);
+    byHourBuckets[hour].push(val);
+    byDayHourMap[dayName][hour].push(val);
   });
 
   const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
@@ -142,6 +151,10 @@ function computeBestTimeData(fbData, igData) {
   return {
     byDay:  DAY_NAMES.map(day => ({ day, engagement: avg(byDayMap[day]), posts: byDayMap[day].length })),
     byHour: byHourBuckets.map((vals, i) => ({ hour: formatHour(i), engagement: avg(vals), posts: vals.length })),
+    byDayHour: Object.fromEntries(DAY_NAMES.map(day => [
+      day,
+      byDayHourMap[day].map((vals, i) => ({ hour: formatHour(i), engagement: avg(vals), posts: vals.length })),
+    ])),
   };
 }
 
