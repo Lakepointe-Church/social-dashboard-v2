@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
+import PostDetailModal from './PostDetailModal';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -63,15 +64,16 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
 }
 
 // ── Post grid card ────────────────────────────────────────────────────────────
-function PostCard({ post, rank, metric, metricLabel }) {
+function PostCard({ post, rank, metric, metricLabel, onPostClick }) {
   const [imgError, setImgError] = useState(false);
   const rankColors = ['#E1306C', '#833AB4', '#f59e0b', '#3b82f6'];
   const emoji = post.mediaType === 'REELS' || post.mediaType === 'VIDEO' ? '🎬'
               : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
 
   return (
-    <a href={post.permalink} target="_blank" rel="noopener noreferrer"
-      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+    <div
+      onClick={() => onPostClick?.(post)}
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block cursor-pointer">
       {/* Image */}
       <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
         {post.mediaUrl && !imgError ? (
@@ -127,12 +129,12 @@ function PostCard({ post, rank, metric, metricLabel }) {
           <div className="text-slate-400 mt-1"><Eye size={12} className="mx-auto" /></div>
         </div>
       </div>
-    </a>
+    </div>
   );
 }
 
 // ── Top 4 section ─────────────────────────────────────────────────────────────
-function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
+function Top4Section({ title, posts, metric, metricLabel, sortKey, onPostClick }) {
   const sorted = [...posts].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 4);
   if (sorted.length === 0) return null;
   return (
@@ -143,7 +145,7 @@ function Top4Section({ title, posts, metric, metricLabel, sortKey }) {
       </div>
       <div className="grid grid-cols-4 gap-3">
         {sorted.map((post, i) => (
-          <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} />
+          <PostCard key={post.id} post={post} rank={i} metric={post[sortKey]} metricLabel={metricLabel} onPostClick={onPostClick} />
         ))}
         {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
           <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '3/4' }}>
@@ -169,13 +171,13 @@ function RateBar({ value, color, maxValue }) {
 }
 
 // ── Per-post rate insights table ──────────────────────────────────────────────
-function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment }) {
+function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment, onPostClick }) {
   const [imgError, setImgError] = useState(false);
   const emoji = p.mediaType === 'REELS' || p.mediaType === 'VIDEO' ? '🎬'
               : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
 
   return (
-    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+    <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onPostClick?.(p)}>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2.5">
           <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
@@ -189,10 +191,9 @@ function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment 
             )}
           </div>
           <div className="min-w-0">
-            <a href={p.permalink} target="_blank" rel="noopener noreferrer"
-              className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
+            <span className="text-slate-700 font-medium hover:text-pink-600 transition-colors line-clamp-1 block">
               {truncate(p.caption, 55) || '(No caption)'}
-            </a>
+            </span>
           </div>
         </div>
       </td>
@@ -214,7 +215,7 @@ function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment 
   );
 }
 
-function RateInsightsTable({ posts, type }) {
+function RateInsightsTable({ posts, type, onPostClick }) {
   const isReel = type === 'reel';
   const top10  = [...posts].sort((a, b) => b.reach - a.reach).slice(0, 10);
   if (top10.length === 0) return null;
@@ -251,6 +252,7 @@ function RateInsightsTable({ posts, type }) {
               maxLike={maxLike}
               maxSave={maxSave}
               maxComment={maxComment}
+              onPostClick={onPostClick}
             />
           ))}
         </tbody>
@@ -279,6 +281,7 @@ export default function InstagramAnalytics() {
   const [datePreset,    setDatePreset]    = useState('30');
   const [customStart,   setCustomStart]   = useState('');
   const [customEnd,     setCustomEnd]     = useState('');
+  const [selectedPost,  setSelectedPost]  = useState(null);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true); setError(null);
@@ -469,10 +472,10 @@ export default function InstagramAnalytics() {
 
         {/* ── Top posts 2×2 grid ────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Top4Section title="🏆 Top Posts by Views"      posts={filteredMedia} sortKey="reach"      metricLabel="Views"   />
-          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredMedia} sortKey="engagement" metricLabel="Engaged" />
-          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredMedia} sortKey="shares"     metricLabel="Shares"  />
-          <Top4Section title="🔖 Top Posts by Saves"      posts={filteredMedia} sortKey="saved"      metricLabel="Saves"   />
+          <Top4Section title="🏆 Top Posts by Views"      posts={filteredMedia} sortKey="reach"      metricLabel="Views"   onPostClick={setSelectedPost} />
+          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredMedia} sortKey="engagement" metricLabel="Engaged" onPostClick={setSelectedPost} />
+          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredMedia} sortKey="shares"     metricLabel="Shares"  onPostClick={setSelectedPost} />
+          <Top4Section title="🔖 Top Posts by Saves"      posts={filteredMedia} sortKey="saved"      metricLabel="Saves"   onPostClick={setSelectedPost} />
         </div>
 
         {/* ── Reel insights ─────────────────────────────────────────────────── */}
@@ -484,7 +487,7 @@ export default function InstagramAnalytics() {
               <span className="text-xs text-slate-400 font-mono">Top {Math.min(10, reelsInView.length)} by views</span>
             </div>
             <p className="text-slate-500 text-sm">Rate metrics in Instagram&apos;s priority order for views impact</p>
-            <RateInsightsTable posts={reelsInView} type="reel" />
+            <RateInsightsTable posts={reelsInView} type="reel" onPostClick={setSelectedPost} />
           </div>
         )}
 
@@ -497,7 +500,7 @@ export default function InstagramAnalytics() {
               <span className="text-xs text-slate-400 font-mono">Top {Math.min(10, photosInView.length)} by views</span>
             </div>
             <p className="text-slate-500 text-sm">Engagement rate breakdown per post</p>
-            <RateInsightsTable posts={photosInView} type="photo" />
+            <RateInsightsTable posts={photosInView} type="photo" onPostClick={setSelectedPost} />
           </div>
         )}
 
@@ -545,13 +548,16 @@ export default function InstagramAnalytics() {
                 {visibleMedia.map((m, idx) => {
                   const engColor = m.engagementRate > 5 ? 'text-emerald-600' : m.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
                   return (
-                    <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${m.contentType === 'collab' ? 'bg-amber-50/40' : ''}`}>
+                    <tr
+                      key={m.id}
+                      className={`hover:bg-slate-50 transition-colors cursor-pointer ${m.contentType === 'collab' ? 'bg-amber-50/40' : ''}`}
+                      onClick={() => setSelectedPost(m)}
+                    >
                       <td className="px-3 py-3 text-center text-slate-400 text-xs font-mono font-bold">{idx + 1}</td>
                       <td className="px-6 py-3 max-w-xs">
-                        <a href={m.permalink} target="_blank" rel="noopener noreferrer"
-                          className="text-slate-700 text-sm line-clamp-2 hover:text-pink-600 transition-colors block">
+                        <span className="text-slate-700 text-sm line-clamp-2 hover:text-pink-600 transition-colors block">
                           {truncate(m.caption, 100) || '(No caption)'}
-                        </a>
+                        </span>
                         {m.contentType === 'collab' && <span className="text-[10px] text-amber-600 font-semibold">🤝 Collab</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{mediaTypeLabel(m.mediaType)}</td>
@@ -578,6 +584,12 @@ export default function InstagramAnalytics() {
           )}
         </div>
       )}
+
+      <PostDetailModal
+        post={selectedPost}
+        onClose={() => setSelectedPost(null)}
+        accountName={account?.username || 'lpconnect'}
+      />
     </div>
   );
 }
