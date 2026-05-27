@@ -229,7 +229,24 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
-          {platform === 'youtube' && post.id ? (
+          {platform === 'facebook' && isReel && post.id ? (() => {
+            // Use /videos/ URL — FB's plugin requires this format; permalink.php is not recognized
+            const parts = post.id.split('_');
+            const href = parts.length === 2
+              ? `https://www.facebook.com/${parts[0]}/videos/${parts[1]}`
+              : post.permalink;
+            return (
+              <iframe
+                src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=500`}
+                className="absolute inset-0 w-full h-full"
+                scrolling="no"
+                frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            );
+          })()
+          : platform === 'youtube' && post.id ? (
             <iframe
               src={`https://www.youtube.com/embed/${post.id}`}
               className="absolute inset-0 w-full h-full"
@@ -306,8 +323,8 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
             </>
           )}
 
-          {/* Content type badge — hide when a native player (YT iframe or IG video) is active */}
-          {!(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
+          {/* Content type badge — hide when any native player is active */}
+          {!(platform === 'facebook' && isReel && post.id) && !(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
               {platform === 'youtube' ? '▶ Video' : hasSlides ? `🖼️ ${activeSlide + 1} / ${slides.length}` : `${typeEmoji} ${typeLabel}`}
             </div>
