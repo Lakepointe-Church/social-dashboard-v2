@@ -127,7 +127,11 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
   const { Icon }  = config;
   const isReel    = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
   const typeEmoji = isReel ? '🎬' : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
-  const typeLabel = isReel ? 'Reel' : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : platform === 'youtube' ? '▶ Video' : '📷 Photo';
+  const typeLabel = isReel
+    ? (platform === 'facebook' ? 'Video' : 'Reel')
+    : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel'
+    : platform === 'youtube' ? '▶ Video'
+    : 'Photo';
 
   const engRate  = post.engagementRate ?? 0;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
