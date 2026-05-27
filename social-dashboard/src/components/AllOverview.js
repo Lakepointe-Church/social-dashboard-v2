@@ -7,6 +7,7 @@ import MilestoneTracker from './MilestoneTracker';
 import TopContent from './TopContent';
 import ContentTypeChart from './ContentTypeChart';
 import BestTimeToPost from './BestTimeToPost';
+import PostSpotlight from './PostSpotlight';
 import { Users, Eye, Heart, FileText, RefreshCw, AlertCircle, TrendingUp, BarChart2 } from 'lucide-react';
 
 const MILESTONES = [
@@ -22,22 +23,47 @@ function fmtBig(n) {
   return n.toLocaleString();
 }
 
+function getFbPostUrl(postId) {
+  const parts = postId?.split('_');
+  if (parts?.length === 2) return `https://www.facebook.com/permalink.php?story_fbid=${parts[1]}&id=${parts[0]}`;
+  return `https://www.facebook.com/${postId}`;
+}
+
 function normalizePosts(fbData, igData, ytData) {
-  const fb = (fbData?.posts || []).map(p => ({
-    id:             `fb-${p.id}`,
-    platform:       'facebook',
-    platformName:   'Facebook',
-    title:          (p.message || 'Facebook post').slice(0, 80),
-    thumbnail:      p.thumbnail || null,
-    permalink:      p.permalink || null,
-    contentType:    p.contentType,
-    type:           p.contentType.charAt(0).toUpperCase() + p.contentType.slice(1),
-    date:           new Date(p.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    engagement:     p.engaged || 0,
-    reach:          null,
-    engagementRate: null,
-    timestamp:      p.createdTime,
-  }));
+  const fb = (fbData?.posts || []).map(p => {
+    const engaged = p.engaged ?? (p.likeCount + p.commentCount + p.shareCount);
+    const reach   = p.reach ?? 0;
+    return {
+      id:             `fb-${p.id}`,
+      platform:       'facebook',
+      platformName:   'Facebook',
+      title:          (p.message || 'Facebook post').slice(0, 80),
+      thumbnail:      p.thumbnail || null,
+      permalink:      getFbPostUrl(p.id),
+      contentType:    p.contentType,
+      type:           p.contentType.charAt(0).toUpperCase() + p.contentType.slice(1),
+      date:           new Date(p.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      engagement:     p.engaged || 0,
+      reach:          null,
+      engagementRate: null,
+      timestamp:      p.createdTime,
+      spotlightPlatform: 'facebook',
+      spotlightPost: {
+        ...p,
+        caption:        p.message || '',
+        mediaUrl:       p.thumbnail || null,
+        permalink:      getFbPostUrl(p.id),
+        timestamp:      p.createdTime,
+        commentsCount:  p.commentCount,
+        shares:         p.shareCount,
+        engagementRate: reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0,
+        saved: null, saveRate: null, shareRate: null, avgWatchTime: null, videoUrl: null,
+        mediaType:
+          (p.contentType === 'video' || p.contentType === 'stream') ? 'VIDEO' :
+          p.type === 'album' ? 'CAROUSEL_ALBUM' : null,
+      },
+    };
+  });
 
   const ig = (igData?.media || []).map(m => ({
     id:             `ig-${m.id}`,
@@ -53,6 +79,8 @@ function normalizePosts(fbData, igData, ytData) {
     reach:          m.reach || 0,
     engagementRate: m.engagementRate || null,
     timestamp:      m.timestamp,
+    spotlightPlatform: 'instagram',
+    spotlightPost:  { ...m },
   }));
 
   const yt = (ytData?.videos || []).map(v => ({
@@ -69,6 +97,18 @@ function normalizePosts(fbData, igData, ytData) {
     reach:          v.viewCount || 0,
     engagementRate: v.engagementRate || null,
     timestamp:      v.publishedAt,
+    spotlightPlatform: 'youtube',
+    spotlightPost: {
+      ...v,
+      caption:       v.title || '',
+      mediaUrl:      `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`,
+      permalink:     `https://youtube.com/watch?v=${v.id}`,
+      timestamp:     v.publishedAt,
+      commentsCount: v.commentCount,
+      reach:         v.viewCount,
+      shares: null, saved: null, saveRate: null, shareRate: null,
+      avgWatchTime: null, mediaType: null, videoUrl: null,
+    },
   }));
 
   return [...fb, ...ig, ...yt].sort((a, b) => b.engagement - a.engagement);
@@ -158,7 +198,7 @@ function computeBestTimeData(fbData, igData) {
   };
 }
 
-function ChannelHighlight({ label, color, tabId, post, error, onNavigate }) {
+function ChannelHighlight({ label, color, tabId, post, error, onNavigate, onPostClick }) {
   const body = error ? (
     <div className="h-32 flex items-center justify-center rounded-xl bg-slate-50">
       <p className="text-slate-400 text-xs">Data unavailable</p>
@@ -169,10 +209,10 @@ function ChannelHighlight({ label, color, tabId, post, error, onNavigate }) {
     </div>
   ) : (
     <>
-      <a href={post.permalink || undefined} target={post.permalink ? '_blank' : undefined}
-         rel="noopener noreferrer"
-         className="block relative rounded-xl overflow-hidden mb-3 group"
-         onClick={e => !post.permalink && e.preventDefault()}>
+      <div
+        className="relative rounded-xl overflow-hidden mb-3 group cursor-pointer"
+        onClick={() => onPostClick?.(post)}
+      >
         {post.thumbnail ? (
           <img src={post.thumbnail} alt="" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" />
         ) : (
@@ -182,7 +222,7 @@ function ChannelHighlight({ label, color, tabId, post, error, onNavigate }) {
           </div>
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl" />
-      </a>
+      </div>
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: color }}>
@@ -271,6 +311,13 @@ export default function AllOverview({ onNavigate }) {
   const [igError, setIgError] = useState(null);
   const [ytError, setYtError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedPost,     setSelectedPost]     = useState(null);
+  const [selectedPlatform, setSelectedPlatform] = useState('instagram');
+
+  const handlePostClick = useCallback((normalizedPost) => {
+    setSelectedPlatform(normalizedPost.spotlightPlatform);
+    setSelectedPost(normalizedPost.spotlightPost);
+  }, []);
 
   const fetchAll = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -428,11 +475,11 @@ export default function AllOverview({ onNavigate }) {
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Best Post by Channel</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <ChannelHighlight label="Facebook"  color="#1877F2" tabId="facebook-live"
-            post={topFbPost} error={fbError} onNavigate={onNavigate} />
+            post={topFbPost} error={fbError} onNavigate={onNavigate} onPostClick={handlePostClick} />
           <ChannelHighlight label="Instagram" color="#E1306C" tabId="instagram-live"
-            post={topIgPost} error={igError} onNavigate={onNavigate} />
+            post={topIgPost} error={igError} onNavigate={onNavigate} onPostClick={handlePostClick} />
           <ChannelHighlight label="YouTube"   color="#FF0000" tabId="youtube-live"
-            post={topYtPost} error={ytError} onNavigate={onNavigate} />
+            post={topYtPost} error={ytError} onNavigate={onNavigate} onPostClick={handlePostClick} />
         </div>
       </div>
 
@@ -442,7 +489,7 @@ export default function AllOverview({ onNavigate }) {
       {/* ── Top Content + Engagement Snapshot ───────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2">
-          <TopContent posts={allPosts} />
+          <TopContent posts={allPosts} onPostClick={handlePostClick} />
         </div>
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
@@ -520,6 +567,16 @@ export default function AllOverview({ onNavigate }) {
         </div>
       )}
 
+      <PostSpotlight
+        post={selectedPost}
+        onClose={() => setSelectedPost(null)}
+        platform={selectedPlatform}
+        accountName={
+          selectedPlatform === 'instagram' ? (igData?.account?.username || 'lpconnect') :
+          selectedPlatform === 'facebook'  ? (fbData?.page?.name       || 'Lakepointe Church') :
+          'Lakepointe Church'
+        }
+      />
     </div>
   );
 }

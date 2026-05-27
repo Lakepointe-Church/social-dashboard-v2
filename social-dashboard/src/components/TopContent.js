@@ -15,7 +15,7 @@ function fmt(n) {
   return n.toLocaleString();
 }
 
-export default function TopContent({ posts }) {
+export default function TopContent({ posts, onPostClick }) {
   if (!posts.length) {
     return (
       <div className="card flex items-center justify-center h-48 text-slate-400 text-sm">
@@ -36,12 +36,10 @@ export default function TopContent({ posts }) {
 
       <div className="space-y-3">
         {posts.slice(0, 6).map((post, idx) => (
-          <a
+          <div
             key={post.id}
-            href={post.permalink || undefined}
-            target={post.permalink ? '_blank' : undefined}
-            rel="noopener noreferrer"
-            className={`flex gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 group ${post.permalink ? 'cursor-pointer' : 'cursor-default'}`}
+            onClick={() => onPostClick?.(post)}
+            className="flex gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 group cursor-pointer"
           >
             {/* Rank */}
             <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold
@@ -95,7 +93,7 @@ export default function TopContent({ posts }) {
                 {post.engagementRate != null ? `${post.engagementRate}% rate` : '—'}
               </div>
             </div>
-          </a>
+          </div>
         ))}
       </div>
     </div>
