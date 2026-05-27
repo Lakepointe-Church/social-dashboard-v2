@@ -63,7 +63,7 @@ function InstagramIcon() {
   );
 }
 
-export default function PostDetailModal({ post, onClose, accountName = 'lpconnect' }) {
+export default function PostSpotlight({ post, onClose, accountName = 'lpconnect' }) {
   const [visible,  setVisible]  = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -144,9 +144,18 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
           <X size={16} />
         </button>
 
-        {/* ── Left column: post image ────────────────────────────────────── */}
+        {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
-          {post.mediaUrl && !imgError ? (
+          {isReel && post.videoUrl && !imgError ? (
+            <video
+              src={post.videoUrl}
+              className="absolute inset-0 w-full h-full object-cover"
+              controls
+              playsInline
+              loop
+              onError={() => setImgError(true)}
+            />
+          ) : post.mediaUrl && !imgError ? (
             <img
               src={post.mediaUrl}
               alt={post.caption?.slice(0, 60) || 'Post image'}
@@ -165,10 +174,12 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
               )}
             </div>
           )}
-          {/* Content type badge */}
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-            {typeEmoji} {typeLabel}
-          </div>
+          {/* Content type badge — hide when video controls are visible */}
+          {!(isReel && post.videoUrl && !imgError) && (
+            <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+              {typeEmoji} {typeLabel}
+            </div>
+          )}
         </div>
 
         {/* ── Right column: metadata + stats ────────────────────────────── */}

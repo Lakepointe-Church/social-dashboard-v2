@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
-import PostDetailModal from './PostDetailModal';
+import PostSpotlight from './PostSpotlight';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -585,7 +585,7 @@ export default function InstagramAnalytics() {
         </div>
       )}
 
-      <PostDetailModal
+      <PostSpotlight
         post={selectedPost}
         onClose={() => setSelectedPost(null)}
         accountName={account?.username || 'lpconnect'}
