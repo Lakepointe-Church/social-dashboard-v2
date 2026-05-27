@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, ExternalLink, Eye, Heart, MessageCircle, Share2, Bookmark, Clock, TrendingUp } from 'lucide-react';
+import { X, ExternalLink, Eye, Heart, MessageCircle, Share2, Bookmark, Clock, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const IG_PINK     = '#E1306C';
 const IG_PURPLE   = '#833AB4';
@@ -94,20 +94,41 @@ const PLATFORM_CONFIG = {
 };
 
 export default function PostSpotlight({ post, onClose, accountName = 'lpconnect', platform = 'instagram' }) {
-  const [visible,  setVisible]  = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [visible,       setVisible]       = useState(false);
+  const [imgError,      setImgError]      = useState(false);
+  const [slides,        setSlides]        = useState([]);
+  const [activeSlide,   setActiveSlide]   = useState(0);
+  const [loadingSlides, setLoadingSlides] = useState(false);
 
   useEffect(() => {
     if (post) {
       setImgError(false);
+      setSlides([]);
+      setActiveSlide(0);
       requestAnimationFrame(() => setVisible(true));
       document.body.style.overflow = 'hidden';
+
+      // Fetch carousel / album children
+      if (post.mediaType === 'CAROUSEL_ALBUM') {
+        setLoadingSlides(true);
+        const endpoint = platform === 'facebook'
+          ? `/api/fb-album-photos?id=${post.id}`
+          : `/api/ig-carousel-children?id=${post.id}`;
+        fetch(endpoint)
+          .then(r => r.json())
+          .then(data => { if (data.slides?.length > 1) setSlides(data.slides); })
+          .catch(() => {})
+          .finally(() => setLoadingSlides(false));
+      }
     } else {
       setVisible(false);
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [post]);
+  }, [post, platform]);
+
+  // Reset imgError when changing slides
+  useEffect(() => { setImgError(false); }, [activeSlide]);
 
   const handleClose = useCallback(() => {
     setVisible(false);
@@ -116,10 +137,14 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
   useEffect(() => {
     if (!post) return;
-    function onKey(e) { if (e.key === 'Escape') handleClose(); }
+    function onKey(e) {
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'ArrowLeft'  && slides.length > 1) setActiveSlide(s => Math.max(0, s - 1));
+      if (e.key === 'ArrowRight' && slides.length > 1) setActiveSlide(s => Math.min(slides.length - 1, s + 1));
+    }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [post, handleClose]);
+  }, [post, handleClose, slides]);
 
   if (!post) return null;
 
@@ -132,6 +157,12 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
     : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel'
     : platform === 'youtube' ? '▶ Video'
     : 'Photo';
+
+  // Active slide media (falls back to post's own media when no slides loaded)
+  const hasSlides     = slides.length > 1;
+  const currentSlide  = hasSlides ? slides[activeSlide] : null;
+  const activeMediaUrl = currentSlide?.mediaUrl ?? post.mediaUrl;
+  const activeVideoUrl = currentSlide?.videoUrl ?? post.videoUrl;
 
   const engRate  = post.engagementRate ?? 0;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
@@ -207,18 +238,18 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
               allowFullScreen
             />
-          ) : isReel && post.videoUrl && !imgError ? (
+          ) : isReel && activeVideoUrl && !imgError ? (
             <video
-              src={post.videoUrl}
+              src={activeVideoUrl}
               className="absolute inset-0 w-full h-full object-cover"
               controls
               playsInline
               loop
               onError={() => setImgError(true)}
             />
-          ) : post.mediaUrl && !imgError ? (
+          ) : activeMediaUrl && !imgError ? (
             <img
-              src={post.mediaUrl}
+              src={activeMediaUrl}
               alt={post.caption?.slice(0, 60) || 'Post image'}
               className="absolute inset-0 w-full h-full object-cover"
               onError={() => setImgError(true)}
@@ -235,10 +266,50 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               )}
             </div>
           )}
-          {/* Content type badge — hide when FB iframe or native IG video controls are showing */}
-          {!(platform === 'facebook' && isReel && post.permalink) && !(isReel && post.videoUrl && !imgError) && (
+
+          {/* Loading spinner while fetching slides */}
+          {loadingSlides && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
+              <div className="w-6 h-6 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
+
+          {/* Slide navigation arrows */}
+          {hasSlides && (
+            <>
+              {activeSlide > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setActiveSlide(s => s - 1); }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              )}
+              {activeSlide < slides.length - 1 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setActiveSlide(s => s + 1); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              )}
+              {/* Dot indicators */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-1.5 z-10">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={e => { e.stopPropagation(); setActiveSlide(i); }}
+                    className={`rounded-full transition-all ${i === activeSlide ? 'w-2 h-2 bg-white' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/75'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Content type badge — hide when FB iframe or native video controls are showing */}
+          {!(platform === 'facebook' && isReel && post.permalink) && !(isReel && activeVideoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-              {platform === 'youtube' ? '▶ Video' : `${typeEmoji} ${typeLabel}`}
+              {platform === 'youtube' ? '▶ Video' : hasSlides ? `🖼️ ${activeSlide + 1} / ${slides.length}` : `${typeEmoji} ${typeLabel}`}
             </div>
           )}
         </div>

@@ -52,7 +52,10 @@ function toFbSpotlight(post) {
     shares: post.shareCount,
     engagementRate: reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0,
     saved: null, saveRate: null, shareRate: null, avgWatchTime: null, videoUrl: null,
-    mediaType: (post.contentType === 'video' || post.contentType === 'stream') ? 'VIDEO' : null,
+    mediaType:
+      (post.contentType === 'video' || post.contentType === 'stream') ? 'VIDEO' :
+      post.type === 'album' ? 'CAROUSEL_ALBUM' :
+      null,
   };
 }
 
