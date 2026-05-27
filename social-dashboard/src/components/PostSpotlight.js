@@ -229,14 +229,14 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
-          {platform === 'facebook' && isReel && post.permalink ? (
+          {platform === 'youtube' && post.id ? (
             <iframe
-              src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(post.permalink)}&show_text=false&width=500`}
+              src={`https://www.youtube.com/embed/${post.id}`}
               className="absolute inset-0 w-full h-full"
-              scrolling="no"
               frameBorder="0"
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
+              title={post.caption || 'YouTube video'}
             />
           ) : isReel && activeVideoUrl && !imgError ? (
             <video
@@ -306,8 +306,8 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
             </>
           )}
 
-          {/* Content type badge — hide when FB iframe or native video controls are showing */}
-          {!(platform === 'facebook' && isReel && post.permalink) && !(isReel && activeVideoUrl && !imgError) && (
+          {/* Content type badge — hide when a native player (YT iframe or IG video) is active */}
+          {!(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
               {platform === 'youtube' ? '▶ Video' : hasSlides ? `🖼️ ${activeSlide + 1} / ${slides.length}` : `${typeEmoji} ${typeLabel}`}
             </div>
