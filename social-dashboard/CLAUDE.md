@@ -275,6 +275,17 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ## Recent Changes (May 2026)
 
+### May 27, 2026
+
+- `81d89d9` — Add day-drill-down to Best Time to Post: clicking a day bar in the By Day chart switches to By Hour and shows engagement by hour for that specific day (instead of the all-day average). A dismissible filter chip ("Mon only ✕") appears; switching back to By Day clears the filter.
+
+#### Key decisions this session
+- `byDayHour` data structure added to `computeBestTimeData()` in `AllOverview.js` — a map from each day name to its 24-hour engagement breakdown. Built alongside the existing `byDay` and `byHour` buckets in the same loop, so no extra API calls or passes over the post data.
+- `BestTimeToPost.js` manages a `selectedDay` state. Clicking a bar calls `BarChart`'s `onClick` (not `Cell`'s `onClick`) to get the full payload. Clearing the filter or toggling back to By Day both reset `selectedDay` to `null`, falling back to the overall `byHour` average.
+- The "Best hour" insight chip dynamically appends the selected day name (e.g. "Best hour (Mon): 9am") so context is clear without extra UI chrome.
+
+---
+
 ### May 26, 2026 (session 2)
 
 - `7637361` — Add sticky control bar, date filter, content type filter chips, pending OAuth placeholder cards, and content breakdown section to YouTube tab
