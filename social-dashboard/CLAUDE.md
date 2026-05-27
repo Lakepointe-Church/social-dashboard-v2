@@ -24,10 +24,12 @@ social-dashboard/
 ├── pages/
 │   ├── index.js                  ← Main dashboard — all tabs + AI panel wired here
 │   └── api/
-│       ├── facebook.js           ← Meta Graph API proxy (Facebook Page)
-│       ├── instagram.js          ← Meta Graph API proxy (Instagram @lpconnect)
-│       ├── youtube.js            ← YouTube Data API v3 proxy
-│       └── chat.js               ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
+│       ├── facebook.js               ← Meta Graph API proxy (Facebook Page)
+│       ├── instagram.js              ← Meta Graph API proxy (Instagram @lpconnect)
+│       ├── youtube.js                ← YouTube Data API v3 proxy
+│       ├── chat.js                   ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
+│       ├── ig-carousel-children.js   ← Fetches IG carousel slide media URLs
+│       └── fb-album-photos.js        ← Fetches FB album photo attachments
 ├── src/
 │   ├── components/
 │   │   ├── AllOverview.js        ← Cross-platform Overview tab (live)
@@ -35,6 +37,7 @@ social-dashboard/
 │   │   ├── InstagramAnalytics.js ← Instagram LIVE tab component
 │   │   ├── InstagramAudience.js  ← Instagram Audience tab component
 │   │   ├── YouTubeAnalytics.js   ← YouTube LIVE tab component (fully built out)
+│   │   ├── PostSpotlight.js      ← Multi-platform post detail modal (FB/IG/YT)
 │   │   ├── Header.js             ← Top nav bar (simplified — no props, no Demo Mode badge)
 │   │   ├── MetricCard.js         ← KPI card component
 │   │   ├── PlatformCard.js       ← Platform summary card
@@ -58,7 +61,13 @@ social-dashboard/
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
-└── CLAUDE.md                     ← This file
+├── CLAUDE.md                     ← This file
+└── .claude/
+    └── commands/
+        ├── ship.md   ← /ship: stage, commit, push to current branch
+        ├── branch.md ← /branch: create new feature branch off latest main
+        ├── pr.md     ← /pr: open GitHub PR from feature branch into main
+        └── doc.md    ← /doc: update and commit CLAUDE.md
 ```
 
 ---
@@ -136,6 +145,45 @@ social-dashboard/
 - **All Videos table** — sortable by all columns including Type. Self-contained `sort` state `{ key, dir }`. Uses `durationSecs` (numeric) for duration sorting instead of the display string. Colored pill for Type column (green=short, blue=podcast, violet=sermon). Paginated with "Load More" button.
 - **OutsideDateRangeNote** — collapsible notice at the bottom of the video list that lists videos which were fetched but fall outside the selected date window (with title + content type). This explains count discrepancies like "50 loaded but 45 in view."
 - **Content type classification** (in `/api/youtube.js`): `short` (≤180s), `podcast` (title contains "Live Free with Josh Howerton" or "Live Free"), `sermon` (everything else). All videos get exactly one of these three labels — no unclassified bucket.
+
+---
+
+## PostSpotlight.js — Multi-Platform Post Detail Modal (as of May 2026)
+
+A full-screen overlay that opens when any post/video card is clicked across the dashboard (Facebook, Instagram, YouTube, Overview tabs). Platform-aware: accent colors, gradient, icon, and metric labels all adapt based on `platform` prop.
+
+**Props:** `post` (normalized post object or null), `onClose`, `accountName`, `platform` (`'instagram' | 'facebook' | 'youtube'`)
+
+**Normalized post shape** (all platforms map to this):
+- `caption`, `mediaUrl`, `permalink`, `timestamp`, `mediaType`
+- `reach`, `likeCount`, `commentCount`, `commentsCount`, `shares`
+- `engagementRate`, `saved`, `saveRate`, `shareRate`, `avgWatchTime`
+- `videoUrl` (IG reels), `id` (used for FB video embed and carousel fetch)
+
+**Layout:** Fixed overlay with enter animation (`requestAnimationFrame` RAF for CSS transition), body scroll lock, Escape + backdrop-click to close.
+- **Left column:** media (image, video, embed, or gradient placeholder)
+- **Right column:** platform badge, caption, 3×2 metric grid, rate pills (Save %, Share %, Avg Watch), timestamp, CTA link
+
+**Media rendering priority (left column):**
+1. Facebook video → `<iframe>` using `facebook.com/{pageId}/videos/{videoId}` — `post.id` is `{pageId}_{videoId}`, split on `_` to build the URL. **Important:** `plugins/video.php` does NOT accept `permalink.php` URLs.
+2. YouTube video → `<iframe>` using `youtube.com/embed/{videoId}` — works for all videos and Shorts without OAuth.
+3. IG reel → `<video>` using `videoUrl` (mp4)
+4. Image → `<img>` using `mediaUrl`
+5. Fallback gradient div
+
+**Carousel / album slides:**
+- When spotlight opens and `post.mediaType === 'CAROUSEL_ALBUM'`, fetches slides lazily on demand
+- IG carousels: `GET /api/ig-carousel-children?id={mediaId}` → `{ slides: [{id, mediaType, mediaUrl, videoUrl}] }`
+- FB albums: `GET /api/fb-album-photos?id={postId}` → `{ slides: [{mediaType, mediaUrl, videoUrl}] }`
+- If fetch returns < 2 slides, navigation UI is hidden
+- Left/right arrow buttons, keyboard ArrowLeft/ArrowRight, dot indicator row (clickable; active dot = larger + white)
+- Slide counter badge: `🖼️ {n} / {total}` — hidden while a video player is active
+
+**Normalizer functions** (in consuming components, not in PostSpotlight itself):
+- `toFbSpotlight(post)` in `FacebookAnalytics.js` — maps `contentType === 'video'|'stream'` → `mediaType: 'VIDEO'`, `type === 'album'` → `mediaType: 'CAROUSEL_ALBUM'`
+- `toYtSpotlight(video)` in `YouTubeAnalytics.js` — uses `img.youtube.com/vi/{id}/mqdefault.jpg` for thumbnail, `youtube.com/watch?v={id}` for permalink
+- IG posts already match the expected shape and pass through with `{ ...m }`
+- `normalizePosts()` in `AllOverview.js` attaches `spotlightPost` and `spotlightPlatform` to each entry so Overview's `handlePostClick` can dispatch to the right platform
 
 ---
 
@@ -240,6 +288,20 @@ Suggested invocation: start a session by asking Claude to use an Explore agent t
 
 ## How to Deploy Changes
 
+### Feature branch workflow (recommended)
+
+Use these three slash commands to manage features safely without touching production:
+
+1. **`/branch feature-name`** — creates a new branch off latest `main`, pushes to GitHub. Vercel generates a preview URL in ~30–60 seconds (visible at vercel.com or in the PR once opened).
+2. **`/ship your message`** — stages, commits, and pushes to the **current branch** (not necessarily main). On a feature branch this updates the Vercel preview URL; on `main` it deploys to production.
+3. **`/pr`** — opens a GitHub Pull Request from the current feature branch into `main`. Merging the PR on GitHub triggers a production deploy.
+
+**The rule:** `main` = stable production. Never ship experimental work directly to main. Branch → build → PR → merge.
+
+### Direct deploy to production
+
+Only use this if you're intentionally shipping to production from `main`:
+
 ```bash
 cd ~/social-dashboard-v2/social-dashboard
 git add .
@@ -248,9 +310,9 @@ git push origin main
 # Vercel auto-deploys on push to main
 ```
 
-Use the `/ship` slash command (`.claude/commands/ship.md`) to stage, commit, and push in one step: `/ship your message here`
+Or: `/ship your message` when already on the `main` branch.
 
-Use the `/doc` slash command (`.claude/commands/doc.md`) to update CLAUDE.md with the current session's changes and push: `/doc`
+Use `/doc` to update CLAUDE.md with the current session's changes and push: `/doc`
 
 If Vercel doesn't auto-deploy or you need to force it:
 
@@ -275,7 +337,25 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ## Recent Changes (May 2026)
 
-### May 27, 2026
+### May 27, 2026 (session 2)
+
+- `128de6c` / `811f4ba` / `54a770f` / `6207b4f` — Build PostSpotlight modal (originally PostDetailModal): 2-column layout, 3×2 metric grid, rate pills, reel video playback, CTA link. Wired to Instagram tab first.
+- `8f63dc0` — Wire PostSpotlight to Facebook and YouTube tabs: clickable cards open the detail overlay across all three platform tabs.
+- `37aec9e` — Fix FB Post Spotlight: map `contentType` to `mediaType` so video posts show 🎬 badge instead of photo; fix double-emoji in photo type label.
+- `cda0b31` / `fa71429` / `24f9bae` — FB video embed: tried, broke (wrong URL), restored with correct format. `plugins/video.php` requires `facebook.com/{pageId}/videos/{videoId}` — splitting `post.id` on `_` gives `[pageId, videoId]`. Add YouTube embed (`youtube.com/embed/{videoId}`) so Shorts and regular videos play inline without OAuth.
+- `17c52d9` — Add carousel/album slide navigation to PostSpotlight: IG carousels fetch from `/api/ig-carousel-children`, FB albums from `/api/fb-album-photos`. Left/right arrows, dot indicators, keyboard ArrowLeft/ArrowRight. Lazy fetch on spotlight open.
+- `289396e` — Wire PostSpotlight to Overview tab: best post thumbnails and Top Content rows are clickable. `normalizePosts()` enriched with `spotlightPost` + `spotlightPlatform` per entry.
+- `88e7fd0` — Add `/branch` and `/pr` slash command skills; update `/ship` to push to current branch (not always `main`).
+
+#### Key decisions this session
+- FB video embed URL format: `post.id` on Facebook is `{pageId}_{postId}`. Split on `_` to build `facebook.com/${pageId}/videos/${postId}`. `permalink.php?story_fbid=...` is silently rejected by `plugins/video.php` — this caused "Video Unavailable" and cost 2 commits to diagnose.
+- YouTube embed just works for all video types including Shorts (`youtube.com/embed/{videoId}` — no auth, no special handling needed).
+- Carousel slides are fetched lazily when the spotlight opens (not on page load) to keep the initial data fetch fast. If < 2 slides are returned, navigation UI is hidden.
+- Feature branch workflow: `main` = stable production. New `/branch` skill checkouts from latest main, `/pr` opens GitHub PR, manual merge on GitHub triggers Vercel production deploy. `/ship` now detects the current branch and pushes there instead of always pushing to main.
+
+---
+
+### May 27, 2026 (session 1)
 
 - `81d89d9` — Add day-drill-down to Best Time to Post: clicking a day bar in the By Day chart switches to By Hour and shows engagement by hour for that specific day (instead of the all-day average). A dismissible filter chip ("Mon only ✕") appears; switching back to By Day clears the filter.
 
@@ -283,6 +363,8 @@ If Vercel doesn't auto-deploy or you need to force it:
 - `byDayHour` data structure added to `computeBestTimeData()` in `AllOverview.js` — a map from each day name to its 24-hour engagement breakdown. Built alongside the existing `byDay` and `byHour` buckets in the same loop, so no extra API calls or passes over the post data.
 - `BestTimeToPost.js` manages a `selectedDay` state. Clicking a bar calls `BarChart`'s `onClick` (not `Cell`'s `onClick`) to get the full payload. Clearing the filter or toggling back to By Day both reset `selectedDay` to `null`, falling back to the overall `byHour` average.
 - The "Best hour" insight chip dynamically appends the selected day name (e.g. "Best hour (Mon): 9am") so context is clear without extra UI chrome.
+
+---
 
 ---
 
