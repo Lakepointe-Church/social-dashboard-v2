@@ -7,6 +7,7 @@ import {
   TrendingUp, Eye, ThumbsUp, MessageSquare, RefreshCw, AlertCircle,
   ChevronDown, Clock, MousePointer, Lock, Activity,
 } from 'lucide-react';
+import PostSpotlight from './PostSpotlight';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtBig(n) {
@@ -43,6 +44,20 @@ const TYPE_MAP = Object.fromEntries(CONTENT_FILTERS.map(f => [f.id, f]));
 
 const RANK_COLORS = ['#FF0000', '#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
 
+function toYtSpotlight(video) {
+  return {
+    ...video,
+    caption: video.title || '',
+    mediaUrl: `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`,
+    permalink: `https://youtube.com/watch?v=${video.id}`,
+    timestamp: video.publishedAt,
+    commentsCount: video.commentCount,
+    reach: video.viewCount,
+    shares: null, saved: null, saveRate: null, shareRate: null,
+    avgWatchTime: null, mediaType: null, videoUrl: null,
+  };
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
   return (
@@ -77,18 +92,16 @@ function PendingCard({ label, icon }) {
 }
 
 // ── Video card (top-10 sections) ──────────────────────────────────────────────
-function VideoCard({ video, rank, metricValue, metricLabel }) {
+function VideoCard({ video, rank, metricValue, metricLabel, onVideoClick }) {
   const [imgError, setImgError] = useState(false);
   const typeConfig = TYPE_MAP[video.contentType] || { emoji: '📹', color: '#64748b', label: 'Video' };
   const rankColor  = RANK_COLORS[rank] || '#64748b';
   const thumbUrl   = `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`;
 
   return (
-    <a
-      href={`https://youtube.com/watch?v=${video.id}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block"
+    <div
+      onClick={() => onVideoClick?.(video)}
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block cursor-pointer"
     >
       {/* Thumbnail */}
       <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '16/9' }}>
@@ -148,12 +161,12 @@ function VideoCard({ video, rank, metricValue, metricLabel }) {
           <div className="text-slate-400 mt-1"><MessageSquare size={12} className="mx-auto" /></div>
         </div>
       </div>
-    </a>
+    </div>
   );
 }
 
 // ── Top 10 section — horizontal scrollable rows ───────────────────────────────
-function Top10Section({ videos }) {
+function Top10Section({ videos, onVideoClick }) {
   if (!videos.length) return (
     <div className="card text-center py-12 text-slate-400 text-sm">No videos match the current filters.</div>
   );
@@ -171,7 +184,7 @@ function Top10Section({ videos }) {
         <div className="flex gap-3 overflow-x-auto pb-2">
           {items.map((v, i) => (
             <div key={v.id} className="flex-shrink-0 w-56">
-              <VideoCard video={v} rank={i} metricValue={metricFn(v)} metricLabel={metricLabel} />
+              <VideoCard video={v} rank={i} metricValue={metricFn(v)} metricLabel={metricLabel} onVideoClick={onVideoClick} />
             </div>
           ))}
         </div>
@@ -181,14 +194,14 @@ function Top10Section({ videos }) {
 
   return (
     <div className="space-y-6">
-      <Row title="🏆 Top 10 by Views"           items={byViews} metricFn={v => fmtBig(v.viewCount)}                    metricLabel="Views"    />
-      <Row title="❤️ Top 10 by Engagement Rate" items={byEng}   metricFn={v => `${v.engagementRate.toFixed(2)}%`}      metricLabel="Eng. Rate" />
+      <Row title="🏆 Top 10 by Views"           items={byViews} metricFn={v => fmtBig(v.viewCount)}               metricLabel="Views"    />
+      <Row title="❤️ Top 10 by Engagement Rate" items={byEng}   metricFn={v => `${v.engagementRate.toFixed(2)}%`} metricLabel="Eng. Rate" />
     </div>
   );
 }
 
 // ── All videos table (sortable) ───────────────────────────────────────────────
-function AllVideosTable({ videos, tableLimit, onLoadMore }) {
+function AllVideosTable({ videos, tableLimit, onLoadMore, onVideoClick }) {
   const [sort, setSort] = useState({ key: 'publishedAt', dir: 'desc' });
 
   const toggleSort = (key) =>
@@ -261,18 +274,12 @@ function AllVideosTable({ videos, tableLimit, onLoadMore }) {
                   v.engagementRate > 5 ? 'text-emerald-600' :
                   v.engagementRate > 2 ? 'text-blue-500' : 'text-slate-400';
                 return (
-                  <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={v.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onVideoClick?.(v)}>
                     <td className="px-4 py-3 text-xs text-slate-400 font-mono">{i + 1}</td>
                     <td className="px-4 py-3 max-w-xs">
-                      <a
-                        href={`https://youtube.com/watch?v=${v.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-800 font-medium hover:text-red-600 transition-colors line-clamp-2 block"
-                        title={v.title}
-                      >
+                      <span className="text-slate-800 font-medium line-clamp-2 block" title={v.title}>
                         {v.title}
-                      </a>
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -354,6 +361,7 @@ export default function YouTubeAnalytics() {
   const [loadingMore,   setLoadingMore]    = useState(false);
   const [error,         setError]          = useState(null);
   const [fetchedAt,     setFetchedAt]      = useState(null);
+  const [selectedVideo, setSelectedVideo]  = useState(null);
   const [activeFilters, setActiveFilters]  = useState(ALL_FILTER_IDS);
   const [datePreset,    setDatePreset]     = useState('90');
   const [customStart,   setCustomStart]    = useState('');
@@ -675,7 +683,7 @@ export default function YouTubeAnalytics() {
           </div>
 
           {/* Top 10 cards */}
-          <Top10Section videos={filteredVideos} />
+          <Top10Section videos={filteredVideos} onVideoClick={v => setSelectedVideo(toYtSpotlight(v))} />
 
           {/* All Videos table */}
           <div className="flex items-center justify-between">
@@ -687,6 +695,7 @@ export default function YouTubeAnalytics() {
             videos={filteredVideos}
             tableLimit={tableLimit}
             onLoadMore={() => setTableLimit(t => t + 20)}
+            onVideoClick={v => setSelectedVideo(toYtSpotlight(v))}
           />
         </>
       )}
@@ -718,6 +727,12 @@ export default function YouTubeAnalytics() {
         </p>
       )}
 
+      <PostSpotlight
+        post={selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+        accountName="Lakepointe Church"
+        platform="youtube"
+      />
     </div>
   );
 }

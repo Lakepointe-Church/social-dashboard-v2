@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle, Share2 } from 'lucide-react';
+import PostSpotlight from './PostSpotlight';
 
 const FB_BLUE = '#1877F2';
 
@@ -38,6 +39,22 @@ function getFbPostUrl(postId) {
   return `https://www.facebook.com/${postId}`;
 }
 
+function toFbSpotlight(post) {
+  const engaged = post.engaged ?? (post.likeCount + post.commentCount + post.shareCount);
+  const reach = post.reach ?? 0;
+  return {
+    ...post,
+    caption: post.message || '',
+    mediaUrl: post.thumbnail || null,
+    permalink: getFbPostUrl(post.id),
+    timestamp: post.createdTime,
+    commentsCount: post.commentCount,
+    shares: post.shareCount,
+    engagementRate: reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0,
+    saved: null, saveRate: null, shareRate: null, avgWatchTime: null, mediaType: null, videoUrl: null,
+  };
+}
+
 function contentTypeLabel(type) {
   if (type === 'photo')  return '📷 Photo';
   if (type === 'album')  return '🖼️ Carousel';
@@ -60,16 +77,17 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
 }
 
 // ── Post card ─────────────────────────────────────────────────────────────────
-function PostCard({ post, rank, metric = 'engaged', metricLabel = 'Engaged' }) {
+function PostCard({ post, rank, metric = 'engaged', metricLabel = 'Engaged', onPostClick }) {
   const [imgError, setImgError] = useState(false);
   const rankColors = ['#1877F2', '#3b82f6', '#0ea5e9', '#06b6d4'];
   const engaged = post.likeCount + post.commentCount + post.shareCount;
   const reach = post.reach ?? 0;
   const engagement = post.engagement ?? engaged;
-  
+
   return (
-    <a href={getFbPostUrl(post.id)} target="_blank" rel="noopener noreferrer"
-      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block">
+    <div
+      onClick={() => onPostClick?.(post)}
+      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block cursor-pointer">
       {/* Image */}
       <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
         {post.thumbnail && !imgError ? (
@@ -131,12 +149,12 @@ function PostCard({ post, rank, metric = 'engaged', metricLabel = 'Engaged' }) {
           <div className="mt-1 text-slate-400"><Share2 size={11} className="mx-auto" /></div>
         </div>
       </div>
-    </a>
+    </div>
   );
 }
 
 // ── Top 4 section ─────────────────────────────────────────────────────────────
-function Top4Section({ title, posts, metric, metricLabel }) {
+function Top4Section({ title, posts, metric, metricLabel, onPostClick }) {
   const sorted = [...posts].sort((a, b) => {
     const aVal = a[metric] || 0;
     const bVal = b[metric] || 0;
@@ -151,7 +169,7 @@ function Top4Section({ title, posts, metric, metricLabel }) {
       </div>
       <div className="grid grid-cols-4 gap-3">
         {sorted.map((post, i) => (
-          <PostCard key={post.id} post={post} rank={i} metric={metric} metricLabel={metricLabel} />
+          <PostCard key={post.id} post={post} rank={i} metric={metric} metricLabel={metricLabel} onPostClick={onPostClick} />
         ))}
         {sorted.length < 4 && Array.from({ length: 4 - sorted.length }).map((_, i) => (
           <div key={i} className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 text-sm" style={{ aspectRatio: '3/4' }}>
@@ -177,11 +195,11 @@ function RateBar({ value, color, maxValue }) {
 }
 
 // ── Per-post engagement rate row ──────────────────────────────────────────────
-function RateInsightsRow({ p, i, maxLike, maxComment, maxShare }) {
+function RateInsightsRow({ p, i, maxLike, maxComment, maxShare, onPostClick }) {
   const [imgError, setImgError] = useState(false);
-  
+
   return (
-    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+    <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onPostClick?.(p)}>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2.5">
           <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
@@ -197,10 +215,9 @@ function RateInsightsRow({ p, i, maxLike, maxComment, maxShare }) {
             )}
           </div>
           <div className="min-w-0">
-            <a href={getFbPostUrl(p.id)} target="_blank" rel="noopener noreferrer"
-              className="text-slate-700 font-medium hover:text-blue-600 transition-colors line-clamp-1 block">
+            <span className="text-slate-700 font-medium hover:text-blue-600 transition-colors line-clamp-1 block">
               {truncate(p.message, 55) || '(No caption)'}
-            </a>
+            </span>
           </div>
         </div>
       </td>
@@ -216,7 +233,7 @@ function RateInsightsRow({ p, i, maxLike, maxComment, maxShare }) {
   );
 }
 
-function RateInsightsTable({ posts }) {
+function RateInsightsTable({ posts, onPostClick }) {
   const topN = Math.min(posts.length, 10);
   const top  = [...posts].sort((a, b) => b.engaged - a.engaged).slice(0, topN);
   if (top.length === 0) return null;
@@ -248,6 +265,7 @@ function RateInsightsTable({ posts }) {
               maxLike={maxLike}
               maxComment={maxComment}
               maxShare={maxShare}
+              onPostClick={onPostClick}
             />
           ))}
         </tbody>
@@ -272,6 +290,7 @@ export default function FacebookAnalytics() {
   const [data,          setData]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState(null);
+  const [selectedPost,  setSelectedPost]  = useState(null);
   // Default: photos, videos, text all on — streams off
   const [activeFilters, setActiveFilters] = useState(['photo', 'video', 'other']);
   const [datePreset,    setDatePreset]    = useState('30');
@@ -502,10 +521,10 @@ export default function FacebookAnalytics() {
       {/* ── Top posts 2×2 grid ───────────────────────────────────────────────── */}
       {filteredPosts.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Top4Section title="🏆 Top Posts by Likes"      posts={filteredPosts} metric="likeCount"    metricLabel="Likes"   />
-          <Top4Section title="💬 Top Posts by Comments"  posts={filteredPosts} metric="commentCount" metricLabel="Comments" />
-          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredPosts} metric="shareCount"   metricLabel="Shares"  />
-          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredPosts} metric="engaged"      metricLabel="Engaged" />
+          <Top4Section title="🏆 Top Posts by Likes"      posts={filteredPosts} metric="likeCount"    metricLabel="Likes"    onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+          <Top4Section title="💬 Top Posts by Comments"  posts={filteredPosts} metric="commentCount" metricLabel="Comments" onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredPosts} metric="shareCount"   metricLabel="Shares"   onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredPosts} metric="engaged"      metricLabel="Engaged"  onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
         </div>
       )}
 
@@ -526,7 +545,7 @@ export default function FacebookAnalytics() {
                   <span className="text-xs text-slate-400 font-mono">Top {Math.min(videoPosts.length, 10)} by engagement</span>
                 </div>
                 <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for videos &amp; reels</p>
-                <RateInsightsTable posts={videoPosts} />
+                <RateInsightsTable posts={videoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
               </div>
             )}
             {hasPhotos && (
@@ -537,7 +556,7 @@ export default function FacebookAnalytics() {
                   <span className="text-xs text-slate-400 font-mono">Top {Math.min(photoPosts.length, 10)} by engagement</span>
                 </div>
                 <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for photos &amp; carousels</p>
-                <RateInsightsTable posts={photoPosts} />
+                <RateInsightsTable posts={photoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
               </div>
             )}
           </>
@@ -672,18 +691,12 @@ export default function FacebookAnalytics() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {visiblePosts.map((p, idx) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedPost(toFbSpotlight(p))}>
                     <td className="px-3 py-3 text-center text-slate-400 text-xs font-mono font-bold">{idx + 1}</td>
                     <td className="px-6 py-3 max-w-xs">
-                      <a
-                        href={getFbPostUrl(p.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-700 text-sm line-clamp-2 hover:text-blue-600 transition-colors block"
-                        title="Open post on Facebook"
-                      >
+                      <span className="text-slate-700 text-sm line-clamp-2 block">
                         {truncate(p.message, 100) || '(No caption)'}
-                      </a>
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{contentTypeLabel(p.type)}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(p.createdTime)}</td>
@@ -706,6 +719,13 @@ export default function FacebookAnalytics() {
           )}
         </div>
       )}
+
+      <PostSpotlight
+        post={selectedPost}
+        onClose={() => setSelectedPost(null)}
+        accountName={page?.name || 'Lakepointe Church'}
+        platform="facebook"
+      />
     </div>
   );
 }

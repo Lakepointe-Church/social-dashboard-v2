@@ -4,6 +4,10 @@ import { X, ExternalLink, Eye, Heart, MessageCircle, Share2, Bookmark, Clock, Tr
 const IG_PINK     = '#E1306C';
 const IG_PURPLE   = '#833AB4';
 const IG_GRADIENT = 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)';
+const FB_BLUE     = '#1877F2';
+const FB_GRADIENT = 'linear-gradient(45deg,#1877F2,#42a5f5)';
+const YT_RED      = '#FF0000';
+const YT_GRADIENT = 'linear-gradient(45deg,#ff0000,#ff6b35)';
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -29,10 +33,8 @@ function fmtDateTime(iso) {
 
 function RatePill({ icon, label, value, color }) {
   return (
-    <div
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-      style={{ background: `${color}18`, color }}
-    >
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+      style={{ background: `${color}18`, color }}>
       {icon}
       <span className="text-slate-500 font-medium">{label}</span>
       <span className="font-mono font-bold">{value}</span>
@@ -63,7 +65,35 @@ function InstagramIcon() {
   );
 }
 
-export default function PostSpotlight({ post, onClose, accountName = 'lpconnect' }) {
+function FacebookIcon() {
+  return (
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+      style={{ background: FB_BLUE }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      </svg>
+    </div>
+  );
+}
+
+function YouTubeIcon() {
+  return (
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+      style={{ background: YT_RED }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+    </div>
+  );
+}
+
+const PLATFORM_CONFIG = {
+  instagram: { accentColor: IG_PINK,  gradient: IG_GRADIENT, Icon: InstagramIcon, viewLabel: 'View on Instagram', prefix: '@' },
+  facebook:  { accentColor: FB_BLUE,  gradient: FB_GRADIENT, Icon: FacebookIcon,  viewLabel: 'View on Facebook',  prefix: ''  },
+  youtube:   { accentColor: YT_RED,   gradient: YT_GRADIENT, Icon: YouTubeIcon,   viewLabel: 'Watch on YouTube',  prefix: ''  },
+};
+
+export default function PostSpotlight({ post, onClose, accountName = 'lpconnect', platform = 'instagram' }) {
   const [visible,  setVisible]  = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -93,32 +123,51 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
   if (!post) return null;
 
+  const config    = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.instagram;
+  const { Icon }  = config;
   const isReel    = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
   const typeEmoji = isReel ? '🎬' : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
-  const typeLabel = isReel ? 'Reel' : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo';
+  const typeLabel = isReel ? 'Reel' : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : platform === 'youtube' ? '▶ Video' : '📷 Photo';
 
   const engRate  = post.engagementRate ?? 0;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
 
-  // Rate pills — top of right column
-  const rates = [
+  // Rate pills — Instagram only
+  const rates = platform === 'instagram' ? [
     { icon: <Bookmark size={11} />, label: 'Save',  value: `${(post.saveRate  ?? 0).toFixed(1)}%`, color: IG_PURPLE },
     { icon: <Share2 size={11} />,   label: 'Share', value: `${(post.shareRate ?? 0).toFixed(1)}%`, color: '#f59e0b' },
     ...(isReel && post.avgWatchTime
       ? [{ icon: <Clock size={11} />, label: 'Avg Watch', value: fmtWatchTime(post.avgWatchTime), color: '#10b981' }]
       : []
     ),
+  ] : [];
+
+  // Metric grid — varies by platform
+  const reachLabel = platform === 'youtube' ? 'Views' : isReel ? 'Views' : 'Reach';
+  const reachColor = platform === 'youtube' ? YT_RED : '#8b5cf6';
+  const likesColor = platform === 'facebook' ? FB_BLUE : platform === 'youtube' ? '#f59e0b' : IG_PINK;
+
+  const baseMetrics = [
+    { icon: <Eye size={15} />,           label: reachLabel,   value: fmtBig(post.reach),         color: reachColor },
+    { icon: <TrendingUp size={15} />,    label: 'Eng. Rate',  value: `${engRate.toFixed(2)}%`,   color: engColor   },
+    { icon: <Heart size={15} />,         label: 'Likes',      value: fmtBig(post.likeCount),     color: likesColor },
+    { icon: <MessageCircle size={15} />, label: 'Comments',   value: fmtBig(post.commentsCount), color: '#6366f1'  },
   ];
 
-  // 3×2 metric grid: Reach | Eng. Rate | Likes  /  Comments | Saves | Shares
-  const metrics = [
-    { icon: <Eye size={15} />,           label: isReel ? 'Views' : 'Reach', value: fmtBig(post.reach),                  color: '#8b5cf6' },
-    { icon: <TrendingUp size={15} />,    label: 'Eng. Rate',                 value: `${engRate.toFixed(2)}%`,            color: engColor  },
-    { icon: <Heart size={15} />,         label: 'Likes',                     value: fmtBig(post.likeCount),             color: IG_PINK   },
-    { icon: <MessageCircle size={15} />, label: 'Comments',                  value: fmtBig(post.commentsCount),         color: '#6366f1' },
-    { icon: <Bookmark size={15} />,      label: 'Saves',                     value: fmtBig(post.saved),                 color: IG_PURPLE },
-    { icon: <Share2 size={15} />,        label: 'Shares',                    value: fmtBig(post.shares),                color: '#f59e0b' },
-  ];
+  const metrics = platform === 'instagram'
+    ? [...baseMetrics,
+        { icon: <Bookmark size={15} />, label: 'Saves',   value: fmtBig(post.saved),   color: IG_PURPLE },
+        { icon: <Share2 size={15} />,   label: 'Shares',  value: fmtBig(post.shares),  color: '#f59e0b' },
+      ]
+    : platform === 'facebook'
+    ? [...baseMetrics,
+        { icon: <Share2 size={15} />,   label: 'Shares',  value: fmtBig(post.shares),  color: '#f59e0b' },
+      ]
+    : platform === 'youtube' && post.duration
+    ? [...baseMetrics,
+        { icon: <Clock size={15} />,    label: 'Duration', value: post.duration,        color: '#10b981' },
+      ]
+    : baseMetrics;
 
   return (
     <div
@@ -131,7 +180,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
       {/* Modal card — stacked on mobile, side-by-side on desktop */}
       <div
         className={`relative bg-white w-full sm:max-w-3xl rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col sm:flex-row max-h-[92vh] transition-all duration-200 ${visible ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}
-        style={{ borderTop: `4px solid ${IG_PINK}` }}
+        style={{ borderTop: `4px solid ${config.accentColor}` }}
         onClick={e => e.stopPropagation()}
       >
         {/* Close button */}
@@ -164,8 +213,8 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-              style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
-              <span className="text-5xl">{typeEmoji}</span>
+              style={{ background: platform === 'facebook' ? 'linear-gradient(135deg,#e0f2fe,#f0f4ff)' : platform === 'youtube' ? 'linear-gradient(135deg,#fff1f2,#ffe4e6)' : 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
+              <span className="text-5xl">{platform === 'youtube' ? '▶️' : typeEmoji}</span>
               {post.caption && (
                 <span className="text-xs text-slate-400 px-6 text-center line-clamp-3">
                   {post.caption.slice(0, 100)}
@@ -173,10 +222,10 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               )}
             </div>
           )}
-          {/* Content type badge — hide when video controls are visible */}
+          {/* Content type badge — hide when native video controls are showing */}
           {!(isReel && post.videoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-              {typeEmoji} {typeLabel}
+              {platform === 'youtube' ? '▶ Video' : `${typeEmoji} ${typeLabel}`}
             </div>
           )}
         </div>
@@ -187,24 +236,28 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
             {/* Platform header */}
             <div className="flex items-center gap-3 pr-8">
-              <InstagramIcon />
+              <Icon />
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">@{accountName}</div>
+                <div className="text-sm font-semibold text-slate-900">
+                  {config.prefix}{accountName}
+                </div>
                 <div className="text-xs text-slate-400">{fmtDateTime(post.timestamp)}</div>
               </div>
-              {post.contentType === 'collab' && (
+              {platform === 'instagram' && post.contentType === 'collab' && (
                 <span className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
                   🤝 Collab
                 </span>
               )}
             </div>
 
-            {/* Rate pills */}
-            <div className="flex flex-wrap gap-2">
-              {rates.map((r, i) => <RatePill key={i} {...r} />)}
-            </div>
+            {/* Rate pills — IG only */}
+            {rates.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {rates.map((r, i) => <RatePill key={i} {...r} />)}
+              </div>
+            )}
 
-            {/* Full caption */}
+            {/* Caption / title */}
             {post.caption ? (
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                 {post.caption}
@@ -213,7 +266,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               <p className="text-sm text-slate-400 italic">(No caption)</p>
             )}
 
-            {/* 3×2 metric grid */}
+            {/* Metric grid */}
             <div className="rounded-xl border border-slate-100 overflow-hidden">
               <div className="grid grid-cols-3">
                 {metrics.map((m, i) => (
@@ -230,17 +283,17 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               </div>
             </div>
 
-            {/* View on Instagram */}
+            {/* View on platform */}
             {post.permalink && (
               <a
                 href={post.permalink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90"
-                style={{ background: IG_GRADIENT }}
+                style={{ background: config.gradient }}
               >
                 <ExternalLink size={15} />
-                View on Instagram
+                {config.viewLabel}
               </a>
             )}
 
