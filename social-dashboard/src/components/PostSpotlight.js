@@ -102,12 +102,11 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
   // Rate pills — top of right column
   const rates = [
-    { icon: <Heart size={11} />,         label: 'Like',    value: `${(post.likeRate    ?? 0).toFixed(1)}%`, color: IG_PINK   },
-    { icon: <Bookmark size={11} />,      label: 'Save',    value: `${(post.saveRate    ?? 0).toFixed(1)}%`, color: IG_PURPLE },
-    { icon: <Share2 size={11} />,        label: 'Share',   value: `${(post.shareRate   ?? 0).toFixed(1)}%`, color: '#f59e0b' },
-    ...(isReel
-      ? [{ icon: <Clock size={11} />,         label: 'Avg Watch', value: fmtWatchTime(post.avgWatchTime),           color: '#10b981' }]
-      : [{ icon: <MessageCircle size={11} />, label: 'Comment',   value: `${(post.commentRate ?? 0).toFixed(1)}%`, color: '#6366f1' }]
+    { icon: <Bookmark size={11} />, label: 'Save',  value: `${(post.saveRate  ?? 0).toFixed(1)}%`, color: IG_PURPLE },
+    { icon: <Share2 size={11} />,   label: 'Share', value: `${(post.shareRate ?? 0).toFixed(1)}%`, color: '#f59e0b' },
+    ...(isReel && post.avgWatchTime
+      ? [{ icon: <Clock size={11} />, label: 'Avg Watch', value: fmtWatchTime(post.avgWatchTime), color: '#10b981' }]
+      : []
     ),
   ];
 
