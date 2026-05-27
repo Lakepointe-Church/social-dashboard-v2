@@ -198,7 +198,16 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
-          {isReel && post.videoUrl && !imgError ? (
+          {platform === 'facebook' && isReel && post.permalink ? (
+            <iframe
+              src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(post.permalink)}&show_text=false&width=500`}
+              className="absolute inset-0 w-full h-full"
+              scrolling="no"
+              frameBorder="0"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : isReel && post.videoUrl && !imgError ? (
             <video
               src={post.videoUrl}
               className="absolute inset-0 w-full h-full object-cover"
@@ -226,8 +235,8 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
               )}
             </div>
           )}
-          {/* Content type badge — hide when native video controls are showing */}
-          {!(isReel && post.videoUrl && !imgError) && (
+          {/* Content type badge — hide when FB iframe or native IG video controls are showing */}
+          {!(platform === 'facebook' && isReel && post.permalink) && !(isReel && post.videoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
               {platform === 'youtube' ? '▶ Video' : `${typeEmoji} ${typeLabel}`}
             </div>
