@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, ExternalLink, Eye, Heart, MessageCircle, Share2, Bookmark, Clock } from 'lucide-react';
+import { X, ExternalLink, Eye, Heart, MessageCircle, Share2, Bookmark, Clock, TrendingUp } from 'lucide-react';
 
 const IG_PINK     = '#E1306C';
 const IG_PURPLE   = '#833AB4';
@@ -27,11 +27,24 @@ function fmtDateTime(iso) {
   });
 }
 
+function RatePill({ icon, label, value, color }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+      style={{ background: `${color}18`, color }}
+    >
+      {icon}
+      <span className="text-slate-500 font-medium">{label}</span>
+      <span className="font-mono font-bold">{value}</span>
+    </div>
+  );
+}
+
 function MetricCell({ icon, label, value, color }) {
   return (
-    <div className="flex flex-col items-center justify-center py-4 px-2 gap-1.5">
+    <div className="flex flex-col items-center justify-center py-3 px-2 gap-1">
       <div style={{ color: color || '#94a3b8' }}>{icon}</div>
-      <div className="text-xl font-bold tabular-nums text-slate-900 leading-tight">{value}</div>
+      <div className="text-lg font-bold tabular-nums text-slate-900 leading-tight">{value}</div>
       <div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-center leading-tight">
         {label}
       </div>
@@ -57,7 +70,6 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
   useEffect(() => {
     if (post) {
       setImgError(false);
-      // defer one frame so the transition fires
       requestAnimationFrame(() => setVisible(true));
       document.body.style.overflow = 'hidden';
     } else {
@@ -81,22 +93,33 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
 
   if (!post) return null;
 
-  const isReel   = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
+  const isReel    = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
   const typeEmoji = isReel ? '🎬' : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
   const typeLabel = isReel ? 'Reel' : post.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo';
 
   const engRate  = post.engagementRate ?? 0;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
 
-  const metrics = [
-    { icon: <Eye size={16} />,           label: isReel ? 'Views' : 'Reach',   value: fmtBig(post.reach),         color: '#8b5cf6' },
-    { icon: <Heart size={16} />,         label: 'Likes',                       value: fmtBig(post.likeCount),     color: IG_PINK   },
-    { icon: <MessageCircle size={16} />, label: 'Comments',                    value: fmtBig(post.commentsCount), color: '#6366f1' },
-    { icon: <Bookmark size={16} />,      label: 'Saves',                       value: fmtBig(post.saved),         color: IG_PURPLE },
-    { icon: <Share2 size={16} />,        label: 'Shares',                      value: fmtBig(post.shares),        color: '#f59e0b' },
-    ...(isReel ? [{ icon: <Clock size={16} />, label: 'Avg Watch', value: fmtWatchTime(post.avgWatchTime), color: '#10b981' }] : []),
+  // Rate pills — top of right column
+  const rates = [
+    { icon: <Heart size={11} />,         label: 'Like',    value: `${(post.likeRate    ?? 0).toFixed(1)}%`, color: IG_PINK   },
+    { icon: <Bookmark size={11} />,      label: 'Save',    value: `${(post.saveRate    ?? 0).toFixed(1)}%`, color: IG_PURPLE },
+    { icon: <Share2 size={11} />,        label: 'Share',   value: `${(post.shareRate   ?? 0).toFixed(1)}%`, color: '#f59e0b' },
+    ...(isReel
+      ? [{ icon: <Clock size={11} />,         label: 'Avg Watch', value: fmtWatchTime(post.avgWatchTime),           color: '#10b981' }]
+      : [{ icon: <MessageCircle size={11} />, label: 'Comment',   value: `${(post.commentRate ?? 0).toFixed(1)}%`, color: '#6366f1' }]
+    ),
   ];
-  const COLS = 3;
+
+  // 3×2 metric grid: Reach | Eng. Rate | Likes  /  Comments | Saves | Shares
+  const metrics = [
+    { icon: <Eye size={15} />,           label: isReel ? 'Views' : 'Reach', value: fmtBig(post.reach),                  color: '#8b5cf6' },
+    { icon: <TrendingUp size={15} />,    label: 'Eng. Rate',                 value: `${engRate.toFixed(2)}%`,            color: engColor  },
+    { icon: <Heart size={15} />,         label: 'Likes',                     value: fmtBig(post.likeCount),             color: IG_PINK   },
+    { icon: <MessageCircle size={15} />, label: 'Comments',                  value: fmtBig(post.commentsCount),         color: '#6366f1' },
+    { icon: <Bookmark size={15} />,      label: 'Saves',                     value: fmtBig(post.saved),                 color: IG_PURPLE },
+    { icon: <Share2 size={15} />,        label: 'Shares',                    value: fmtBig(post.shares),                color: '#f59e0b' },
+  ];
 
   return (
     <div
@@ -106,62 +129,69 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Modal card */}
+      {/* Modal card — stacked on mobile, side-by-side on desktop */}
       <div
-        className={`relative bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] transition-all duration-200 ${visible ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}
+        className={`relative bg-white w-full sm:max-w-3xl rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col sm:flex-row max-h-[92vh] transition-all duration-200 ${visible ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}
         style={{ borderTop: `4px solid ${IG_PINK}` }}
         onClick={e => e.stopPropagation()}
       >
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
           aria-label="Close"
         >
           <X size={16} />
         </button>
 
-        {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1">
-
-          {/* Post image */}
-          <div className="relative bg-slate-100 w-full overflow-hidden" style={{ maxHeight: '340px' }}>
-            {post.mediaUrl && !imgError ? (
-              <img
-                src={post.mediaUrl}
-                alt={post.caption?.slice(0, 60) || 'Post image'}
-                className="w-full object-cover"
-                style={{ maxHeight: '340px' }}
-                onError={() => setImgError(true)}
-                crossOrigin="anonymous"
-              />
-            ) : (
-              <div className="w-full h-56 flex flex-col items-center justify-center gap-3"
-                style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
-                <span className="text-5xl">{typeEmoji}</span>
-                {post.caption && (
-                  <span className="text-xs text-slate-400 px-6 text-center line-clamp-2">
-                    {post.caption.slice(0, 80)}
-                  </span>
-                )}
-              </div>
-            )}
-            {/* Content type badge */}
-            <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-              {typeEmoji} {typeLabel}
+        {/* ── Left column: post image ────────────────────────────────────── */}
+        <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
+          {post.mediaUrl && !imgError ? (
+            <img
+              src={post.mediaUrl}
+              alt={post.caption?.slice(0, 60) || 'Post image'}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={() => setImgError(true)}
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+              style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
+              <span className="text-5xl">{typeEmoji}</span>
+              {post.caption && (
+                <span className="text-xs text-slate-400 px-6 text-center line-clamp-3">
+                  {post.caption.slice(0, 100)}
+                </span>
+              )}
             </div>
+          )}
+          {/* Content type badge */}
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+            {typeEmoji} {typeLabel}
           </div>
+        </div>
 
-          {/* Content area */}
-          <div className="p-5 space-y-4">
+        {/* ── Right column: metadata + stats ────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+          <div className="p-5 flex flex-col gap-4">
 
             {/* Platform header */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pr-8">
               <InstagramIcon />
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-slate-900">@{accountName}</div>
                 <div className="text-xs text-slate-400">{fmtDateTime(post.timestamp)}</div>
               </div>
+              {post.contentType === 'collab' && (
+                <span className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
+                  🤝 Collab
+                </span>
+              )}
+            </div>
+
+            {/* Rate pills */}
+            <div className="flex flex-wrap gap-2">
+              {rates.map((r, i) => <RatePill key={i} {...r} />)}
             </div>
 
             {/* Full caption */}
@@ -173,30 +203,15 @@ export default function PostDetailModal({ post, onClose, accountName = 'lpconnec
               <p className="text-sm text-slate-400 italic">(No caption)</p>
             )}
 
-            {/* Engagement rate pill + collab badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full"
-                style={{ background: `${engColor}20`, color: engColor }}
-              >
-                ⚡ {engRate.toFixed(2)}% Engagement Rate
-              </span>
-              {post.contentType === 'collab' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-                  🤝 Collab
-                </span>
-              )}
-            </div>
-
-            {/* Metric grid */}
-            <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
+            {/* 3×2 metric grid */}
+            <div className="rounded-xl border border-slate-100 overflow-hidden">
               <div className="grid grid-cols-3">
                 {metrics.map((m, i) => (
                   <div
                     key={i}
                     className={[
-                      i % COLS !== COLS - 1 ? 'border-r border-slate-100' : '',
-                      i >= COLS            ? 'border-t border-slate-100' : '',
+                      i % 3 !== 2 ? 'border-r border-slate-100' : '',
+                      i >= 3      ? 'border-t border-slate-100' : '',
                     ].filter(Boolean).join(' ')}
                   >
                     <MetricCell {...m} />
