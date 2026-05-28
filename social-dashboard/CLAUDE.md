@@ -257,7 +257,8 @@ This is expected. The app needs to be submitted for App Review and published bef
 ## Pending Work
 
 - [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access. The Advanced Metrics section in the YouTube tab shows these as `0 🔒` with "Pending · YouTube OAuth required" until resolved.
-- [ ] **Meta App Review** — prep work done (Advanced Settings configured, appsecret_proof added, API on v25.0). Still needed: privacy policy URL, data deletion URL, screencasts per permission, business verification. Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
+- [ ] **Meta App Review** — **SUBMITTED May 28, 2026. Pending approval (typically 1–5 business days).** Submitted 8 permissions across two use cases: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Once approved: add `post_video_views` to the Facebook posts query; the `collaborators` field on Instagram posts will auto-activate (collab detection already wired up). Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
+- [ ] **Second Meta App Review (future)** — submit `pages_manage_posts` + `instagram_content_publish` once a post scheduling feature is built. Do NOT request these until the feature exists — Meta will reject if they can't find it in the demo.
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
@@ -329,7 +330,7 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 1. Go to developers.facebook.com → Tools → Graph API Explorer
 2. Select app: **Lakepointe Social Dashboard**
-3. Add permissions: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`, `instagram_content_publish`
+3. Add permissions: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`
 4. Click **Generate Access Token** → complete Facebook login → select Lakepointe Church page
 5. In URL field: `142188242493004?fields=name,fan_count,access_token` → Submit
 6. Copy the `access_token` from the JSON response
@@ -340,6 +341,21 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (May 2026)
+
+### May 28, 2026 (session 4)
+
+- No code commits this session — all work was Meta App Review submission and local dev setup.
+
+#### Key decisions and actions
+- **Meta App Review submitted** (May 28, 2026). Permissions submitted: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Use cases: "Manage everything on your Page" + "Manage messaging & content on Instagram". Reviewer URL: `https://social-dashboard-v2.vercel.app` (no login required).
+- **`instagram_content_publish` removed from submission** — confirmed not used anywhere in the codebase. Will be added in a second App Review submission when a scheduling feature is built. Do not add it back until then.
+- **`pages_manage_posts` deferred** — intentionally excluded from this submission. Required for future post scheduling feature. Requesting unused permissions is a common rejection reason.
+- **Data processors declared**: Vercel (IT solutions) + Anthropic (IT solutions). Anthropic receives a text summary of Meta data via the AI Analyst feature.
+- **Vercel CLI set up** for local development: `vercel link` + `vercel env pull`. Discovered: sensitive env vars (API keys) cannot be pulled to Development environment — Vercel security restriction. Decision: use production URL (`social-dashboard-v2.vercel.app`) for API testing; run `npm run dev` locally for UI-only changes.
+- **`/verify` run against production**: FB API returning 100 posts + 209K fans, IG API returning 50 posts + 301K followers. v25.0 + appsecret_proof confirmed working. Brief transient 500 on Facebook first hit (recovered within 2 min) — likely rate limit, not a code issue.
+- **Token refresh instructions updated** — removed `instagram_content_publish` from the permissions list in the "How to Refresh the Meta Token" section.
+
+---
 
 ### May 27, 2026 (session 3)
 
