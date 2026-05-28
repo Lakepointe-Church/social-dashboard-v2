@@ -89,7 +89,9 @@ social-dashboard/
 
 ### `/api/facebook`
 
-- **Auth:** `META_PAGE_ACCESS_TOKEN` (Page token)
+- **Auth:** `META_PAGE_ACCESS_TOKEN` (Page token) + `META_APP_SECRET` (required — "Require app secret" is ON in the Meta Developer Console)
+- **Security:** All Graph API calls include `appsecret_proof=HMAC-SHA256(app_secret, access_token)` — computed once per request using Node's `crypto` module
+- **API version:** v25.0
 - **Data:** Page followers, 30-day insights (reach, impressions, engaged users, page views, new fans), recent posts with likes/comments/shares, fan demographics, fan cities/countries
 - **Content classification:** `stream` (service streams), `photo`, `video`, `other`
 - **`page_fan_adds`** included in insight metrics — returns new followers in the 28-day window. Exposed as `insights.newFans` in the API response. Shown in the Overview tab FB card as "New Followers (30d)".
@@ -97,7 +99,9 @@ social-dashboard/
 
 ### `/api/instagram`
 
-- **Auth:** `META_PAGE_ACCESS_TOKEN` (same token works for linked Instagram Business account)
+- **Auth:** `META_PAGE_ACCESS_TOKEN` + `META_APP_SECRET` (required — see facebook route note on appsecret_proof)
+- **Security:** All Graph API calls include `appsecret_proof` — same pattern as `/api/facebook`
+- **API version:** v25.0
 - **Instagram ID:** `META_INSTAGRAM_ID`
 - **Data:** Account summary, 30-day insights, new followers, 50 recent media with per-post insights, demographics, geo
 - **Content classification:** `photo`, `carousel`, `reel` (VIDEO + REELS merged), `collab`, `other`
@@ -253,7 +257,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 ## Pending Work
 
 - [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access. The Advanced Metrics section in the YouTube tab shows these as `0 🔒` with "Pending · YouTube OAuth required" until resolved.
-- [ ] **Meta App Review** — submit app for review to unlock gated metrics (engaged users, video views, profile visits, interactions, shares at account level). Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
+- [ ] **Meta App Review** — prep work done (Advanced Settings configured, appsecret_proof added, API on v25.0). Still needed: privacy policy URL, data deletion URL, screencasts per permission, business verification. Once approved: add `post_video_views` to the Facebook posts query and update `PostCard` to show a play icon + video views instead of eye icon + reach when `post.contentType === 'video'`. Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
@@ -336,6 +340,18 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (May 2026)
+
+### May 27, 2026 (session 3)
+
+- `d8ee947` — Bump all Meta Graph API routes from v21.0 → v25.0; add `appsecret_proof` to every Graph API call across `facebook.js`, `instagram.js`, `ig-carousel-children.js`, `fb-album-photos.js`
+
+#### Key decisions this session
+- **Meta App Review prep:** Reviewed what's needed to submit — permissions list, privacy policy URL, data deletion URL, screencasts per permission, business verification, and switching app to Live mode.
+- **Meta Developer Console Advanced Settings updated:** Social Discovery turned OFF (was on — wrong for a private tool), domain `social-dashboard-v2.vercel.app` added to Domain Manager, notification email added, API version console setting set to v25.0.
+- **`appsecret_proof` pattern:** "Require app secret" is now ON in the Meta console. Every server-side Graph API call must include `appsecret_proof = HMAC-SHA256(app_secret, access_token)`. Computed once per request handler (not per fetch call) using Node's built-in `crypto` module. `META_APP_SECRET` was already in Vercel env vars — no new secrets needed.
+- **API version:** All four API routes now explicitly call `v25.0` (was `v21.0`). The Meta console "Upgrade API version" setting was already showing v25.0; code now matches.
+
+---
 
 ### May 27, 2026 (session 2)
 
