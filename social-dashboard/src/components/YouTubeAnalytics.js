@@ -26,6 +26,13 @@ function truncate(str, max = 36) {
   return str?.length > max ? str.slice(0, max) + '…' : str;
 }
 
+function fmtWatchTime(secs) {
+  if (!secs) return '—';
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function avg(arr, key) {
   if (!arr.length) return 0;
   return arr.reduce((s, v) => s + (v[key] || 0), 0) / arr.length;
@@ -355,6 +362,7 @@ function OutsideDateRangeNote({ videos }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function YouTubeAnalytics() {
   const [channel,       setChannel]       = useState(null);
+  const [analytics,     setAnalytics]     = useState(null);
   const [allVideos,     setAllVideos]      = useState([]);
   const [nextPageToken, setNextPageToken]  = useState(null);
   const [loading,       setLoading]        = useState(false);
@@ -378,7 +386,8 @@ export default function YouTubeAnalytics() {
       const res  = await fetch('/api/youtube');
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
       const data = await res.json();
-      if (data.channel) setChannel(data.channel);
+      if (data.channel)   setChannel(data.channel);
+      if (data.analytics) setAnalytics(data.analytics);
       setAllVideos(data.videos || []);
       setNextPageToken(data.nextPageToken || null);
       setFetchedAt(data.fetchedAt);
@@ -587,18 +596,49 @@ export default function YouTubeAnalytics() {
         </div>
       </div>
 
-      {/* ── Advanced metrics — pending OAuth ──────────────────────────────── */}
+      {/* ── Advanced metrics ──────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h3 className="font-semibold text-slate-700 text-sm">Advanced Metrics</h3>
-          <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-            <Lock size={10} /> Pending · YouTube OAuth required
-          </span>
+          {analytics
+            ? <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Last 365 days · Channel-wide</span>
+            : <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                <Lock size={10} /> Pending · YouTube OAuth required
+              </span>
+          }
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}        />
-          <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>}     />
-          <PendingCard label="Impression CTR"         icon={<MousePointer size={20}/>} />
+          {analytics ? (
+            <>
+              <StatCard
+                label="Total Watch Time"
+                value={`${fmtBig(Math.round(analytics.totalWatchMins / 60))} hrs`}
+                subtext="Estimated, last 365 days"
+                icon={<Clock size={20}/>}
+                iconBg="bg-red-100" iconColor="text-red-600"
+              />
+              <StatCard
+                label="Avg Watch Time / Video"
+                value={fmtWatchTime(analytics.avgWatchSecs)}
+                subtext="Minutes:seconds"
+                icon={<Activity size={20}/>}
+                iconBg="bg-orange-100" iconColor="text-orange-600"
+              />
+              <StatCard
+                label="Impression CTR"
+                value={`${(analytics.impressionCtr * 100).toFixed(2)}%`}
+                subtext="Thumbnail click-through rate"
+                icon={<MousePointer size={20}/>}
+                iconBg="bg-pink-100" iconColor="text-pink-600"
+              />
+            </>
+          ) : (
+            <>
+              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}        />
+              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>}     />
+              <PendingCard label="Impression CTR"         icon={<MousePointer size={20}/>} />
+            </>
+          )}
         </div>
       </div>
 

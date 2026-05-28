@@ -8,6 +8,43 @@ const CHANNEL_ID       = 'UC5f7yO3WU_Ns0WDCQuP5bAw'; // Lakepointe Church
 const RESULTS_PER_PAGE = 50;
 const PODCAST_MARKERS   = ['Live Free with Josh Howerton', 'Live Free'];
 
+// ── OAuth helpers ─────────────────────────────────────────────────────────────
+async function getAccessToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.YOUTUBE_CLIENT_ID,
+      client_secret: process.env.YOUTUBE_CLIENT_SECRET,
+      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
+      grant_type:    'refresh_token',
+    }).toString(),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error_description || data.error);
+  return data.access_token;
+}
+
+async function fetchYTAnalytics(accessToken) {
+  const end   = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const url   = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
+  url.searchParams.set('ids',       'channel==MINE');
+  url.searchParams.set('startDate', start);
+  url.searchParams.set('endDate',   end);
+  url.searchParams.set('metrics',   'estimatedMinutesWatched,averageViewDuration,impressions,impressionsClickThroughRate');
+  const res  = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'Analytics API error');
+  const row = data.rows?.[0] || [0, 0, 0, 0];
+  return {
+    totalWatchMins: Math.round(row[0] || 0),
+    avgWatchSecs:   Math.round(row[1] || 0),
+    impressions:    Math.round(row[2] || 0),
+    impressionCtr:  parseFloat((row[3] || 0).toFixed(4)),
+  };
+}
+
 // ── Duration helpers ──────────────────────────────────────────────────────────
 function parseDurationSeconds(iso8601) {
   const match = iso8601?.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -131,10 +168,25 @@ export default async function handler(req, res) {
       });
     }
 
+    // ── 4. Analytics (OAuth — first page only, graceful fallback) ─────────────
+    let analytics = null;
+    if (!pageToken &&
+        process.env.YOUTUBE_REFRESH_TOKEN &&
+        process.env.YOUTUBE_CLIENT_ID &&
+        process.env.YOUTUBE_CLIENT_SECRET) {
+      try {
+        const token = await getAccessToken();
+        analytics   = await fetchYTAnalytics(token);
+      } catch (err) {
+        console.warn('YouTube Analytics (non-fatal):', err.message);
+      }
+    }
+
     return res.status(200).json({
       channel: channelInfo,
       videos,
       nextPageToken,
+      analytics,
       fetchedAt: new Date().toISOString(),
     });
 
