@@ -169,7 +169,8 @@ export default async function handler(req, res) {
     }
 
     // ── 4. Analytics (OAuth — first page only, graceful fallback) ─────────────
-    let analytics = null;
+    let analytics      = null;
+    let analyticsError = null;
     if (!pageToken &&
         process.env.YOUTUBE_REFRESH_TOKEN &&
         process.env.YOUTUBE_CLIENT_ID &&
@@ -179,7 +180,14 @@ export default async function handler(req, res) {
         analytics   = await fetchYTAnalytics(token);
       } catch (err) {
         console.warn('YouTube Analytics (non-fatal):', err.message);
+        analyticsError = err.message;
       }
+    } else if (!pageToken) {
+      analyticsError = 'Missing env vars: ' + [
+        !process.env.YOUTUBE_REFRESH_TOKEN && 'YOUTUBE_REFRESH_TOKEN',
+        !process.env.YOUTUBE_CLIENT_ID     && 'YOUTUBE_CLIENT_ID',
+        !process.env.YOUTUBE_CLIENT_SECRET && 'YOUTUBE_CLIENT_SECRET',
+      ].filter(Boolean).join(', ');
     }
 
     return res.status(200).json({
@@ -187,6 +195,7 @@ export default async function handler(req, res) {
       videos,
       nextPageToken,
       analytics,
+      analyticsError,
       fetchedAt: new Date().toISOString(),
     });
 
