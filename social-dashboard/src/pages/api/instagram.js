@@ -2,6 +2,8 @@
 // /api/instagram — Meta Graph API proxy for Instagram Business (@lpconnect)
 // ─────────────────────────────────────────────────────────────────────────────
 
+import crypto from 'crypto';
+
 const IG_ID = process.env.META_INSTAGRAM_ID;
 
 const COLLAB_MARKERS = ['josh howerton', 'live free', '@joshhowerton', '@livefreewjh'];
@@ -24,12 +26,15 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ error: 'META_PAGE_ACCESS_TOKEN not configured.' });
   if (!IG_ID) return res.status(500).json({ error: 'META_INSTAGRAM_ID not configured.' });
 
-  const base = `https://graph.facebook.com/v21.0`;
+  const base = `https://graph.facebook.com/v25.0`;
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) return res.status(500).json({ error: 'META_APP_SECRET not configured.' });
+  const proof = crypto.createHmac('sha256', secret).update(token).digest('hex');
 
   try {
     // ── 1. Account summary ────────────────────────────────────────────────────
     const accountRes = await fetch(
-      `${base}/${IG_ID}?fields=name,username,biography,followers_count,follows_count,media_count,profile_picture_url,website&access_token=${token}`
+      `${base}/${IG_ID}?fields=name,username,biography,followers_count,follows_count,media_count,profile_picture_url,website&access_token=${token}&appsecret_proof=${proof}`
     );
     const accountData = await accountRes.json();
     if (accountData.error) throw new Error(accountData.error.message);
@@ -38,7 +43,7 @@ export default async function handler(req, res) {
     const accountMetrics = ['reach', 'impressions', 'profile_visits', 'total_interactions', 'accounts_engaged', 'shares'];
     const insightResults = await Promise.allSettled(
       accountMetrics.map(metric =>
-        fetch(`${base}/${IG_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}`)
+        fetch(`${base}/${IG_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
           .then(r => r.json())
       )
     );
@@ -54,7 +59,7 @@ export default async function handler(req, res) {
     let newFollowers = 0;
     try {
       const followRes = await fetch(
-        `${base}/${IG_ID}/insights?metric=follower_count&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}`
+        `${base}/${IG_ID}/insights?metric=follower_count&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`
       );
       const followData = await followRes.json();
       if (!followData.error && followData.data?.[0]?.values) {
@@ -64,7 +69,7 @@ export default async function handler(req, res) {
 
     // ── 4. Recent media with per-post insights ────────────────────────────────
     const mediaRes = await fetch(
-      `${base}/${IG_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}`
+      `${base}/${IG_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}&appsecret_proof=${proof}`
     );
     const mediaData = await mediaRes.json();
     if (mediaData.error) throw new Error(mediaData.error.message);
@@ -81,7 +86,7 @@ export default async function handler(req, res) {
 
         let mi = {};
         try {
-          const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}`);
+          const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}&appsecret_proof=${proof}`);
           const miData = await miRes.json();
           if (miData.error) {
             console.error(`[IG insights] ${m.media_type} ${m.id}: ${miData.error.message}`);
@@ -135,14 +140,14 @@ export default async function handler(req, res) {
     try {
       // Find Josh's IG account via Business Discovery
       const discRes  = await fetch(
-        `${base}/${IG_ID}?fields=business_discovery.fields(id,username)&username=joshhowerton&access_token=${token}`
+        `${base}/${IG_ID}?fields=business_discovery.fields(id,username)&username=joshhowerton&access_token=${token}&appsecret_proof=${proof}`
       );
       const discData = await discRes.json();
       const joshId   = discData.business_discovery?.id;
 
       if (joshId) {
         const joshMediaRes = await fetch(
-          `${base}/${joshId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}`
+          `${base}/${joshId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,collaborators&limit=50&access_token=${token}&appsecret_proof=${proof}`
         );
         const joshMediaData = await joshMediaRes.json();
 
@@ -160,7 +165,7 @@ export default async function handler(req, res) {
 
               let mi = {};
               try {
-                const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}`);
+                const miRes  = await fetch(`${base}/${m.id}/insights?metric=${metricList}&access_token=${token}&appsecret_proof=${proof}`);
                 const miData = await miRes.json();
                 if (miData.error) {
                   console.error(`[IG collab insights] ${m.id}: ${miData.error.message}`);
@@ -222,26 +227,26 @@ export default async function handler(req, res) {
     ];
 
     // ── 5. Follower demographics ──────────────────────────────────────────────
-    const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}`);
+    const demoRes  = await fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`);
     const demoData = await demoRes.json();
     const demographics = (!demoData.error) ? parseDemographics(demoData.data || [], 'follower_demographics') : [];
 
     // ── 6. Follower geographic ────────────────────────────────────────────────
     const geoResults = await Promise.allSettled([
-      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}`).then(r => r.json()),
-      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=follower_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
     ]);
     const geo = parseGeo(geoResults, 'follower_demographics');
 
     // ── 7. Reached audience demographics (gated behind App Review) ────────────
-    const reachedDemoRes  = await fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}`);
+    const reachedDemoRes  = await fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=age,gender&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`);
     const reachedDemoData = await reachedDemoRes.json();
     const reachedDemographics = (!reachedDemoData.error) ? parseDemographics(reachedDemoData.data || [], 'reached_audience_demographics') : [];
 
     // ── 8. Reached audience geographic (gated behind App Review) ─────────────
     const reachedGeoResults = await Promise.allSettled([
-      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}`).then(r => r.json()),
-      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=city&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
+      fetch(`${base}/${IG_ID}/insights?metric=reached_audience_demographics&period=lifetime&breakdown=country&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
     ]);
     const reachedGeo = parseGeo(reachedGeoResults, 'reached_audience_demographics');
 

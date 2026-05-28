@@ -1,13 +1,18 @@
+import crypto from 'crypto';
+
 // Returns child media for an Instagram carousel post
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const token = process.env.META_PAGE_ACCESS_TOKEN;
   if (!token) return res.status(500).json({ error: 'META_PAGE_ACCESS_TOKEN not configured.' });
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) return res.status(500).json({ error: 'META_APP_SECRET not configured.' });
+  const proof = crypto.createHmac('sha256', secret).update(token).digest('hex');
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'id is required' });
 
   try {
-    const r    = await fetch(`https://graph.facebook.com/v21.0/${id}/children?fields=id,media_type,media_url,thumbnail_url&access_token=${token}`);
+    const r    = await fetch(`https://graph.facebook.com/v25.0/${id}/children?fields=id,media_type,media_url,thumbnail_url&access_token=${token}&appsecret_proof=${proof}`);
     const data = await r.json();
     if (data.error) return res.status(400).json({ error: data.error.message });
 

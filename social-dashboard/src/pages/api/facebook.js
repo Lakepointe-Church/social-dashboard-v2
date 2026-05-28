@@ -2,6 +2,8 @@
 // /api/facebook — Meta Graph API proxy
 // ─────────────────────────────────────────────────────────────────────────────
 
+import crypto from 'crypto';
+
 const PAGE_ID = process.env.META_PAGE_ID;
 
 // ── Content type classification ───────────────────────────────────────────────
@@ -26,11 +28,14 @@ export default async function handler(req, res) {
   if (!token)   return res.status(500).json({ error: 'META_PAGE_ACCESS_TOKEN not configured.' });
   if (!PAGE_ID) return res.status(500).json({ error: 'META_PAGE_ID not configured.' });
 
-  const base = `https://graph.facebook.com/v21.0`;
+  const base = `https://graph.facebook.com/v25.0`;
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) return res.status(500).json({ error: 'META_APP_SECRET not configured.' });
+  const proof = crypto.createHmac('sha256', secret).update(token).digest('hex');
 
   try {
     // ── 1. Page summary ───────────────────────────────────────────────────────
-    const pageRes  = await fetch(`${base}/${PAGE_ID}?fields=name,fan_count,followers_count,link&access_token=${token}`);
+    const pageRes  = await fetch(`${base}/${PAGE_ID}?fields=name,fan_count,followers_count,link&access_token=${token}&appsecret_proof=${proof}`);
     const pageData = await pageRes.json();
     if (pageData.error) throw new Error(pageData.error.message);
 
@@ -38,7 +43,7 @@ export default async function handler(req, res) {
     const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total', 'page_fan_adds'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
-        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=week&since=${daysAgo(28)}&until=${today()}&access_token=${token}`)
+        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=week&since=${daysAgo(28)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
           .then(r => r.json())
       )
     );
@@ -50,7 +55,7 @@ export default async function handler(req, res) {
 
     // ── 3. Recent posts with likes + comments + shares ────────────────────────
     const postsRes  = await fetch(
-      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,permalink_url&limit=50&access_token=${token}`
+      `${base}/${PAGE_ID}/posts?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,permalink_url&limit=50&access_token=${token}&appsecret_proof=${proof}`
     );
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
@@ -83,14 +88,14 @@ export default async function handler(req, res) {
     });
 
     // ── 4. Demographics ───────────────────────────────────────────────────────
-    const demoRes  = await fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_gender_age&period=lifetime&access_token=${token}`);
+    const demoRes  = await fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_gender_age&period=lifetime&access_token=${token}&appsecret_proof=${proof}`);
     const demoData = await demoRes.json();
     const demographics = (!demoData.error) ? parseDemographics(demoData.data || []) : [];
 
     // ── 5. Geographic ─────────────────────────────────────────────────────────
     const geoResults = await Promise.allSettled([
-      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_city&period=lifetime&access_token=${token}`).then(r => r.json()),
-      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_country&period=lifetime&access_token=${token}`).then(r => r.json()),
+      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_city&period=lifetime&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
+      fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_country&period=lifetime&access_token=${token}&appsecret_proof=${proof}`).then(r => r.json()),
     ]);
     const geoRawData = [];
     geoResults.forEach(r => {
