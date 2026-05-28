@@ -6,6 +6,10 @@ package-lock.json
 .next/
 out/
 
+# Local env — never commit API keys
+.env.local
+.env*.local
+
 # Mac
 .DS_Store
 
