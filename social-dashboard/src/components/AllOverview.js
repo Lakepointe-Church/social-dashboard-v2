@@ -8,7 +8,7 @@ import TopContent from './TopContent';
 import ContentTypeChart from './ContentTypeChart';
 import BestTimeToPost from './BestTimeToPost';
 import PostSpotlight from './PostSpotlight';
-import { Users, Eye, Heart, FileText, RefreshCw, AlertCircle, TrendingUp, BarChart2 } from 'lucide-react';
+import { Users, Eye, Heart, RefreshCw, AlertCircle, TrendingUp, BarChart2 } from 'lucide-react';
 
 const MILESTONES = [
   { platform: 'facebook',  label: 'Reach 250K Followers',   target: 250000, color: '#1877F2' },
@@ -429,13 +429,8 @@ export default function AllOverview({ onNavigate }) {
         />
         <MetricCard
           label="Total Engagement" value={fmtBig(totalEngagement)}
-          subtext={`Across ${totalPosts} posts fetched`}
+          subtext="FB + IG + YT combined"
           icon={<Heart size={20} />} iconBg="bg-pink-100" iconColor="text-pink-600"
-        />
-        <MetricCard
-          label="Posts Fetched" value={totalPosts.toLocaleString()}
-          subtext="Most recent across all platforms"
-          icon={<FileText size={20} />} iconBg="bg-emerald-100" iconColor="text-emerald-600"
         />
       </div>
 

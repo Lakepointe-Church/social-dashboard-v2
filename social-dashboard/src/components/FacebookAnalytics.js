@@ -505,7 +505,7 @@ export default function FacebookAnalytics() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
         <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Total Posts"      value={posts.length}                  subtext={`${filteredPosts.length} in current filter`} icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
+        <StatCard label="Engaged Users (30d)" value={fmtBig(insights?.engagedUsers)} subtext="Unique people who took action" icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
         <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
 
