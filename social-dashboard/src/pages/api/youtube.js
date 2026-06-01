@@ -28,20 +28,41 @@ async function getAccessToken() {
 async function fetchYTAnalytics(accessToken) {
   const end   = new Date().toISOString().slice(0, 10);
   const start = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
-  const url   = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
-  url.searchParams.set('ids',       'channel==MINE');
-  url.searchParams.set('startDate', start);
-  url.searchParams.set('endDate',   end);
-  url.searchParams.set('metrics',   'estimatedMinutesWatched,averageViewDuration,impressions,impressionsClickThroughRate');
-  const res  = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'Analytics API error');
-  const row = data.rows?.[0] || [0, 0, 0, 0];
+
+  const base = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
+  base.searchParams.set('ids',       'channel==MINE');
+  base.searchParams.set('startDate', start);
+  base.searchParams.set('endDate',   end);
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  // Watch time — always available with yt-analytics.readonly
+  const watchUrl = new URL(base);
+  watchUrl.searchParams.set('metrics', 'estimatedMinutesWatched,averageViewDuration');
+  const watchRes  = await fetch(watchUrl.toString(), { headers });
+  const watchData = await watchRes.json();
+  if (watchData.error) throw new Error(watchData.error.message || 'Analytics API error');
+  const watchRow = watchData.rows?.[0] || [0, 0];
+
+  // Impressions — best-effort, may not be available on all channels
+  let impressions   = null;
+  let impressionCtr = null;
+  try {
+    const ctrUrl = new URL(base);
+    ctrUrl.searchParams.set('metrics', 'impressions,impressionsClickThroughRate');
+    const ctrRes  = await fetch(ctrUrl.toString(), { headers });
+    const ctrData = await ctrRes.json();
+    if (!ctrData.error) {
+      const ctrRow  = ctrData.rows?.[0] || [0, 0];
+      impressions   = Math.round(ctrRow[0] || 0);
+      impressionCtr = parseFloat((ctrRow[1] || 0).toFixed(4));
+    }
+  } catch (_) { /* impressions unavailable — leave null */ }
+
   return {
-    totalWatchMins: Math.round(row[0] || 0),
-    avgWatchSecs:   Math.round(row[1] || 0),
-    impressions:    Math.round(row[2] || 0),
-    impressionCtr:  parseFloat((row[3] || 0).toFixed(4)),
+    totalWatchMins: Math.round(watchRow[0] || 0),
+    avgWatchSecs:   Math.round(watchRow[1] || 0),
+    impressions,
+    impressionCtr,
   };
 }
 

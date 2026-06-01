@@ -624,13 +624,17 @@ export default function YouTubeAnalytics() {
                 icon={<Activity size={20}/>}
                 iconBg="bg-orange-100" iconColor="text-orange-600"
               />
-              <StatCard
-                label="Impression CTR"
-                value={`${(analytics.impressionCtr * 100).toFixed(2)}%`}
-                subtext="Thumbnail click-through rate"
-                icon={<MousePointer size={20}/>}
-                iconBg="bg-pink-100" iconColor="text-pink-600"
-              />
+              {analytics.impressionCtr !== null ? (
+                <StatCard
+                  label="Impression CTR"
+                  value={`${(analytics.impressionCtr * 100).toFixed(2)}%`}
+                  subtext="Thumbnail click-through rate"
+                  icon={<MousePointer size={20}/>}
+                  iconBg="bg-pink-100" iconColor="text-pink-600"
+                />
+              ) : (
+                <PendingCard label="Impression CTR" icon={<MousePointer size={20}/>} />
+              )}
             </>
           ) : (
             <>
