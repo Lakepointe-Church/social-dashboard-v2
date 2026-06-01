@@ -1,16 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
-import { Sparkles } from 'lucide-react';
 import Header from '../components/Header';
 import YouTubeAnalytics from '../components/YouTubeAnalytics';
 import FacebookAnalytics from '../components/FacebookAnalytics';
 import InstagramAnalytics from '../components/InstagramAnalytics';
 import InstagramAudience from '../components/InstagramAudience';
 import AllOverview from '../components/AllOverview';
-import AIChatPanel from '../components/AIChatPanel';
-import { fetchFacebookData } from '../lib/fbDataCache';
-import { fetchInstagramData } from '../lib/igDataCache';
-import { fetchYouTubeData } from '../lib/ytDataCache';
+
 
 const LIVE_TABS = [
   { id: 'overview-live',      label: 'Overview',            badge: 'LIVE' },
@@ -52,89 +48,9 @@ function LiveTabIcon({ id }) {
   return null;
 }
 
-function buildLiveContext(fbData, igData, ytData) {
-  const lines = ['=== Lakepointe Church — Live Social Media Analytics ===\n'];
-
-  if (fbData) {
-    const fb = fbData;
-    const topPosts = (fb.posts || [])
-      .sort((a, b) => b.engaged - a.engaged)
-      .slice(0, 3)
-      .map(p => `  - "${(p.message || '').slice(0, 60)}..." (${p.engaged} engagements, type: ${p.contentType})`);
-    lines.push('--- FACEBOOK ---');
-    lines.push(`Followers: ${(fb.page?.followersCount || 0).toLocaleString()}`);
-    lines.push(`Fans: ${(fb.page?.fanCount || 0).toLocaleString()}`);
-    lines.push(`Reach (28d): ${(fb.insights?.reach || 0).toLocaleString()}`);
-    lines.push(`Impressions (28d): ${(fb.insights?.impressions || 0).toLocaleString()}`);
-    lines.push(`Engaged Users (28d): ${(fb.insights?.engagedUsers || 0).toLocaleString()}`);
-    lines.push(`New Fans (28d): ${(fb.insights?.newFans || 0).toLocaleString()}`);
-    if (topPosts.length) lines.push(`Top posts by engagement:\n${topPosts.join('\n')}`);
-    lines.push('');
-  }
-
-  if (igData) {
-    const ig = igData;
-    const totalReach   = ig.insights?.reach || 0;
-    const topMedia = (ig.media || [])
-      .sort((a, b) => b.reach - a.reach)
-      .slice(0, 3)
-      .map(p => `  - "${(p.caption || '').slice(0, 60)}..." (${p.reach.toLocaleString()} reach, ${p.engagementRate}% eng, type: ${p.contentType})`);
-    const avgEngRate = ig.media?.length
-      ? (ig.media.reduce((s, m) => s + m.engagementRate, 0) / ig.media.length).toFixed(2)
-      : 0;
-    lines.push('--- INSTAGRAM ---');
-    lines.push(`Followers: ${(ig.account?.followersCount || 0).toLocaleString()}`);
-    lines.push(`New Followers (30d): ${(ig.insights?.newFollowers || 0).toLocaleString()}`);
-    lines.push(`Reach (30d): ${totalReach.toLocaleString()}`);
-    lines.push(`Impressions (30d): ${(ig.insights?.impressions || 0).toLocaleString()}`);
-    lines.push(`Avg Engagement Rate: ${avgEngRate}%`);
-    lines.push(`Total Posts Loaded: ${(ig.media || []).length}`);
-    if (topMedia.length) lines.push(`Top posts by reach:\n${topMedia.join('\n')}`);
-    lines.push('');
-  }
-
-  if (ytData) {
-    const yt = ytData;
-    const topVideos = (yt.videos || [])
-      .sort((a, b) => b.viewCount - a.viewCount)
-      .slice(0, 3)
-      .map(v => `  - "${v.title.slice(0, 60)}..." (${v.viewCount.toLocaleString()} views, ${v.engagementRate}% eng, type: ${v.contentType})`);
-    const avgEngRate = yt.videos?.length
-      ? (yt.videos.reduce((s, v) => s + v.engagementRate, 0) / yt.videos.length).toFixed(2)
-      : 0;
-    lines.push('--- YOUTUBE ---');
-    lines.push(`Subscribers: ${(yt.channel?.subscriberCount || 0).toLocaleString()}`);
-    lines.push(`Total Views (all time): ${(yt.channel?.viewCount || 0).toLocaleString()}`);
-    lines.push(`Total Videos: ${(yt.channel?.videoCount || 0).toLocaleString()}`);
-    lines.push(`Avg Views/Video (all time): ${(yt.channel?.avgViewsPerVideo || 0).toLocaleString()}`);
-    lines.push(`Avg Engagement Rate (recent videos): ${avgEngRate}%`);
-    lines.push(`Recent Videos Loaded: ${(yt.videos || []).length}`);
-    if (topVideos.length) lines.push(`Top videos by views:\n${topVideos.join('\n')}`);
-    lines.push('');
-  }
-
-  return lines.join('\n');
-}
-
 export default function Dashboard() {
   const [activeTab,   setActiveTab]   = useState('overview-live');
   const [mountedTabs, setMountedTabs] = useState(new Set(['overview-live']));
-  const [showAI,      setShowAI]      = useState(false);
-  const [liveContext, setLiveContext] = useState(null);
-
-  useEffect(() => {
-    Promise.allSettled([
-      fetchFacebookData(),
-      fetchInstagramData(),
-      fetchYouTubeData(),
-    ]).then(([fb, ig, yt]) => {
-      setLiveContext(buildLiveContext(
-        fb.status === 'fulfilled' ? fb.value : null,
-        ig.status === 'fulfilled' ? ig.value : null,
-        yt.status === 'fulfilled' ? yt.value : null,
-      ));
-    });
-  }, []);
 
   const navigate = (tabId) => {
     setActiveTab(tabId);
@@ -185,19 +101,6 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* Floating AI button */}
-      <button
-        onClick={() => setShowAI(v => !v)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl
-                   bg-gradient-to-r from-blue-600 to-violet-600 text-white text-sm font-semibold
-                   shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50
-                   hover:scale-105 transition-all duration-200"
-      >
-        <Sparkles size={16} />
-        Ask AI Analyst
-      </button>
-
-      <AIChatPanel open={showAI} onClose={() => setShowAI(false)} liveContext={liveContext} />
     </>
   );
 }
