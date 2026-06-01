@@ -80,7 +80,10 @@ social-dashboard/
 | `META_PAGE_ID`           | `142188242493004` — Lakepointe Church Facebook Page                           |
 | `META_INSTAGRAM_ID`      | `17841400949863101` — @lpconnect Instagram Business account                   |
 | `META_APP_SECRET`        | Lakepointe Social Dashboard app secret                                        |
-| `YOUTUBE_API_KEY`        | YouTube Data API v3 key (Google Cloud)                                        |
+| `YOUTUBE_API_KEY`        | YouTube Data API v3 key — "YouTube Dashboard Key" in Google Cloud Console     |
+| `YOUTUBE_CLIENT_ID`      | OAuth 2.0 Client ID for YouTube Analytics API (Google Cloud Console)          |
+| `YOUTUBE_CLIENT_SECRET`  | OAuth 2.0 Client Secret for YouTube Analytics API                             |
+| `YOUTUBE_REFRESH_TOKEN`  | OAuth refresh token — must be obtained from the channel **owner** account     |
 | `ANTHROPIC_API_KEY`      | Powers the AI Analyst chat panel                                              |
 
 ---
@@ -130,20 +133,22 @@ social-dashboard/
 
 ### `/api/youtube`
 
-- **Auth:** `YOUTUBE_API_KEY` (public API key — no OAuth yet)
+- **Auth:** `YOUTUBE_API_KEY` (public API key) for all Data API calls; `YOUTUBE_REFRESH_TOKEN` + `YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` for Analytics API (optional — graceful fallback if missing)
 - **Channel:** `UC5f7yO3WU_Ns0WDCQuP5bAw` (Lakepointe Church)
-- **Data:** Channel stats, paginated video list (50 per page) with per-video stats
+- **Data:** Channel stats, paginated video list (50 per page) with per-video stats; optionally: watch time + avg watch time via YouTube Analytics API
 - **Pagination:** Accepts `?pageToken=TOKEN` for subsequent pages
-- **Content classification:** `short` (≤3 min), `podcast` (title contains "Live Free with Josh Howerton" or "Live Free"), `sermon` (everything else)
-- **Note:** Watch time, impressions CTR require YouTube Analytics API + OAuth. Pending access to Lakepointe YouTube account.
+- **Content classification:** `short` (≤180s), `podcast` (title contains "Live Free with Josh Howerton" or "Live Free"), `sermon` (everything else)
+- **Analytics OAuth flow:** On first page load, if all 3 OAuth env vars are present, calls `getAccessToken()` (exchanges refresh token for short-lived access token) then `fetchYTAnalytics()`. Returns `analytics: { totalWatchMins, avgWatchSecs, impressions, impressionCtr }` or `null` on failure. `analyticsError` field included for debugging — remove once stable.
+- **Analytics metrics split:** `estimatedMinutesWatched` + `averageViewDuration` fetched together (always available). `impressions` + `impressionsClickThroughRate` fetched separately as best-effort (not available in basic channel reports — stays `null`).
+- **YouTube Analytics API blocker:** `channel==MINE` returns the personal channel of the authenticated user (not the Lakepointe brand account). `channel==CHANNEL_ID` returns "Forbidden" for manager-level accounts — the Analytics API requires the refresh token to come from the channel **owner** account, not a manager. Need to identify which Google account originally created the Lakepointe YouTube brand account and redo the OAuth Playground flow with that account.
 
 ---
 
-## YouTubeAnalytics.js — Current Features (as of May 2026)
+## YouTubeAnalytics.js — Current Features (as of June 2026)
 
 - **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips (Podcast, Sermon, Short with emoji + color), date range presets (7d/30d/90d + custom), Refresh button. Multi-select: deselecting all shows empty state with reset.
 - **Channel Overview KPIs** — Subscribers, Total Views, Total Videos, Avg Views/Video. Labeled "Channel-wide · not affected by filters" since these are lifetime channel stats.
-- **Advanced Metrics (Pending OAuth)** — Total Watch Time, Avg Watch Time/Video, Impression CTR shown as `0 🔒` with amber "Pending · YouTube OAuth required" badge. These require YouTube Analytics API + OAuth which is blocked until Lakepointe YouTube account access is obtained.
+- **Advanced Metrics** — Total Watch Time, Avg Watch Time/Video, Impression CTR. Renders as real `StatCard` values when `analytics` state is populated; falls back to `PendingCard` (`0 🔒`) if `analytics` is null. Currently showing pending — blocked on YouTube Analytics API owner-level OAuth (see API route note above).
 - **Content Breakdown** — `grid-cols-3` inside each content type card: Total Views, Avg Views, Avg Engagement Rate all in one row.
 - **Top 10 sections** — Two side-by-side horizontal scroll rows: "Top 10 by Views" and "Top 10 by Engagement". Cards are `w-56 flex-shrink-0` in a `flex gap-3 overflow-x-auto pb-2` row. Each card shows thumbnail (16:9 via `aspect-video`, using `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` — public, no API key needed), title, rank badge, and primary metric.
 - **All Videos table** — sortable by all columns including Type. Self-contained `sort` state `{ key, dir }`. Uses `durationSecs` (numeric) for duration sorting instead of the display string. Colored pill for Type column (green=short, blue=podcast, violet=sermon). Paginated with "Load More" button.
@@ -230,7 +235,7 @@ The AI Analyst is a slide-up chat panel powered by `claude-sonnet-4-6` via the A
 ### Token Management
 
 - Facebook/Instagram uses a **long-lived Page Access Token** stored in Vercel env vars. Expires every ~60 days. Manually refresh via: Meta Graph API Explorer → generate token → `142188242493004?fields=name,fan_count,access_token` → Access Token Debugger → Extend Access Token → update `META_PAGE_ACCESS_TOKEN` in Vercel → Redeploy.
-- YouTube uses a simple **API key** (no OAuth). Advanced analytics (watch time, CTR) will require OAuth when Lakepointe YouTube account access is obtained.
+- YouTube uses an **API key** for Data API v3 (channel stats, video list). OAuth infrastructure is built and env vars are in Vercel (`YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN`) but Analytics API returns "Forbidden" because the refresh token must come from the channel **owner** account, not a manager. See `/api/youtube` notes for details.
 
 ### Content Filters (Instagram & Facebook)
 
@@ -256,7 +261,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 
 ## Pending Work
 
-- [ ] **YouTube OAuth** — need access to Lakepointe YouTube Studio account. Required for: cumulative watch time, avg watch time per episode, impression CTR. OAuth flow is set up in Google Cloud (Client ID + Secret exist), just needs account access. The Advanced Metrics section in the YouTube tab shows these as `0 🔒` with "Pending · YouTube OAuth required" until resolved.
+- [ ] **YouTube Analytics OAuth** — OAuth infrastructure is fully built (Client ID, Secret, refresh token in Vercel; `getAccessToken()` + `fetchYTAnalytics()` in `/api/youtube.js`). Blocked because the refresh token must come from the channel **owner** Google account, not a manager. Jolie is a manager — need to find whose Google account originally created the Lakepointe YouTube brand account and redo the OAuth Playground flow with that account. Once fixed, Advanced Metrics (watch time, avg watch time) will populate automatically. Impression CTR is separately blocked — not available in basic channel reports regardless of access level.
 - [ ] **Meta App Review** — **SUBMITTED May 28, 2026. Pending approval (typically 1–5 business days).** Submitted 8 permissions across two use cases: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Once approved: add `post_video_views` to the Facebook posts query; the `collaborators` field on Instagram posts will auto-activate (collab detection already wired up). Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Second Meta App Review (future)** — submit `pages_manage_posts` + `instagram_content_publish` once a post scheduling feature is built. Do NOT request these until the feature exists — Meta will reject if they can't find it in the demo.
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
@@ -337,6 +342,25 @@ If Vercel doesn't auto-deploy or you need to force it:
 7. Go to Tools → Access Token Debugger → paste token → Debug → **Extend Access Token**
 8. Copy the new long-lived token
 9. Go to Vercel → social-dashboard-v2 → Environment Variables → edit `META_PAGE_ACCESS_TOKEN` → paste → Save → Redeploy
+
+---
+
+## Recent Changes (June 2026)
+
+### June 1, 2026 (session 5)
+
+- `605736b` — Add YouTube Analytics OAuth: `getAccessToken()` + `fetchYTAnalytics()` helpers in `/api/youtube.js`; `analytics` state + `fmtWatchTime` helper in `YouTubeAnalytics.js`; Advanced Metrics section conditionally renders real `StatCard` values or `PendingCard` based on `analytics` state
+- `f11f5ad` — Expose `analyticsError` field in YouTube API response for debugging
+- `a2db1d6` — Fix: split watch time and impressions into separate Analytics API requests (`impressions` not available in basic channel reports)
+- `01b1661` — Fix: use explicit channel ID (`UC5f7yO3WU_Ns0WDCQuP5bAw`) instead of `channel==MINE` (which returns personal channel data, not the brand account)
+
+#### Key decisions and findings this session
+- **New env vars added to Vercel:** `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN`. OAuth 2.0 Client ID created in Google Cloud Console (OAuth consent screen configured as Internal).
+- **`impressions`/`impressionsClickThroughRate` are not available** in basic YouTube Analytics channel reports — the API returns "Unknown identifier (impressions)". Fetched as best-effort in a separate request; both stay `null` and Impression CTR card remains pending.
+- **`channel==MINE` returns personal channel data** — Jolie's Google account has two YouTube channels (personal: 0 subscribers; Lakepointe Church brand account: 1M+ subscribers). `channel==MINE` resolves to the personal one.
+- **`channel==CHANNEL_ID` returns "Forbidden"** — YouTube Analytics API only allows explicit channel ID access for the account that **owns** the channel, not managers. Jolie has manager access, not owner access.
+- **Root blocker:** Need to identify which Google account originally created the Lakepointe YouTube brand account (the owner, not just a manager) and redo the OAuth Playground flow with that account.
+- **Code is complete and gracefully degrades** — all OAuth infrastructure is in place; the moment a valid owner-level refresh token is in Vercel, watch time and avg watch time will populate with no further code changes needed.
 
 ---
 
