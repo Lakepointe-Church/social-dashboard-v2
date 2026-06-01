@@ -30,7 +30,7 @@ async function fetchYTAnalytics(accessToken) {
   const start = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
 
   const base = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
-  base.searchParams.set('ids',       'channel==MINE');
+  base.searchParams.set('ids',       `channel==${CHANNEL_ID}`);
   base.searchParams.set('startDate', start);
   base.searchParams.set('endDate',   end);
   const headers = { Authorization: `Bearer ${accessToken}` };
