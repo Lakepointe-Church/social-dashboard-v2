@@ -12,8 +12,8 @@ import { Users, Eye, Heart, FileText, RefreshCw, AlertCircle, TrendingUp, BarCha
 
 const MILESTONES = [
   { platform: 'facebook',  label: 'Reach 250K Followers',   target: 250000, color: '#1877F2' },
-  { platform: 'instagram', label: 'Reach 300K Followers',   target: 300000, color: '#E1306C' },
-  { platform: 'youtube',   label: 'Reach 1M Subscribers', target: 1000000, color: '#FF0000' },
+  { platform: 'instagram', label: 'Reach 500K Followers',   target: 500000, color: '#E1306C' },
+  { platform: 'youtube',   label: 'Reach 1.5M Subscribers', target: 1500000, color: '#FF0000' },
 ];
 
 function fmtBig(n) {
