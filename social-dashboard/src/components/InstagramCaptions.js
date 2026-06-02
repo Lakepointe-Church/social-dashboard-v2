@@ -179,9 +179,21 @@ function ScatterDotTooltip({ active, payload }) {
   const d = payload[0]?.payload;
   if (!d) return null;
   return (
-    <div style={{ background: '#0f172a', borderRadius: 10, padding: '8px 12px', maxWidth: 220 }}>
-      <p className="text-white text-xs font-semibold line-clamp-2 leading-snug">{d.hook || '(No hook)'}</p>
-      <p className="text-slate-400 text-[10px] mt-1">{d.wordCount} words · {d.engagementRate?.toFixed(1)}% engagement</p>
+    <div style={{ background: '#0f172a', borderRadius: 12, padding: '12px 14px', maxWidth: 300 }}>
+      <div className="flex items-center gap-3 mb-2">
+        <div className="text-center">
+          <span className="text-white text-xl font-bold tabular-nums">{d.wordCount}</span>
+          <p className="text-slate-400 text-[10px] leading-none mt-0.5">words</p>
+        </div>
+        <div className="w-px h-8 bg-slate-700 flex-shrink-0" />
+        <div className="text-center">
+          <span className="text-emerald-400 text-xl font-bold tabular-nums">{d.engagementRate?.toFixed(1)}%</span>
+          <p className="text-slate-400 text-[10px] leading-none mt-0.5">engagement</p>
+        </div>
+      </div>
+      <p className="text-slate-300 text-xs leading-snug border-t border-slate-700 pt-2">
+        {d.caption || '(No caption)'}
+      </p>
     </div>
   );
 }
@@ -295,6 +307,7 @@ export default function InstagramCaptions() {
     wordCount:      m.wordCount,
     engagementRate: parseFloat((m.engagementRate || 0).toFixed(2)),
     hook:           m.hook,
+    caption:        m.caption,
   }));
 
   // ── Insights ─────────────────────────────────────────────────────────────
