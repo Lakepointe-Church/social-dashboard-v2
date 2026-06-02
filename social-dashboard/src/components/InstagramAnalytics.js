@@ -6,6 +6,7 @@ import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
+import GrowthChartSection from './GrowthChartSection';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -17,6 +18,11 @@ const CONTENT_FILTERS = [
   { id: 'collab',   label: '🤝 Collabs',   color: '#f59e0b' },
   { id: 'other',    label: '📝 Other',     color: '#64748b' },
 ];
+
+function fmtIsoDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  return m && d ? `${m}-${d}-${y}` : iso;
+}
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -282,6 +288,24 @@ export default function InstagramAnalytics() {
   const [customStart,   setCustomStart]   = useState('');
   const [customEnd,     setCustomEnd]     = useState('');
   const [selectedPost,  setSelectedPost]  = useState(null);
+  const [snapshots,        setSnapshots]        = useState([]);
+  const [growthDays,       setGrowthDays]       = useState(90);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
+  const fetchSnapshots = useCallback(async (days) => {
+    setSnapshotsLoading(true);
+    try {
+      const res  = await fetch(`/api/snapshots?days=${days}`);
+      const json = await res.json();
+      setSnapshots(json.snapshots || []);
+    } catch { /* silent */ }
+    setSnapshotsLoading(false);
+  }, []);
+
+  function handleGrowthDaysChange(days) {
+    setGrowthDays(days);
+    fetchSnapshots(days);
+  }
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true); setError(null);
@@ -292,7 +316,7 @@ export default function InstagramAnalytics() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); fetchSnapshots(90); }, [fetchData, fetchSnapshots]);
 
   function toggleFilter(id) {
     setActiveFilters(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
@@ -456,6 +480,10 @@ export default function InstagramAnalytics() {
       </div>
       </div>
 
+
+{/* ── Follower Growth ──────────────────────────────────────────────────── */}
+      <GrowthChartSection snapshots={snapshots} growthDays={growthDays} snapshotsLoading={snapshotsLoading}
+        onDaysChange={handleGrowthDaysChange} activePlatform="Instagram" title="Follower Growth" />
 
 {/* ── Empty state ────────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (

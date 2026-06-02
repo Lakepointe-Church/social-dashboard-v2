@@ -8,8 +8,14 @@ import {
   ChevronDown, Clock, MousePointer, Lock, Activity,
 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
+import GrowthChartSection from './GrowthChartSection';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtIsoDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  return m && d ? `${m}-${d}-${y}` : iso;
+}
+
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
@@ -375,6 +381,24 @@ export default function YouTubeAnalytics() {
   const [customStart,   setCustomStart]    = useState('');
   const [customEnd,     setCustomEnd]      = useState('');
   const [tableLimit,    setTableLimit]     = useState(20);
+  const [snapshots,        setSnapshots]        = useState([]);
+  const [growthDays,       setGrowthDays]       = useState(90);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
+  const fetchSnapshots = useCallback(async (days) => {
+    setSnapshotsLoading(true);
+    try {
+      const res  = await fetch(`/api/snapshots?days=${days}`);
+      const json = await res.json();
+      setSnapshots(json.snapshots || []);
+    } catch { /* silent */ }
+    setSnapshotsLoading(false);
+  }, []);
+
+  function handleGrowthDaysChange(days) {
+    setGrowthDays(days);
+    fetchSnapshots(days);
+  }
 
   // ── Fetch first page ───────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -415,7 +439,7 @@ export default function YouTubeAnalytics() {
     }
   }, [nextPageToken, loadingMore]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); fetchSnapshots(90); }, [fetchData, fetchSnapshots]);
 
   const toggleFilter = useCallback((id) => {
     setActiveFilters(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
@@ -595,6 +619,10 @@ export default function YouTubeAnalytics() {
           <StatCard label="Avg Views / Video" value={fmtBig(channel?.avgViewsPerVideo)}            subtext="All-time average"            icon={<ThumbsUp size={20}/>}     iconBg="bg-rose-100"   iconColor="text-rose-600"   />
         </div>
       </div>
+
+      {/* ── Subscriber Growth ────────────────────────────────────────────────── */}
+      <GrowthChartSection snapshots={snapshots} growthDays={growthDays} snapshotsLoading={snapshotsLoading}
+        onDaysChange={handleGrowthDaysChange} activePlatform="YouTube" title="Subscriber Growth" />
 
       {/* ── Advanced metrics ──────────────────────────────────────────────── */}
       <div>

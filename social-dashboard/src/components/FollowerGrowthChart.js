@@ -52,6 +52,7 @@ export default function FollowerGrowthChart({ data, activePlatform }) {
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
+          tickFormatter={v => { const [,m,d] = (v||'').split('-'); return m && d ? `${m}-${d}` : v; }}
         />
         <YAxis
           tickFormatter={fmt}
