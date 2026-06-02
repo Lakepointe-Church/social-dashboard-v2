@@ -22,7 +22,7 @@ A live social media analytics dashboard for **Lakepointe Church** (@lpconnect). 
 ```
 social-dashboard/
 ├── pages/
-│   ├── index.js                  ← Main dashboard — all tabs + AI panel wired here
+│   ├── index.js                  ← Main dashboard — all tabs wired here (AI panel removed)
 │   └── api/
 │       ├── facebook.js               ← Meta Graph API proxy (Facebook Page)
 │       ├── instagram.js              ← Meta Graph API proxy (Instagram @lpconnect)
@@ -49,8 +49,8 @@ social-dashboard/
 │   │   ├── AgeBreakdown.js
 │   │   ├── MilestoneTracker.js   ← Follower milestone progress bars
 │   │   ├── BestTimeToPost.js
-│   │   ├── AIChatPanel.js        ← AI Analyst slide-up chat panel (wired to live data)
-│   │   ├── DynamicViz.js         ← Renders AI Analyst chart/table responses
+│   │   ├── AIChatPanel.js        ← AI Analyst slide-up chat panel (built but removed from UI — June 2026)
+│   │   ├── DynamicViz.js         ← Renders AI Analyst chart/table responses (unused — see AIChatPanel note)
 │   │   └── CustomViewBuilder.js  ← Widget toggle UI
 │   ├── lib/
 │   │   ├── igDataCache.js        ← 5-min client-side cache for /api/instagram
@@ -196,25 +196,11 @@ A full-screen overlay that opens when any post/video card is clicked across the 
 
 ---
 
-## AIChatPanel.js — AI Analyst (Live Data, as of May 2026)
+## AIChatPanel.js — AI Analyst (Removed from UI, June 2026)
 
-The AI Analyst is a slide-up chat panel powered by `claude-sonnet-4-6` via the Anthropic API.
+The AI Analyst was a slide-up chat panel powered by `claude-sonnet-4-6` via the Anthropic API. The floating button and all wiring were removed from `index.js` in session 6 (June 2, 2026). The component files (`AIChatPanel.js`, `DynamicViz.js`, `/api/chat.js`) still exist in the repo but are not rendered anywhere.
 
-**Architecture:**
-- Floating "Ask AI Analyst" button (`fixed bottom-6 right-6`) in `index.js` toggles the panel
-- `AIChatPanel.js` accepts a `liveContext` prop (a pre-built text summary string)
-- On send, the client POSTs `{ message, history, context: liveContext }` to `/api/chat`
-- `/api/chat` uses `req.body.context` if provided; falls back to `getDataContext()` (demo data) if all platform fetches failed
-
-**Live context building (in `index.js`):**
-- `buildLiveContext(fbData, igData, ytData)` — called once on mount via `useEffect` + `Promise.allSettled`
-- Calls all 3 caches in parallel; partial failures produce `null` for that platform (graceful degradation)
-- Produces a structured text summary: followers, reach/impressions, top 3 posts per platform with caption snippet, engagement rates
-- Client-side only — the three data caches use relative `fetch('/api/xxx')` URLs and cannot be imported in server-side code
-
-**Suggested questions** — 8 preset prompt chips shown on the welcome screen. Can be updated to match what Jolie/leadership actually ask most.
-
-**`/api/chat` system prompt:** Instructs Claude to always return valid JSON in the shape `{ message, highlights, visualization }`. The `DynamicViz.js` component renders the `visualization` field as a Recharts chart or table.
+If re-enabling: add back the `AIChatPanel` import, `showAI`/`liveContext` state, `buildLiveContext()` function, the `useEffect` that calls all 3 caches on mount, the floating button JSX, and the `<AIChatPanel>` render at the bottom of the page. The `fbDataCache`, `igDataCache`, `ytDataCache` imports will also need to be restored in `index.js`.
 
 ---
 
@@ -270,9 +256,8 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
 - [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
 - [x] **YouTube tab** — fully built out: sticky filter bar, content type chips, date filter, channel KPIs, content breakdown (single row), top-10 horizontal scroll rows, sortable All Videos table, OutsideDateRangeNote, pending OAuth placeholders
-- [x] **AI Analyst** — wired to live data: `buildLiveContext()` in `index.js` fetches all 3 platforms on mount and passes context string to `AIChatPanel`, which forwards it to `/api/chat`. Falls back to demo data if all fetches fail.
-- [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` (except `getDataContext()` fallback for AI Analyst) can be removed once TikTok has live data
-- [ ] **AI Analyst suggested questions** — update the 8 preset prompt chips in `AIChatPanel.js` to reflect questions Jolie/leadership actually ask most often
+- [x] **AI Analyst** — built and wired to live data; floating button and UI removed June 2026 (components still in repo — see AIChatPanel section)
+- [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` can be removed once TikTok has live data (`getDataContext()` fallback in `/api/chat.js` can be removed too if AI Analyst stays off)
 
 ---
 
@@ -346,6 +331,21 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 2, 2026 (session 6)
+
+- `449c57f` — Update KPI milestones: Instagram goal 300K → 500K followers, YouTube goal 1M → 1.5M subscribers
+- `a7c1a8b` — Remove AI Analyst floating button and all supporting code from `index.js` (`buildLiveContext`, `showAI`/`liveContext` state, `useEffect`, `AIChatPanel` render, related imports). Components still exist in repo but are not rendered.
+- `3c1dc31` — Replace Total Posts KPI with Engaged Users (30d) on Facebook tab (`FacebookAnalytics.js`); remove Posts Fetched card and "X posts fetched" subtext from Overview top KPIs (`AllOverview.js`)
+- `7888e48` — Add New Followers (30d) KPI to Overview cross-platform card row (FB `insights.newFans` + IG `insights.newFollowers`; YouTube excluded — no 30-day gain metric available in Data API v3)
+
+#### Key decisions this session
+- **Best Time to Post** is based on **engagement** (likes + comments), not reach or views — confirmed from `computeBestTimeData()` in `AllOverview.js`.
+- **YouTube has no 30-day new subscriber metric** in Data API v3 — only lifetime `subscriberCount`. New Followers KPI on Overview is therefore FB + IG only, noted in subtext.
+- **Overview KPI grid** is now a full 4-card row: Total Followers · 30-Day Reach · Total Engagement · New Followers (30d).
+- **Facebook KPI card** (in `FacebookAnalytics.js`) is now: Page Followers · Reach (30d) · Engaged Users (30d) · Page Views (30d).
+
+---
 
 ### June 1, 2026 (session 5)
 
@@ -450,7 +450,7 @@ If Vercel doesn't auto-deploy or you need to force it:
 - Data fetched in parallel via `Promise.allSettled` from all 3 platform caches (`fbDataCache`, `igDataCache`, `ytDataCache`). Partial failures show error badges without blocking the rest of the page.
 - `normalizePosts()` merges FB/IG/YT posts to a common shape sorted by engagement descending
 - `computeContentTypeData()` groups into 9 buckets: FB Sermon/Photo/Video, IG Reel/Photo+Carousel/Collab, YT Short/Podcast/Sermon. `avgEngagement` = `totalEng / totalReach * 100` (rate, not count). FB buckets show `null` for `avgEngagement` since FB reach is 0 pre-App Review.
-- Milestones: FB 250K followers, IG 300K followers, YT 1M subscribers
+- Milestones: FB 250K followers, IG 500K followers, YT 1.5M subscribers
 - Best Time to Post uses FB + IG post timestamps only (YT excluded — algorithmic reach)
 
 ### May 22, 2026 (session 2)
