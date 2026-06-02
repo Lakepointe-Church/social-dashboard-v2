@@ -3,6 +3,7 @@ import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache
 import { fetchFacebookData, invalidateFacebookCache } from '../lib/fbDataCache';
 import { fetchYouTubeData, invalidateYouTubeCache } from '../lib/ytDataCache';
 import MetricCard from './MetricCard';
+import GrowthChartSection from './GrowthChartSection';
 import MilestoneTracker from './MilestoneTracker';
 import TopContent from './TopContent';
 import ContentTypeChart from './ContentTypeChart';
@@ -15,6 +16,11 @@ const MILESTONES = [
   { platform: 'instagram', label: 'Reach 500K Followers',   target: 500000, color: '#E1306C' },
   { platform: 'youtube',   label: 'Reach 1.5M Subscribers', target: 1500000, color: '#FF0000' },
 ];
+
+function fmtIsoDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  return m && d ? `${m}-${d}-${y}` : iso;
+}
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -311,6 +317,9 @@ export default function AllOverview({ onNavigate }) {
   const [igError, setIgError] = useState(null);
   const [ytError, setYtError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [snapshots, setSnapshots]         = useState([]);
+  const [growthDays, setGrowthDays]       = useState(90);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [selectedPost,     setSelectedPost]     = useState(null);
   const [selectedPlatform, setSelectedPlatform] = useState('instagram');
 
@@ -340,7 +349,22 @@ export default function AllOverview({ onNavigate }) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const fetchSnapshots = useCallback(async (days) => {
+    setSnapshotsLoading(true);
+    try {
+      const res  = await fetch(`/api/snapshots?days=${days}`);
+      const json = await res.json();
+      setSnapshots(json.snapshots || []);
+    } catch { /* silent — chart just stays empty */ }
+    setSnapshotsLoading(false);
+  }, []);
+
+  function handleGrowthDaysChange(days) {
+    setGrowthDays(days);
+    fetchSnapshots(days);
+  }
+
+  useEffect(() => { fetchAll(); fetchSnapshots(90); }, [fetchAll, fetchSnapshots]);
 
   // ── KPI totals ─────────────────────────────────────────────────────────────
   const totalFollowers = (fbData?.page?.followersCount    || 0)
@@ -535,17 +559,14 @@ export default function AllOverview({ onNavigate }) {
         </div>
       </div>
 
-      {/* ── Growth Over Time (placeholder) ───────────────────────────────────── */}
-      <div className="card border-dashed border-2 border-slate-200 bg-slate-50/50">
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp size={18} className="text-slate-300" />
-          <h2 className="font-bold text-slate-400 text-lg">Follower Growth Over Time</h2>
-          <span className="text-[10px] font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">IN PROGRESS</span>
-        </div>
-        <p className="text-slate-400 text-sm">
-          Historical tracking requires storing daily follower snapshots in a database — the APIs only return current counts, not time-series data. This chart will populate once snapshot collection is live.
-        </p>
-      </div>
+      {/* ── Follower Growth Over Time ─────────────────────────────────────────── */}
+      <GrowthChartSection
+        snapshots={snapshots}
+        growthDays={growthDays}
+        snapshotsLoading={snapshotsLoading}
+        onDaysChange={handleGrowthDaysChange}
+        title="Follower Growth Over Time"
+      />
 
       {/* ── Content Type Performance ─────────────────────────────────────────── */}
       {contentTypeData.length > 0 && (

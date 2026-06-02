@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle, Share2 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
+import GrowthChartSection from './GrowthChartSection';
 
 const FB_BLUE = '#1877F2';
 
@@ -15,6 +16,11 @@ const CONTENT_FILTERS = [
   { id: 'other',  label: '📝 Text & Links',    color: '#64748b' },
   { id: 'stream', label: '📺 Service Streams', color: '#f59e0b' },
 ];
+
+function fmtIsoDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  return m && d ? `${m}-${d}-${y}` : iso;
+}
 
 function fmtBig(n) {
   if (!n && n !== 0) return '—';
@@ -302,6 +308,24 @@ export default function FacebookAnalytics() {
   const [customEnd,     setCustomEnd]     = useState('');
   const [tableLimit,    setTableLimit]    = useState(20);
   const [tableSort,     setTableSort]     = useState({ key: 'createdTime', dir: 'desc' });
+  const [snapshots,        setSnapshots]        = useState([]);
+  const [growthDays,       setGrowthDays]       = useState(90);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
+  const fetchSnapshots = useCallback(async (days) => {
+    setSnapshotsLoading(true);
+    try {
+      const res  = await fetch(`/api/snapshots?days=${days}`);
+      const json = await res.json();
+      setSnapshots(json.snapshots || []);
+    } catch { /* silent */ }
+    setSnapshotsLoading(false);
+  }, []);
+
+  function handleGrowthDaysChange(days) {
+    setGrowthDays(days);
+    fetchSnapshots(days);
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -314,7 +338,7 @@ export default function FacebookAnalytics() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); fetchSnapshots(90); }, [fetchData, fetchSnapshots]);
 
   // Allow toggling any filter — including deselecting all (shows empty state)
   function toggleFilter(id) {
@@ -508,6 +532,10 @@ export default function FacebookAnalytics() {
         <StatCard label="Engaged Users (30d)" value={fmtBig(insights?.engagedUsers)} subtext="Unique people who took action" icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
         <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
+
+      {/* ── Follower Growth ──────────────────────────────────────────────────── */}
+      <GrowthChartSection snapshots={snapshots} growthDays={growthDays} snapshotsLoading={snapshotsLoading}
+        onDaysChange={handleGrowthDaysChange} activePlatform="Facebook" title="Follower Growth" />
 
       {/* ── Empty state ────────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (
