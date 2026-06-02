@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle, Search } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
 
@@ -267,6 +267,155 @@ function RateInsightsTable({ posts, type, onPostClick }) {
   );
 }
 
+// ── Comment Phrase Search ─────────────────────────────────────────────────────
+function CommentSearch() {
+  const currentYear = new Date().getFullYear();
+  const [phrase,      setPhrase]     = useState('sermon');
+  const [year,        setYear]       = useState(String(currentYear));
+  const [searching,   setSearching]  = useState(false);
+  const [results,     setResults]    = useState(null);
+  const [searchError, setSearchError] = useState(null);
+
+  async function runSearch() {
+    if (!phrase.trim()) return;
+    setSearching(true);
+    setResults(null);
+    setSearchError(null);
+    try {
+      const r    = await fetch(`/api/ig-comment-search?phrase=${encodeURIComponent(phrase.trim())}&year=${year}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Search failed');
+      setResults(data);
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  const years = [currentYear, currentYear - 1, currentYear - 2];
+
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-1">
+        <MessageCircle size={18} className="text-pink-500" />
+        <h3 className="font-bold text-slate-900 text-base">Comment Phrase Search</h3>
+      </div>
+      <p className="text-slate-500 text-sm mb-4">
+        Count how many times a word or phrase was commented across your posts in a given year.
+      </p>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          type="text"
+          value={phrase}
+          onChange={e => setPhrase(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !searching && runSearch()}
+          placeholder="e.g. sermon"
+          className="flex-1 min-w-[160px] text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:border-pink-300 font-mono"
+        />
+        <select
+          value={year}
+          onChange={e => setYear(e.target.value)}
+          className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:border-pink-300">
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <button
+          onClick={runSearch}
+          disabled={searching || !phrase.trim()}
+          className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #E1306C, #833AB4)' }}>
+          {searching ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+          {searching ? 'Scanning…' : 'Search'}
+        </button>
+      </div>
+
+      {searching && (
+        <p className="text-xs text-slate-400 mt-2">
+          This may take 30–60 seconds — scanning all posts and their comments…
+        </p>
+      )}
+
+      {searchError && (
+        <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
+          <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-700 text-sm font-semibold">Search failed</p>
+            <p className="text-red-500 text-xs mt-0.5">{searchError}</p>
+          </div>
+        </div>
+      )}
+
+      {results && (
+        <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl p-4 text-center border border-pink-100"
+              style={{ background: 'linear-gradient(135deg, #fdf2f8, #f5f3ff)' }}>
+              <div className="text-3xl font-bold tabular-nums" style={{ color: IG_PINK }}>
+                {results.totalMatches.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-1 font-medium">"{results.phrase}" comments</div>
+              <div className="text-xs text-slate-400 mt-0.5">in {results.year}</div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
+              <div className="text-3xl font-bold tabular-nums text-slate-700">{results.postsScanned}</div>
+              <div className="text-xs text-slate-500 mt-1 font-medium">Posts scanned</div>
+              <div className="text-xs text-slate-400 mt-0.5">from {results.year}</div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
+              <div className="text-3xl font-bold tabular-nums text-slate-700">{results.postsWithMatches}</div>
+              <div className="text-xs text-slate-500 mt-1 font-medium">Posts with matches</div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                {results.postsScanned > 0
+                  ? Math.round(results.postsWithMatches / results.postsScanned * 100)
+                  : 0}% of posts
+              </div>
+            </div>
+          </div>
+
+          {results.breakdown.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide min-w-[200px]">Post</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Date</th>
+                    <th className="text-right px-4 py-2.5 font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: IG_PINK }}>Matches</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {results.breakdown.map((item, i) => (
+                    <tr key={item.mediaId} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 text-slate-400 font-mono font-bold">{i + 1}</td>
+                      <td className="px-4 py-2.5">
+                        <a href={item.permalink} target="_blank" rel="noreferrer"
+                          className="text-slate-700 hover:text-pink-600 transition-colors line-clamp-2 block">
+                          {truncate(item.caption, 80) || '(No caption)'}
+                        </a>
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap font-mono">{fmtDate(item.timestamp)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className="font-bold tabular-nums text-sm" style={{ color: IG_PINK }}>{item.matchCount}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {results.totalMatches === 0 && (
+            <p className="text-center text-slate-400 text-sm py-4">
+              No comments containing "{results.phrase}" found in {results.year}.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -484,6 +633,9 @@ export default function InstagramAnalytics() {
 {/* ── Follower Growth ──────────────────────────────────────────────────── */}
       <GrowthChartSection snapshots={snapshots} growthDays={growthDays} snapshotsLoading={snapshotsLoading}
         onDaysChange={handleGrowthDaysChange} activePlatform="Instagram" title="Follower Growth" />
+
+{/* ── Comment Phrase Search ───────────────────────────────────────────── */}
+      <CommentSearch />
 
 {/* ── Empty state ────────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (
