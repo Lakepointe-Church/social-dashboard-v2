@@ -269,12 +269,34 @@ function RateInsightsTable({ posts, type, onPostClick }) {
 
 // ── Comment Phrase Search ─────────────────────────────────────────────────────
 function CommentSearch() {
-  const currentYear = new Date().getFullYear();
+  const today        = new Date().toISOString().split('T')[0];
+  const thisYearStart = `${new Date().getFullYear()}-01-01`;
+  const lastYearStart = `${new Date().getFullYear() - 1}-01-01`;
+  const lastYearEnd   = `${new Date().getFullYear() - 1}-12-31`;
+  const last30Start   = new Date(Date.now() - 30 * 864e5).toISOString().split('T')[0];
+  const last90Start   = new Date(Date.now() - 90 * 864e5).toISOString().split('T')[0];
+
+  const PRESETS = [
+    { label: 'This year',  since: thisYearStart, until: today },
+    { label: 'Last year',  since: lastYearStart, until: lastYearEnd },
+    { label: 'Last 90d',   since: last90Start,   until: today },
+    { label: 'Last 30d',   since: last30Start,   until: today },
+  ];
+
   const [phrase,      setPhrase]     = useState('sermon');
-  const [year,        setYear]       = useState(String(currentYear));
+  const [since,       setSince]      = useState(thisYearStart);
+  const [until,       setUntil]      = useState(today);
   const [searching,   setSearching]  = useState(false);
   const [results,     setResults]    = useState(null);
   const [searchError, setSearchError] = useState(null);
+
+  function applyPreset(preset) {
+    setSince(preset.since);
+    setUntil(preset.until);
+    setResults(null);
+  }
+
+  const activePreset = PRESETS.find(p => p.since === since && p.until === until);
 
   async function runSearch() {
     if (!phrase.trim()) return;
@@ -282,7 +304,7 @@ function CommentSearch() {
     setResults(null);
     setSearchError(null);
     try {
-      const r    = await fetch(`/api/ig-comment-search?phrase=${encodeURIComponent(phrase.trim())}&year=${year}`);
+      const r    = await fetch(`/api/ig-comment-search?phrase=${encodeURIComponent(phrase.trim())}&since=${since}&until=${until}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Search failed');
       setResults(data);
@@ -293,8 +315,6 @@ function CommentSearch() {
     }
   }
 
-  const years = [currentYear, currentYear - 1, currentYear - 2];
-
   return (
     <div className="card">
       <div className="flex items-center gap-2 mb-1">
@@ -302,10 +322,11 @@ function CommentSearch() {
         <h3 className="font-bold text-slate-900 text-base">Comment Phrase Search</h3>
       </div>
       <p className="text-slate-500 text-sm mb-4">
-        Count how many times a word or phrase was commented across your posts in a given year.
+        Count how many times a word or phrase was commented across your posts in a date range.
       </p>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Phrase input + search button */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
         <input
           type="text"
           value={phrase}
@@ -314,12 +335,6 @@ function CommentSearch() {
           placeholder="e.g. sermon"
           className="flex-1 min-w-[160px] text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:border-pink-300 font-mono"
         />
-        <select
-          value={year}
-          onChange={e => setYear(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:border-pink-300">
-          {years.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
         <button
           onClick={runSearch}
           disabled={searching || !phrase.trim()}
@@ -328,6 +343,25 @@ function CommentSearch() {
           {searching ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
           {searching ? 'Scanning…' : 'Search'}
         </button>
+      </div>
+
+      {/* Date range */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
+          {PRESETS.map(p => (
+            <button key={p.label} onClick={() => applyPreset(p)}
+              className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${activePreset?.label === p.label ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input type="date" value={since} onChange={e => setSince(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-pink-300" />
+          <span className="text-slate-400 text-xs">–</span>
+          <input type="date" value={until} onChange={e => setUntil(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:border-pink-300" />
+        </div>
       </div>
 
       {searching && (
@@ -355,12 +389,12 @@ function CommentSearch() {
                 {results.totalMatches.toLocaleString()}
               </div>
               <div className="text-xs text-slate-500 mt-1 font-medium">"{results.phrase}" comments</div>
-              <div className="text-xs text-slate-400 mt-0.5">in {results.year}</div>
+              <div className="text-xs text-slate-400 mt-0.5 font-mono">{results.since} – {results.until}</div>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
               <div className="text-3xl font-bold tabular-nums text-slate-700">{results.postsScanned}</div>
               <div className="text-xs text-slate-500 mt-1 font-medium">Posts scanned</div>
-              <div className="text-xs text-slate-400 mt-0.5">from {results.year}</div>
+              <div className="text-xs text-slate-400 mt-0.5 font-mono">{results.since} – {results.until}</div>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
               <div className="text-3xl font-bold tabular-nums text-slate-700">{results.postsWithMatches}</div>
@@ -407,7 +441,7 @@ function CommentSearch() {
 
           {results.totalMatches === 0 && (
             <p className="text-center text-slate-400 text-sm py-4">
-              No comments containing "{results.phrase}" found in {results.year}.
+              No comments containing &ldquo;{results.phrase}&rdquo; found between {results.since} and {results.until}.
             </p>
           )}
         </div>

@@ -28,16 +28,20 @@ export default async function handler(req, res) {
 
   const proof  = crypto.createHmac('sha256', secret).update(token).digest('hex');
   const phrase = (req.query.phrase || 'sermon').toLowerCase().trim();
-  const year   = parseInt(req.query.year || new Date().getFullYear(), 10);
 
   if (!phrase) return res.status(400).json({ error: 'phrase is required.' });
 
-  const yearStart = new Date(year, 0, 1);
-  const yearEnd   = new Date(year + 1, 0, 1);
-  const base      = 'https://graph.facebook.com/v25.0';
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yearStr  = new Date().getFullYear();
+  const since    = req.query.since || `${yearStr}-01-01`;
+  const until    = req.query.until || todayStr;
+
+  const rangeStart = new Date(since);
+  const rangeEnd   = new Date(until + 'T23:59:59.999Z');
+  const base       = 'https://graph.facebook.com/v25.0';
 
   try {
-    // ── Step 1: paginate through all posts from the target year ───────────────
+    // ── Step 1: paginate through all posts within the date range ─────────────
     const posts = [];
     let mediaUrl = `${base}/${IG_ID}/media?fields=id,caption,timestamp,media_url,thumbnail_url,permalink&limit=50&access_token=${token}&appsecret_proof=${proof}`;
 
@@ -46,18 +50,18 @@ export default async function handler(req, res) {
       const data = await r.json();
       if (data.error) throw new Error(data.error.message);
 
-      let pastYear = false;
+      let pastRange = false;
       for (const post of data.data || []) {
         const t = new Date(post.timestamp);
-        if (t >= yearStart && t < yearEnd) {
+        if (t >= rangeStart && t <= rangeEnd) {
           posts.push(post);
-        } else if (t < yearStart) {
-          pastYear = true;
+        } else if (t < rangeStart) {
+          pastRange = true;
           break;
         }
       }
 
-      mediaUrl = (pastYear || !data.paging?.next) ? null : withProof(data.paging.next, proof);
+      mediaUrl = (pastRange || !data.paging?.next) ? null : withProof(data.paging.next, proof);
     }
 
     // ── Step 2: fetch comments per post and count phrase matches ──────────────
@@ -113,7 +117,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       phrase,
-      year,
+      since,
+      until,
       totalMatches,
       postsScanned:     posts.length,
       postsWithMatches: breakdown.length,
