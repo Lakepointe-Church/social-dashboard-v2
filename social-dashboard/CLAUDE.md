@@ -13,7 +13,7 @@ A live social media analytics dashboard for **Lakepointe Church** (@lpconnect). 
 
 **GitHub repo:** `github.com/Lakepointe-Church/social-dashboard-v2`
 **Live URL:** `social-dashboard-v2.vercel.app`
-**Stack:** Next.js 14, React 18, Tailwind CSS, Recharts, Lucide React
+**Stack:** Next.js 14, React 18, Tailwind CSS, Recharts, Lucide React, Upstash Redis (`@upstash/redis`)
 
 ---
 
@@ -41,7 +41,8 @@ social-dashboard/
 │   │   ├── Header.js             ← Top nav bar (simplified — no props, no Demo Mode badge)
 │   │   ├── MetricCard.js         ← KPI card component
 │   │   ├── PlatformCard.js       ← Platform summary card
-│   │   ├── FollowerGrowthChart.js
+│   │   ├── FollowerGrowthChart.js ← Recharts line chart; FB/IG/YT only; MM-DD X-axis
+│   │   ├── GrowthChartSection.js  ← Shared chart card used by all 4 tabs (30d/90d/All toggle, empty/loading states)
 │   │   ├── EngagementChart.js
 │   │   ├── TopContent.js         ← Cross-platform top posts, ranked by engagement
 │   │   ├── GeoBreakdown.js
@@ -55,9 +56,11 @@ social-dashboard/
 │   ├── lib/
 │   │   ├── igDataCache.js        ← 5-min client-side cache for /api/instagram
 │   │   ├── fbDataCache.js        ← 5-min client-side cache for /api/facebook
-│   │   └── ytDataCache.js        ← 5-min client-side cache for /api/youtube
+│   │   ├── ytDataCache.js        ← 5-min client-side cache for /api/youtube
+│   │   └── redis.js              ← Upstash Redis client singleton (supports KV_REST_API_* and UPSTASH_REDIS_REST_*)
 │   └── data/
 │       └── demoData.js           ← Hardcoded demo data + getDataContext() for AI Analyst fallback
+├── vercel.json               ← Cron job: /api/snapshots/save at 06:00 UTC daily
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
@@ -85,6 +88,9 @@ social-dashboard/
 | `YOUTUBE_CLIENT_SECRET`  | OAuth 2.0 Client Secret for YouTube Analytics API                             |
 | `YOUTUBE_REFRESH_TOKEN`  | OAuth refresh token — must be obtained from the channel **owner** account     |
 | `ANTHROPIC_API_KEY`      | Powers the AI Analyst chat panel                                              |
+| `KV_REST_API_URL`        | Upstash Redis REST URL — auto-set by Vercel when Upstash integration is connected |
+| `KV_REST_API_TOKEN`      | Upstash Redis REST token — auto-set by Vercel when Upstash integration is connected |
+| `CRON_SECRET`            | Auto-set by Vercel for cron job auth; injected as `Authorization: Bearer` header on cron calls |
 
 ---
 
@@ -130,6 +136,20 @@ social-dashboard/
 - **Fastest path to a fix:** Ask Josh to (a) switch to a Creator account, OR (b) have his team share his numeric IG account ID. Either removes the Business Discovery blocker without waiting on App Review.
 - **Workaround (already live):** Caption-based detection picks up LP's own posts that mention Josh. Ask Josh's team to consistently include `@lpconnect`, `@joshhowerton`, or `live free` in collab captions on Josh's side too.
 - **Real fix:** Meta App Review (unlocks Business Discovery + Page Public Content Access).
+
+### `/api/snapshots/save`
+
+- **Auth:** Vercel injects `Authorization: Bearer <CRON_SECRET>` on cron calls; check is skipped if `CRON_SECRET` is not set (local dev). `META_APP_SECRET` guard added — if missing, `appSecretProof` returns empty string (graceful local fallback).
+- **Trigger:** `vercel.json` cron at `0 6 * * *` (6 AM UTC daily). Can also be hit manually in the browser for testing.
+- **Data:** Fetches `followers_count` from FB Page and IG account (Meta Graph API v25.0 with appsecret_proof), and `subscriberCount` from YouTube Data API v3. Saves snapshot to Redis.
+- **Redis writes:** `SET followers:YYYY-MM-DD '{"date","facebook","instagram","youtube"}'` (idempotent — safe to run twice in a day) + `ZADD followers:dates <unix_score> YYYY-MM-DD` (sorted set for date-range queries).
+- **Response:** `{ ok: true, snapshot: { date, facebook, instagram, youtube } }`
+
+### `/api/snapshots`
+
+- **Auth:** Public (read-only).
+- **Query params:** `?days=30` (default), `?days=90`, `?days=0` (all time).
+- **Data:** Reads date keys from `followers:dates` sorted set using `ZRANGE … BYSCORE`, bulk-fetches snapshot blobs via `MGET`, returns sorted array: `[{ date, Facebook, Instagram, YouTube }]` — keys capitalized to match `FollowerGrowthChart` prop names.
 
 ### `/api/youtube`
 
@@ -257,6 +277,8 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
 - [x] **YouTube tab** — fully built out: sticky filter bar, content type chips, date filter, channel KPIs, content breakdown (single row), top-10 horizontal scroll rows, sortable All Videos table, OutsideDateRangeNote, pending OAuth placeholders
 - [x] **AI Analyst** — built and wired to live data; floating button and UI removed June 2026 (components still in repo — see AIChatPanel section)
+- [x] **Follower growth over time** — Redis snapshot infrastructure live. Cron runs daily at 6 AM UTC. Chart shown on Overview (all platforms), Facebook, Instagram, YouTube tabs. First snapshot stored June 2, 2026.
+- [ ] **Follower growth chart — backfill** — APIs don't provide historical data so the chart starts from June 2, 2026 and builds one point per day. No action needed; just patience.
 - [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` can be removed once TikTok has live data (`getDataContext()` fallback in `/api/chat.js` can be removed too if AI Analyst stays off)
 
 ---
@@ -331,6 +353,22 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 2, 2026 (session 7)
+
+- `1ca4774` — Add follower growth over time: install `@upstash/redis`; `src/lib/redis.js` client; `/api/snapshots/save` (cron-triggered snapshot writer); `/api/snapshots` (read endpoint with `?days` filter); `vercel.json` cron at 06:00 UTC; `GrowthChartSection.js` shared card component; `AllOverview.js` placeholder replaced with real chart; `FollowerGrowthChart.js` trimmed to FB/IG/YT only with auto-hide for platforms with no data
+- `7d3c9e3` — Add platform-specific growth charts to Facebook, Instagram, YouTube tabs; `fmtIsoDate` helper for MM-DD-YYYY footer format; chart X-axis tickFormatter for MM-DD display
+
+#### Key decisions this session
+- **Redis data structure:** Sorted set `followers:dates` (score = unix seconds, member = `YYYY-MM-DD`) for efficient `ZRANGE … BYSCORE` date-range queries. One key per day (`followers:YYYY-MM-DD`) stores the full JSON snapshot — idempotent writes (SET overwrites if cron runs twice in a day).
+- **Upstash via Vercel Marketplace sets `KV_REST_API_*` vars**, not `UPSTASH_REDIS_REST_*` as the npm package's `Redis.fromEnv()` expects. `redis.js` uses `new Redis({ url, token })` with fallback to support both naming conventions.
+- **Meta secrets are not available in local Development env vars** (Vercel security restriction, noted in session 4). `appSecretProof()` in `save.js` returns empty string if `META_APP_SECRET` is not set — prevents crash in local dev; in production the secret is always present.
+- **`GrowthChartSection` is the single source of truth** for the chart card UI — imported by all four tabs so style/behavior changes only need to happen once. `activePlatform` prop filters to one line; omitting it shows all three.
+- **First snapshot manually triggered** on preview URL immediately after deploy — confirmed `{ ok: true, snapshot: { date: "2026-06-02", facebook: 212784, instagram: 304704, youtube: 1010000 } }`.
+- **`gh` CLI** installed via Homebrew and authenticated this session — now available for future `/pr` runs without fallback to the GitHub web URL.
+- **Date format:** chart X-axis shows `MM-DD`; "tracking since" footer shows `MM-DD-YYYY`. ISO strings (`YYYY-MM-DD`) are only used internally for Redis keys and API responses.
+
+---
 
 ### June 2, 2026 (session 6)
 
