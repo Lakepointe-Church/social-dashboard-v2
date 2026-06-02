@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { RefreshCw, AlertCircle, FileText, HelpCircle, AlignLeft, Hash, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  ScatterChart, Scatter,
+} from 'recharts';
+import { RefreshCw, AlertCircle, FileText, HelpCircle, AlignLeft, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 
 const IG_PINK = '#E1306C';
@@ -15,13 +18,44 @@ const CONTENT_FILTERS = [
 ];
 
 const BAND_COLORS = {
-  weak:      '#94a3b8',
-  fair:      '#f59e0b',
-  strong:    '#3b82f6',
-  excellent: '#E1306C',
+  minimal:  '#94a3b8',
+  moderate: '#f59e0b',
+  good:     '#3b82f6',
+  strong:   '#E1306C',
 };
 
-// ── Caption scoring ────────────────────────────────────────────────────────────
+// ── Ministry-tuned caption scoring ────────────────────────────────────────────
+
+// Words that signal a felt need, tension, or human struggle
+const FELT_NEED = [
+  'pain','struggle','hurt','broken','doubt','fear','stuck','alone','tired',
+  'failed','failure','shame','ashamed','guilt','anxious','worried','desperate',
+  'hard','lost','overwhelmed','searching','empty','dark','weak','weary',
+  'burden','wounded','hopeless','worthless','surrender','suffocate','drowning',
+  'invisible','forgotten','hopeless','running','hiding','giving up',
+];
+
+// Phrases that signal theological contrast or paradox
+const CONTRAST_PHRASES = [
+  "isn't wasted","isn't over","isn't done","isn't alone","isn't enough",
+  "not wasted","not alone","not the end","not enough","not finished",
+  "not forgotten","not over","never stop","never give up","never free",
+  "never alone","but god","but grace","yet he","even when","even if",
+  "still stands","still here","though he","freedom was never",
+];
+
+// Negation + positive-outcome pattern (e.g. "never wasted", "isn't alone")
+const NEGATION_PATTERN = /\b(not|isn't|never|no longer)\s+(wasted|alone|over|done|finished|forgotten|enough|free|lost|broken|abandoned|hopeless)\b/;
+
+// Emotional / ministry resonance words
+const EMOTIONAL = [
+  'love','hope','faith','peace','grace','joy','freedom','healing','worthy',
+  'mercy','forgive','forgiven','restore','restored','redeemed','purpose',
+  'calling','courage','believe','saved','transform','transformed','glory',
+  'holy','sacred','eternal','everlasting','kingdom','righteous','revival',
+  'worship','presence','truth','light','surrender','promise','covenant',
+  'enough','real','authentic','vulnerable','raw',
+];
 
 function extractHook(caption) {
   if (!caption) return '';
@@ -36,46 +70,55 @@ function scoreHook(caption) {
   if (!hook.trim()) return 0;
 
   const hookLower  = hook.toLowerCase();
-  const wordCount  = hook.split(/\s+/).filter(Boolean).length;
+  const words      = hook.split(/\s+/).filter(Boolean);
+  const wordCount  = words.length;
   const startsWithHashtag = /^#/.test(hook.trim());
+  const emojiOnly  = wordCount <= 2 && !/[a-zA-Z]{3,}/.test(hook);
 
   let score = 0;
 
-  if (startsWithHashtag) score -= 2;
-  if (wordCount <= 3)    score -= 1;
+  // Penalties
+  if (startsWithHashtag) score -= 1;
+  if (emojiOnly)         score -= 1;
 
+  // Question (rhetorical or direct) — strong engagement signal
   if (hook.includes('?')) score += 2;
 
-  const firstThreeWords = hook.split(/\s+/).slice(0, 3).join(' ').toLowerCase();
-  const numberWords = ['one','two','three','four','five','six','seven','eight','nine','ten'];
-  if (/^\d+\s/.test(hook) || numberWords.some(n => firstThreeWords.split(' ').includes(n))) score += 2;
+  // Felt need / human tension in the opening
+  if (FELT_NEED.some(w => hookLower.includes(w))) score += 2;
 
-  const urgency = ['join us','join me','this sunday','this weekend','today','tomorrow','tonight',"don't miss",'last chance','happening','come out','register','sign up'];
-  if (urgency.some(w => hookLower.includes(w))) score += 1;
+  // Theological contrast or paradox (flip / redemption pattern)
+  const hasContrast = CONTRAST_PHRASES.some(p => hookLower.includes(p)) || NEGATION_PATTERN.test(hookLower);
+  if (hasContrast) score += 2;
 
-  const emotional = ['love','faith','hope','family','community','together','truth','real','honest','peace','joy','grace','grateful','blessed','changed','struggle','heart','worship','broken','healing','courage','freedom'];
-  if (emotional.some(w => hookLower.includes(w))) score += 1;
+  // Emotional / ministry resonance word
+  if (EMOTIONAL.some(w => hookLower.includes(w))) score += 1;
 
-  if (wordCount >= 8 && wordCount <= 14) score += 1;
+  // Divine or named reference (God, Jesus, pastor name, church name)
+  if (
+    hook.includes('@') ||
+    hookLower.includes('god') || hookLower.includes('jesus') || hookLower.includes('christ') ||
+    hookLower.includes('lakepointe') || hookLower.includes('lpconnect') ||
+    hookLower.includes('josh') || hookLower.includes('mike breaux')
+  ) score += 1;
 
-  if (hook.includes('@') || hookLower.includes('lakepointe') || hookLower.includes('lpconnect')) score += 1;
+  // Adequate length — enough to carry meaning (6–15 words)
+  if (wordCount >= 6 && wordCount <= 15) score += 1;
 
-  const cta = ['comment','share this','tag a','save this','click','watch','swipe','tell us','drop a','dm us','link in bio'];
-  if (cta.some(w => hookLower.includes(w))) score += 1;
+  // Bold declaration: ALL CAPS word or exclamation
+  if (/\b[A-Z]{2,}\b/.test(hook) || hook.includes('!')) score += 1;
+
+  // Number-led list or count ("3 things", "10 seconds")
+  if (/^\d+\s/.test(hook)) score += 1;
 
   return Math.max(0, Math.min(10, score));
 }
 
 function bandForScore(s) {
-  if (s <= 2) return 'weak';
-  if (s <= 5) return 'fair';
-  if (s <= 8) return 'strong';
-  return 'excellent';
-}
-
-function extractHashtags(caption) {
-  if (!caption) return [];
-  return (caption.match(/#[\w]+/g) || []).map(h => h.toLowerCase());
+  if (s <= 2) return 'minimal';
+  if (s <= 5) return 'moderate';
+  if (s <= 8) return 'good';
+  return 'strong';
 }
 
 function avg(arr) {
@@ -104,10 +147,10 @@ function mediaEmoji(type) {
 function ScoreBadge({ score }) {
   const band = bandForScore(score);
   const colors = {
-    weak:      'bg-slate-100 text-slate-500',
-    fair:      'bg-amber-100 text-amber-700',
-    strong:    'bg-blue-100 text-blue-700',
-    excellent: 'bg-pink-100 text-pink-700',
+    minimal:  'bg-slate-100 text-slate-500',
+    moderate: 'bg-amber-100 text-amber-700',
+    good:     'bg-blue-100 text-blue-700',
+    strong:   'bg-pink-100 text-pink-700',
   };
   return (
     <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${colors[band]}`}>
@@ -126,6 +169,19 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
         <div className="text-slate-500 text-sm font-medium mt-0.5">{label}</div>
         {subtext && <div className="text-slate-400 text-xs mt-1">{subtext}</div>}
       </div>
+    </div>
+  );
+}
+
+// ── Scatter tooltip ────────────────────────────────────────────────────────────
+function ScatterDotTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  return (
+    <div style={{ background: '#0f172a', borderRadius: 10, padding: '8px 12px', maxWidth: 220 }}>
+      <p className="text-white text-xs font-semibold line-clamp-2 leading-snug">{d.hook || '(No hook)'}</p>
+      <p className="text-slate-400 text-[10px] mt-1">{d.wordCount} words · {d.engagementRate?.toFixed(1)}% engagement</p>
     </div>
   );
 }
@@ -197,7 +253,6 @@ export default function InstagramCaptions() {
       hook:      extractHook(m.caption),
       hookScore: scoreHook(m.caption),
       wordCount: m.caption.split(/\s+/).filter(Boolean).length,
-      hashtags:  extractHashtags(m.caption),
     }));
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
@@ -214,16 +269,17 @@ export default function InstagramCaptions() {
     ? Math.round(avg(captionData.map(m => m.wordCount)))
     : 0;
 
-  const allHashtags = captionData.flatMap(m => m.hashtags);
-  const hashtagFreq = allHashtags.reduce((acc, h) => { acc[h] = (acc[h] || 0) + 1; return acc; }, {});
-  const topHashtag  = Object.entries(hashtagFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const withSignalPosts = captionData.filter(m => m.hookScore >= 3);
+  const withSignalPct   = captionData.length
+    ? Math.round(withSignalPosts.length / captionData.length * 100)
+    : 0;
 
   // ── Score band distribution ───────────────────────────────────────────────
   const scoreBands = [
-    { label: 'Weak',      range: '0–2',  band: 'weak',      count: captionData.filter(m => m.hookScore <= 2).length },
-    { label: 'Fair',      range: '3–5',  band: 'fair',      count: captionData.filter(m => m.hookScore >= 3 && m.hookScore <= 5).length },
-    { label: 'Strong',    range: '6–8',  band: 'strong',    count: captionData.filter(m => m.hookScore >= 6 && m.hookScore <= 8).length },
-    { label: 'Excellent', range: '9–10', band: 'excellent', count: captionData.filter(m => m.hookScore >= 9).length },
+    { label: 'Minimal',  range: '0–2',  band: 'minimal',  count: captionData.filter(m => m.hookScore <= 2).length },
+    { label: 'Moderate', range: '3–5',  band: 'moderate', count: captionData.filter(m => m.hookScore >= 3 && m.hookScore <= 5).length },
+    { label: 'Good',     range: '6–8',  band: 'good',     count: captionData.filter(m => m.hookScore >= 6 && m.hookScore <= 8).length },
+    { label: 'Strong',   range: '9–10', band: 'strong',   count: captionData.filter(m => m.hookScore >= 9).length },
   ];
 
   // ── Best / weakest ───────────────────────────────────────────────────────
@@ -234,6 +290,13 @@ export default function InstagramCaptions() {
     .sort((a, b) => a.hookScore - b.hookScore || a.engagementRate - b.engagementRate)
     .slice(0, 5);
 
+  // ── Scatter data ─────────────────────────────────────────────────────────
+  const scatterData = captionData.map(m => ({
+    wordCount:      m.wordCount,
+    engagementRate: parseFloat((m.engagementRate || 0).toFixed(2)),
+    hook:           m.hook,
+  }));
+
   // ── Insights ─────────────────────────────────────────────────────────────
   const nonQuestionPosts  = captionData.filter(m => !m.hook.includes('?'));
   const qCommentRate      = avg(questionPosts.map(m => m.commentRate || 0));
@@ -242,24 +305,25 @@ export default function InstagramCaptions() {
     ? (qCommentRate / nqCommentRate).toFixed(1)
     : null;
 
-  const numberOpenerPosts = captionData.filter(m =>
-    /^\d+\s/.test(m.hook) ||
-    ['one','two','three','four','five','six','seven','eight','nine','ten']
-      .some(n => m.hook.toLowerCase().split(/\s+/).slice(0, 3).includes(n))
-  );
-  const nonNumberPosts    = captionData.filter(m => !numberOpenerPosts.includes(m));
-  const numberAvgScore    = avg(numberOpenerPosts.map(m => m.hookScore));
-  const nonNumberAvgScore = avg(nonNumberPosts.map(m => m.hookScore));
-  const numberAdvantage   = (numberAvgScore - nonNumberAvgScore).toFixed(1);
+  const feltNeedPosts    = captionData.filter(m => FELT_NEED.some(w => m.hook.toLowerCase().includes(w)));
+  const nonFeltNeedPosts = captionData.filter(m => !FELT_NEED.some(w => m.hook.toLowerCase().includes(w)));
+  const feltNeedEngAvg   = avg(feltNeedPosts.map(m => m.engagementRate || 0));
+  const nonFeltNeedEngAvg = avg(nonFeltNeedPosts.map(m => m.engagementRate || 0));
+  const feltNeedMultiplier = (feltNeedPosts.length >= 2 && nonFeltNeedPosts.length >= 2 && nonFeltNeedEngAvg > 0)
+    ? (feltNeedEngAvg / nonFeltNeedEngAvg).toFixed(1)
+    : null;
 
   const shortCaptionPct = captionData.length
     ? Math.round(captionData.filter(m => m.wordCount < 20).length / captionData.length * 100)
     : 0;
 
-  const ctaWords = ['comment','share this','tag a','save this','click','watch','swipe','tell us','drop a','dm us','link in bio'];
-  const ctaPct   = captionData.length
-    ? Math.round(captionData.filter(m => ctaWords.some(w => m.hook.toLowerCase().includes(w))).length / captionData.length * 100)
+  // Median word count to find sweet spot from scatter
+  const sortedByWords = [...captionData].sort((a, b) => a.wordCount - b.wordCount);
+  const medianWordCount = sortedByWords.length
+    ? sortedByWords[Math.floor(sortedByWords.length / 2)].wordCount
     : 0;
+  const aboveMedianEng  = avg(captionData.filter(m => m.wordCount > medianWordCount).map(m => m.engagementRate || 0));
+  const belowMedianEng  = avg(captionData.filter(m => m.wordCount <= medianWordCount).map(m => m.engagementRate || 0));
 
   // ── Sortable captions table ───────────────────────────────────────────────
   const sortedCaptions = [...captionData].sort((a, b) => {
@@ -315,7 +379,6 @@ export default function InstagramCaptions() {
       {/* ── Sticky control bar ────────────────────────────────────────────── */}
       <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-white border-b border-slate-200 shadow-sm">
         <div className="py-2.5 flex items-center gap-3 flex-wrap">
-          {/* Content type chips */}
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 items-center">
             {CONTENT_FILTERS.map(f => {
               const isActive = activeFilters.includes(f.id);
@@ -340,7 +403,6 @@ export default function InstagramCaptions() {
             )}
           </div>
 
-          {/* Date range */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {['7','30','90'].map(d => (
               <button key={d} onClick={() => { setDatePreset(d); setCustomStart(''); setCustomEnd(''); }}
@@ -369,7 +431,6 @@ export default function InstagramCaptions() {
             )}
           </div>
 
-          {/* Refresh */}
           <button onClick={() => fetchData(true)} disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50 flex-shrink-0">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
@@ -420,12 +481,12 @@ export default function InstagramCaptions() {
               iconColor="text-slate-500"
             />
             <StatCard
-              label="Most-Used Hashtag"
-              value={topHashtag ?? '—'}
-              subtext={topHashtag ? `${hashtagFreq[topHashtag]} uses` : 'No hashtags found'}
-              icon={<Hash size={20} />}
-              iconBg="bg-fuchsia-50"
-              iconColor="text-fuchsia-600"
+              label="With Detectable Hook"
+              value={`${withSignalPct}%`}
+              subtext={`${withSignalPosts.length} of ${captionData.length} posts score ≥ 3`}
+              icon={<span className="text-lg">⚡</span>}
+              iconBg="bg-emerald-50"
+              iconColor="text-emerald-600"
             />
           </div>
 
@@ -434,7 +495,7 @@ export default function InstagramCaptions() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Hook Score Distribution</h3>
-                <p className="text-slate-400 text-xs mt-0.5">How your captions score on the opening hook (0–10)</p>
+                <p className="text-slate-400 text-xs mt-0.5">Based on: felt need, theological contrast, questions, emotional language, bold declarations</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
                 {scoreBands.map(b => (
@@ -465,6 +526,47 @@ export default function InstagramCaptions() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* ── Caption Length vs. Engagement Scatter ─────────────────────── */}
+          {scatterData.length >= 3 && (
+            <div className="card">
+              <div className="mb-4">
+                <h3 className="font-bold text-slate-900 text-sm">Caption Length vs. Engagement Rate</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Each dot is one post — hover to see the caption. Reveals whether shorter or longer captions resonate more.</p>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <ScatterChart margin={{ top: 10, right: 20, left: -20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    dataKey="wordCount"
+                    name="Caption length"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    label={{ value: 'Caption length (words)', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#94a3b8' }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="engagementRate"
+                    name="Engagement"
+                    unit="%"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<ScatterDotTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+                  <Scatter data={scatterData} fill={IG_PINK} opacity={0.65} />
+                </ScatterChart>
+              </ResponsiveContainer>
+              {captionData.length >= 4 && (
+                <p className="text-slate-400 text-xs mt-2 text-center">
+                  Shorter captions (≤{medianWordCount} words) avg {belowMedianEng.toFixed(1)}% eng ·
+                  Longer captions avg {aboveMedianEng.toFixed(1)}% eng
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Best / Weakest openers ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -511,38 +613,53 @@ export default function InstagramCaptions() {
 
           {/* ── Insights panel ─────────────────────────────────────────────── */}
           <div className="card">
-            <h3 className="font-bold text-slate-900 text-sm mb-4">💡 Caption Strategy Insights</h3>
+            <h3 className="font-bold text-slate-900 text-sm mb-1">💡 Caption Strategy Insights</h3>
+            <p className="text-slate-400 text-xs mb-4">Patterns detected across your {captionData.length} filtered captions</p>
             <div className="divide-y divide-slate-50">
 
-              {questionMultiplier && parseFloat(questionMultiplier) !== 1 && (
+              {feltNeedMultiplier && parseFloat(feltNeedMultiplier) > 1 && (
                 <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-slate-800 text-sm font-semibold">
-                      Questions drive {questionMultiplier}× more comments
+                      Felt-need openers drive {feltNeedMultiplier}× more engagement
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      Question hooks average {qCommentRate.toFixed(2)}% comment rate vs. {nqCommentRate.toFixed(2)}% for non-question openers.
+                      Captions that open with human struggle or tension ("pain", "broken", "lost") average {feltNeedEngAvg.toFixed(1)}% engagement vs. {nonFeltNeedEngAvg.toFixed(1)}% for other openers. ({feltNeedPosts.length} posts detected)
                     </p>
                   </div>
                 </div>
               )}
 
-              {numberOpenerPosts.length >= 2 && parseFloat(numberAdvantage) > 0 && (
+              {questionMultiplier && parseFloat(questionMultiplier) > 1 && (
                 <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-slate-800 text-sm font-semibold">
-                      Number openers score {numberAdvantage} pts higher on average
+                      Question hooks drive {questionMultiplier}× more comments
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      Posts starting with a number ("3 things", "5 ways") average {numberAvgScore.toFixed(1)}/10 vs. {nonNumberAvgScore.toFixed(1)}/10 for other openers.
+                      {questionPosts.length} post{questionPosts.length !== 1 ? 's' : ''} open with a question — those average {qCommentRate.toFixed(2)}% comment rate vs. {nqCommentRate.toFixed(2)}% for statement openers.
                     </p>
                   </div>
                 </div>
               )}
 
-              {shortCaptionPct > 25 && (
+              {captionData.length >= 4 && Math.abs(aboveMedianEng - belowMedianEng) > 0.5 && (
+                <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-slate-800 text-sm font-semibold">
+                      {aboveMedianEng > belowMedianEng ? 'Longer' : 'Shorter'} captions perform better
+                    </p>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      Captions {aboveMedianEng > belowMedianEng ? 'above' : 'at or below'} the median length ({medianWordCount} words) average {Math.max(aboveMedianEng, belowMedianEng).toFixed(1)}% engagement vs. {Math.min(aboveMedianEng, belowMedianEng).toFixed(1)}% for {aboveMedianEng > belowMedianEng ? 'shorter' : 'longer'} ones.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {shortCaptionPct > 30 && (
                 <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
                   <div>
@@ -550,49 +667,21 @@ export default function InstagramCaptions() {
                       {shortCaptionPct}% of captions are under 20 words
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      Short captions miss the chance to invite community response and drive saves. Try adding a question, a story beat, or a clear next step.
+                      Short captions can be punchy, but miss the chance to name a felt need, invite community response, or give followers something worth saving.
                     </p>
                   </div>
                 </div>
               )}
 
-              {ctaPct < 40 && (
-                <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-slate-800 text-sm font-semibold">
-                      Only {ctaPct}% of captions open with a clear call to action
-                    </p>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      Leading with an action ("Share this if…", "Tag someone who needs this") signals to followers what to do and boosts engagement signals.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {topHashtag && (
+              {withSignalPct < 50 && (
                 <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-slate-800 text-sm font-semibold">
-                      Top topic: {topHashtag} ({hashtagFreq[topHashtag]} posts)
+                      Only {withSignalPct}% of hooks have a detectable quality signal
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      Consistent topic tagging helps Instagram surface your content to the right audience. Consider reinforcing this across your series.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {avgHookScore < 5 && (
-                <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-slate-800 text-sm font-semibold">
-                      Average hook score is {avgHookScore}/10 — there's room to grow
-                    </p>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      Even one small change — adding a question, leading with a number, or naming a felt need — can meaningfully lift your hook strength and early engagement.
+                      The scorer looks for felt need, theological contrast, questions, emotional language, and bold declarations. Opening with any one of these — even subtly — can lift early engagement.
                     </p>
                   </div>
                 </div>
@@ -614,9 +703,9 @@ export default function InstagramCaptions() {
                     <th className="text-left font-semibold text-slate-400 py-2 pr-3 w-8">#</th>
                     <th className="text-left font-semibold text-slate-400 py-2 pr-4">Hook Preview</th>
                     {[
-                      { key: 'hookScore',     label: 'Score'    },
+                      { key: 'hookScore',      label: 'Score'     },
                       { key: 'engagementRate', label: 'Eng. Rate' },
-                      { key: 'timestamp',      label: 'Date'     },
+                      { key: 'timestamp',      label: 'Date'      },
                     ].map(({ key, label }) => {
                       const active = tableSort.key === key;
                       return (
