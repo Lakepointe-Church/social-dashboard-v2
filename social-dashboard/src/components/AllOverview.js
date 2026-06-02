@@ -348,6 +348,7 @@ export default function AllOverview({ onNavigate }) {
                        + (ytData?.channel?.subscriberCount || 0);
 
   const totalReach = (fbData?.insights?.reach || 0) + (igData?.insights?.reach || 0);
+  const totalNewFollowers = (fbData?.insights?.newFans || 0) + (igData?.insights?.newFollowers || 0);
 
   const fbEngagement  = (fbData?.posts   || []).reduce((s, p) => s + (p.engaged || 0), 0);
   const igEngagement  = (igData?.media   || []).reduce((s, m) => s + (m.engagement || (m.likeCount + (m.commentsCount || 0))), 0);
@@ -431,6 +432,11 @@ export default function AllOverview({ onNavigate }) {
           label="Total Engagement" value={fmtBig(totalEngagement)}
           subtext="FB + IG + YT combined"
           icon={<Heart size={20} />} iconBg="bg-pink-100" iconColor="text-pink-600"
+        />
+        <MetricCard
+          label="New Followers (30d)" value={fmtBig(totalNewFollowers)}
+          subtext="FB + IG · YT unavailable"
+          icon={<TrendingUp size={20} />} iconBg="bg-emerald-100" iconColor="text-emerald-600"
         />
       </div>
 
