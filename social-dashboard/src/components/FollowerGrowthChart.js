@@ -7,11 +7,9 @@ const PLATFORM_COLORS = {
   Facebook:  '#1877F2',
   Instagram: '#E1306C',
   YouTube:   '#FF0000',
-  TikTok:    '#EE1D52',
-  LinkedIn:  '#0A66C2',
 };
 
-const ALL_KEYS = ['Facebook', 'Instagram', 'YouTube', 'TikTok', 'LinkedIn'];
+const ALL_KEYS = ['Facebook', 'Instagram', 'YouTube'];
 
 function fmt(v) {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
@@ -35,12 +33,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function FollowerGrowthChart({ data, activePlatform, dataType }) {
-  // Determine which keys to display — skip LinkedIn for reach/engagement (no data)
-  const skipLinkedIn = dataType !== 'followers';
-  const keys = activePlatform
-    ? [activePlatform]
-    : ALL_KEYS.filter(k => !(skipLinkedIn && k === 'LinkedIn'));
+export default function FollowerGrowthChart({ data, activePlatform }) {
+  // Only render lines for platforms that have at least one real data point
+  const keysWithData = ALL_KEYS.filter(k => data.some(d => d[k] != null && d[k] > 0));
+  const keys = activePlatform ? [activePlatform] : keysWithData;
 
   // Thin out data points for readability
   const step   = Math.max(1, Math.floor(data.length / 30));

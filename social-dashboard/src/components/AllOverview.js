@@ -3,6 +3,7 @@ import { fetchInstagramData, invalidateInstagramCache } from '../lib/igDataCache
 import { fetchFacebookData, invalidateFacebookCache } from '../lib/fbDataCache';
 import { fetchYouTubeData, invalidateYouTubeCache } from '../lib/ytDataCache';
 import MetricCard from './MetricCard';
+import FollowerGrowthChart from './FollowerGrowthChart';
 import MilestoneTracker from './MilestoneTracker';
 import TopContent from './TopContent';
 import ContentTypeChart from './ContentTypeChart';
@@ -311,6 +312,9 @@ export default function AllOverview({ onNavigate }) {
   const [igError, setIgError] = useState(null);
   const [ytError, setYtError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [snapshots, setSnapshots]         = useState([]);
+  const [growthDays, setGrowthDays]       = useState(90);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [selectedPost,     setSelectedPost]     = useState(null);
   const [selectedPlatform, setSelectedPlatform] = useState('instagram');
 
@@ -340,7 +344,22 @@ export default function AllOverview({ onNavigate }) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const fetchSnapshots = useCallback(async (days) => {
+    setSnapshotsLoading(true);
+    try {
+      const res  = await fetch(`/api/snapshots?days=${days}`);
+      const json = await res.json();
+      setSnapshots(json.snapshots || []);
+    } catch { /* silent — chart just stays empty */ }
+    setSnapshotsLoading(false);
+  }, []);
+
+  function handleGrowthDaysChange(days) {
+    setGrowthDays(days);
+    fetchSnapshots(days);
+  }
+
+  useEffect(() => { fetchAll(); fetchSnapshots(90); }, [fetchAll, fetchSnapshots]);
 
   // ── KPI totals ─────────────────────────────────────────────────────────────
   const totalFollowers = (fbData?.page?.followersCount    || 0)
@@ -535,16 +554,51 @@ export default function AllOverview({ onNavigate }) {
         </div>
       </div>
 
-      {/* ── Growth Over Time (placeholder) ───────────────────────────────────── */}
-      <div className="card border-dashed border-2 border-slate-200 bg-slate-50/50">
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp size={18} className="text-slate-300" />
-          <h2 className="font-bold text-slate-400 text-lg">Follower Growth Over Time</h2>
-          <span className="text-[10px] font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">IN PROGRESS</span>
+      {/* ── Follower Growth Over Time ─────────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={18} className="text-emerald-500" />
+            <h2 className="font-bold text-slate-900 text-lg">Follower Growth Over Time</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            {[{ label: '30d', days: 30 }, { label: '90d', days: 90 }, { label: 'All', days: 0 }].map(({ label, days }) => (
+              <button
+                key={label}
+                onClick={() => handleGrowthDaysChange(days)}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
+                  growthDays === days
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <p className="text-slate-400 text-sm">
-          Historical tracking requires storing daily follower snapshots in a database — the APIs only return current counts, not time-series data. This chart will populate once snapshot collection is live.
-        </p>
+
+        {snapshotsLoading ? (
+          <div className="h-[280px] flex items-center justify-center">
+            <RefreshCw size={20} className="animate-spin text-slate-300" />
+          </div>
+        ) : snapshots.length === 0 ? (
+          <div className="h-[280px] flex flex-col items-center justify-center gap-2 text-center">
+            <TrendingUp size={28} className="text-slate-200" />
+            <p className="text-slate-500 text-sm font-medium">No snapshots yet</p>
+            <p className="text-slate-400 text-xs max-w-xs">
+              The first snapshot runs tonight at 6 AM UTC. Check back tomorrow — the chart builds one data point per day.
+            </p>
+          </div>
+        ) : (
+          <>
+            <FollowerGrowthChart data={snapshots} />
+            <p className="text-xs text-slate-400 text-center mt-2">
+              {snapshots.length} {snapshots.length === 1 ? 'snapshot' : 'snapshots'} · tracking since {snapshots[0]?.date} · updates daily
+              {snapshots.length < 7 && ' · chart fills in over time'}
+            </p>
+          </>
+        )}
       </div>
 
       {/* ── Content Type Performance ─────────────────────────────────────────── */}
