@@ -6,14 +6,16 @@ import FacebookAnalytics from '../components/FacebookAnalytics';
 import InstagramAnalytics from '../components/InstagramAnalytics';
 import InstagramAudience from '../components/InstagramAudience';
 import AllOverview from '../components/AllOverview';
+import InstagramCaptions from '../components/InstagramCaptions';
 
 
 const LIVE_TABS = [
-  { id: 'overview-live',      label: 'Overview',            badge: 'LIVE' },
-  { id: 'facebook-live',      label: 'Facebook',            badge: 'LIVE' },
-  { id: 'instagram-live',     label: 'Instagram',           badge: 'LIVE' },
-  { id: 'instagram-audience', label: 'Instagram Audience',  badge: ''     },
-  { id: 'youtube-live',       label: 'YouTube',             badge: 'LIVE' },
+  { id: 'overview-live',        label: 'Overview',             badge: 'LIVE' },
+  { id: 'facebook-live',        label: 'Facebook',             badge: 'LIVE' },
+  { id: 'instagram-live',       label: 'Instagram',            badge: 'LIVE' },
+  { id: 'instagram-audience',   label: 'Instagram Audience',   badge: ''     },
+  { id: 'instagram-captions',   label: 'Instagram Captions',   badge: ''     },
+  { id: 'youtube-live',         label: 'YouTube',              badge: 'LIVE' },
 ];
 
 function LiveTabIcon({ id }) {
@@ -28,7 +30,7 @@ function LiveTabIcon({ id }) {
       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
     </svg>
   );
-  if (id === 'instagram-live' || id === 'instagram-audience') return (
+  if (id === 'instagram-live' || id === 'instagram-audience' || id === 'instagram-captions') return (
     <svg width="16" height="16" viewBox="0 0 24 24">
       <defs>
         <linearGradient id="ig-live" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -94,6 +96,7 @@ export default function Dashboard() {
               {tab.id === 'facebook-live'      && <FacebookAnalytics />}
               {tab.id === 'instagram-live'     && <InstagramAnalytics />}
               {tab.id === 'instagram-audience' && <InstagramAudience />}
+              {tab.id === 'instagram-captions' && <InstagramCaptions />}
               {tab.id === 'youtube-live'       && <YouTubeAnalytics />}
             </div>
           ))}
