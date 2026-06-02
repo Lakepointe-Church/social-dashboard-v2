@@ -10,12 +10,12 @@ import InstagramCaptions from '../components/InstagramCaptions';
 
 
 const LIVE_TABS = [
-  { id: 'overview-live',        label: 'Overview',             badge: 'LIVE' },
-  { id: 'facebook-live',        label: 'Facebook',             badge: 'LIVE' },
-  { id: 'instagram-live',       label: 'Instagram',            badge: 'LIVE' },
-  { id: 'instagram-audience',   label: 'Instagram Audience',   badge: ''     },
-  { id: 'instagram-captions',   label: 'Instagram Captions',   badge: ''     },
-  { id: 'youtube-live',         label: 'YouTube',              badge: 'LIVE' },
+  { id: 'overview-live',        label: 'Overview'           },
+  { id: 'facebook-live',        label: 'Facebook'           },
+  { id: 'instagram-live',       label: 'Instagram'          },
+  { id: 'instagram-audience',   label: 'Instagram Audience' },
+  { id: 'instagram-captions',   label: 'Instagram Captions' },
+  { id: 'youtube-live',         label: 'YouTube'            },
 ];
 
 function LiveTabIcon({ id }) {
@@ -80,11 +80,6 @@ export default function Dashboard() {
                 }`}>
                 <LiveTabIcon id={tab.id} />
                 <span>{tab.label}</span>
-                {tab.badge && (
-                  <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                    {tab.badge}
-                  </span>
-                )}
               </button>
             ))}
           </div>

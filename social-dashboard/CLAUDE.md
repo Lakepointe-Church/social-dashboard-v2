@@ -29,6 +29,7 @@ social-dashboard/
 │       ├── youtube.js                ← YouTube Data API v3 proxy
 │       ├── chat.js                   ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
 │       ├── ig-carousel-children.js   ← Fetches IG carousel slide media URLs
+│       ├── ig-comment-search.js      ← Comment phrase search: scans all posts in a date range, counts phrase matches per post
 │       └── fb-album-photos.js        ← Fetches FB album photo attachments
 ├── src/
 │   ├── components/
@@ -137,6 +138,17 @@ social-dashboard/
 - **Workaround (already live):** Caption-based detection picks up LP's own posts that mention Josh. Ask Josh's team to consistently include `@lpconnect`, `@joshhowerton`, or `live free` in collab captions on Josh's side too.
 - **Real fix:** Meta App Review (unlocks Business Discovery + Page Public Content Access).
 
+### `/api/ig-comment-search`
+
+- **Auth:** `META_PAGE_ACCESS_TOKEN` + `META_APP_SECRET` (appsecret_proof pattern — same as all other IG routes)
+- **Permission required:** `instagram_manage_comments` — added to the Meta app June 2, 2026. No App Review needed for internal tools; works in dev mode for app admins.
+- **Query params:** `?phrase=sermon` (required), `?since=YYYY-MM-DD` (default: Jan 1 of current year), `?until=YYYY-MM-DD` (default: today)
+- **Behavior:** Paginates through ALL IG posts in the date range (not just the 50 most recent), fetches all comments per post, counts case-insensitive matches for the phrase. Paginates comments too.
+- **Response:** `{ phrase, since, until, totalMatches, postsScanned, postsWithMatches, breakdown: [{ mediaId, caption, timestamp, mediaUrl, permalink, matchCount }] }` — breakdown sorted by matchCount descending.
+- **Timeout:** `export const config = { maxDuration: 300 }` — scanning a full year of posts + comments can take 30–60 seconds.
+- **Critical bug fixed:** Meta's `paging.next` cursor URLs omit `appsecret_proof`. The `withProof(url, proof)` helper re-attaches it before following any pagination link (both media list and per-post comments). Without this, any account with >50 total posts fails on the second page.
+- **Permission error detection:** If the token lacks `instagram_manage_comments`, the API returns `{ error: '...', code: 'MISSING_PERMISSION' }` with HTTP 403 so the UI can surface a clear message.
+
 ### `/api/snapshots/save`
 
 - **Auth:** Vercel injects `Authorization: Bearer <CRON_SECRET>` on cron calls; check is skipped if `CRON_SECRET` is not set (local dev). `META_APP_SECRET` guard added — if missing, `appSecretProof` returns empty string (graceful local fallback).
@@ -224,7 +236,7 @@ If re-enabling: add back the `AIChatPanel` import, `showAI`/`liveContext` state,
 
 ---
 
-## InstagramAnalytics.js — Current Features (as of May 2026)
+## InstagramAnalytics.js — Current Features (as of June 2026)
 
 - **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips, date range presets (7d/30d/90d + custom), and Refresh button stay pinned below the main app header while scrolling. `top-16` accounts for the main `Header.js` which is `h-16 sticky top-0`.
 - **Profile Overview KPI cards** — labeled "Account-wide · not affected by filters" because these pull from account-level insights (not per-post), so content type and date filters don't change them.
@@ -233,6 +245,7 @@ If re-enabling: add back the `AIChatPanel` import, `showAI`/`liveContext` state,
 - **Reel & Photo insights tables** — top N per type (dynamic count, max 10), sorted by views. Columns: Post, Type, Date, Views, rate metrics. Reels also show Avg Watch Time. Skip Rate and Repost Rate were removed when Instagram deprecated the `plays` and `clips_replays_count` metrics in v22.0.
 - **All Posts table** — numbered rows, sortable columns including Type (click header to toggle asc/desc, active column highlighted pink), paginated 20 at a time with "Load More" button showing remaining count.
 - **Demographics & geo removed** — Age & Gender chart, Top Cities, and Top Countries were removed from the Instagram tab (May 2026) to revisit later.
+- **Comment Phrase Search card** — `CommentSearch` component rendered below Follower Growth chart. Text input (defaults to "sermon") + preset date range buttons (This year / Last year / Last 90d / Last 30d) + custom start/end date pickers. On submit, calls `/api/ig-comment-search` and displays: total match count, posts scanned, posts with matches, and a per-post breakdown table sorted by match count. Each row links to the post's Instagram permalink.
 
 ---
 
@@ -342,7 +355,7 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 1. Go to developers.facebook.com → Tools → Graph API Explorer
 2. Select app: **Lakepointe Social Dashboard**
-3. Add permissions: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`
+3. Add permissions: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`, `instagram_manage_comments`
 4. Click **Generate Access Token** → complete Facebook login → select Lakepointe Church page
 5. In URL field: `142188242493004?fields=name,fan_count,access_token` → Submit
 6. Copy the `access_token` from the JSON response
@@ -353,6 +366,22 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 2, 2026 (session 8)
+
+- `d4e2893` — Add Instagram comment phrase search: `/api/ig-comment-search.js` (paginate all posts in date range, fetch comments per post, count phrase matches); `CommentSearch` component added to `InstagramAnalytics.js` below Follower Growth chart; `Search` icon added to lucide-react imports
+- `d34b2e1` — Fix: Meta's `paging.next` URLs omit `appsecret_proof`; add `withProof()` helper to re-attach it before following any pagination link (both media list and per-post comments)
+- `37efa90` — Add date range to comment phrase search: replace year dropdown with preset buttons (This year / Last year / Last 90d / Last 30d) + custom start/end date pickers; API now accepts `since`/`until` params instead of `year`
+- PR #3 opened: `feature/caption-analyzer` → `main`
+
+#### Key decisions this session
+- **`instagram_manage_comments` does NOT require App Review for internal tools.** In dev mode (or Live mode with admin role), adding the permission to the app in Meta for Developers and regenerating the token is sufficient. No submission needed since the dashboard is internal-only.
+- **Meta's `paging.next` URLs don't include `appsecret_proof`** — this is a systemic issue that will affect any new API route that paginates. Always wrap pagination URLs with `withProof(url, proof)` before following them.
+- **Comment search is on-demand, not cached** — the scan can take 30–60 seconds depending on post count and comment volume. `maxDuration: 300` is set on the Vercel function. A loading hint in the UI sets expectations.
+- **Token refresh instructions updated** — `instagram_manage_comments` added to the permission list in "How to Refresh the Meta Token" so it's included on every future token regeneration.
+- **LinkDM context:** The social team uses LinkDM (not ManyChat) for comment automations. The "Sermon" keyword triggers a DM with a link when someone comments it. The comment phrase search was built specifically to measure this trigger's reach across posts.
+
+---
 
 ### June 2, 2026 (session 7)
 
