@@ -9,6 +9,13 @@ export const config = { maxDuration: 300 };
 
 const IG_ID = process.env.META_INSTAGRAM_ID;
 
+// Meta's paging.next URLs don't include appsecret_proof — add it before following them
+function withProof(url, proof) {
+  const u = new URL(url);
+  u.searchParams.set('appsecret_proof', proof);
+  return u.toString();
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -50,7 +57,7 @@ export default async function handler(req, res) {
         }
       }
 
-      mediaUrl = (pastYear || !data.paging?.next) ? null : data.paging.next;
+      mediaUrl = (pastYear || !data.paging?.next) ? null : withProof(data.paging.next, proof);
     }
 
     // ── Step 2: fetch comments per post and count phrase matches ──────────────
@@ -86,7 +93,7 @@ export default async function handler(req, res) {
           if ((comment.text || '').toLowerCase().includes(phrase)) matchCount++;
         }
 
-        commUrl = data.paging?.next || null;
+        commUrl = data.paging?.next ? withProof(data.paging.next, proof) : null;
       }
 
       if (matchCount > 0) {
