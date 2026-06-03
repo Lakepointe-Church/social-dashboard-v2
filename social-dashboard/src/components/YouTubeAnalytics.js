@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   TrendingUp, Eye, ThumbsUp, MessageSquare, RefreshCw, AlertCircle,
-  ChevronDown, Clock, MousePointer, Lock, Activity,
+  ChevronDown, Clock, Lock, Activity,
 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
@@ -635,7 +635,7 @@ export default function YouTubeAnalytics() {
               </span>
           }
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {analytics ? (
             <>
               <StatCard
@@ -652,23 +652,11 @@ export default function YouTubeAnalytics() {
                 icon={<Activity size={20}/>}
                 iconBg="bg-orange-100" iconColor="text-orange-600"
               />
-              {analytics.impressionCtr !== null ? (
-                <StatCard
-                  label="Impression CTR"
-                  value={`${(analytics.impressionCtr * 100).toFixed(2)}%`}
-                  subtext="Thumbnail click-through rate"
-                  icon={<MousePointer size={20}/>}
-                  iconBg="bg-pink-100" iconColor="text-pink-600"
-                />
-              ) : (
-                <PendingCard label="Impression CTR" icon={<MousePointer size={20}/>} />
-              )}
             </>
           ) : (
             <>
-              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}        />
-              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>}     />
-              <PendingCard label="Impression CTR"         icon={<MousePointer size={20}/>} />
+              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}    />
+              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>} />
             </>
           )}
         </div>
