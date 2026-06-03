@@ -88,7 +88,6 @@ function PostCard({ post, rank, metric, metricLabel, onPostClick }) {
             alt={truncate(post.caption, 40)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImgError(true)}
-            crossOrigin="anonymous"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2"
@@ -190,7 +189,7 @@ function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment,
           <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
             {p.mediaUrl && !imgError ? (
               <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
-                onError={() => setImgError(true)} crossOrigin="anonymous" />
+                onError={() => setImgError(true)} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-lg"
                 style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
