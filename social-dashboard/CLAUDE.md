@@ -286,6 +286,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
+- [ ] **Database-backed data layer (Neon Postgres)** — planned future session (~3–5 hrs). Replace live API calls with: daily cron → fetch all platforms → upsert into Neon Postgres → dashboard reads from DB. Benefits: historical post engagement snapshots, faster loads, dashboard stays up when token expires. Use Neon via Vercel Marketplace. Will not affect Meta App Review (backend-only change, same UI/permissions).
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
 - [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
 - [x] **YouTube tab** — fully built out: sticky filter bar, content type chips, date filter, channel KPIs, content breakdown (single row), top-10 horizontal scroll rows, sortable All Videos table, OutsideDateRangeNote, pending OAuth placeholders
@@ -353,19 +354,38 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ## How to Refresh the Meta Token
 
-1. Go to developers.facebook.com → Tools → Graph API Explorer
-2. Select app: **Lakepointe Social Dashboard**
-3. Add permissions: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`, `instagram_manage_comments`
-4. Click **Generate Access Token** → complete Facebook login → select Lakepointe Church page
-5. In URL field: `142188242493004?fields=name,fan_count,access_token` → Submit
-6. Copy the `access_token` from the JSON response
-7. Go to Tools → Access Token Debugger → paste token → Debug → **Extend Access Token**
-8. Copy the new long-lived token
-9. Go to Vercel → social-dashboard-v2 → Environment Variables → edit `META_PAGE_ACCESS_TOKEN` → paste → Save → Redeploy
+The Graph API Explorer cannot generate Page Tokens when "Require App Secret" is ON (it will show "Page access tokens cannot be generated"). Use this workaround:
+
+1. Go to **Meta Developer Console** → Lakepointe Social Dashboard → **App Settings → Advanced → Security** → uncheck **"Require App Secret"** → Save
+2. Go to developers.facebook.com → Tools → **Graph API Explorer**
+3. Select app: **Lakepointe Social Dashboard**
+4. Confirm permissions include: `read_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_manage_insights`, `instagram_manage_comments`
+5. Keep **User Token** selected, click **Generate Access Token** → complete Facebook login
+6. In URL field enter: `142188242493004?fields=access_token` → click **Submit**
+7. Copy the `access_token` from the JSON response (this is the Page Access Token)
+8. Go to **Tools → Access Token Debugger** → paste token → Debug → **Extend Access Token**
+9. Copy the new long-lived token
+10. Go to **Vercel** → social-dashboard-v2 → Environment Variables → edit `META_PAGE_ACCESS_TOKEN` → paste → Save → Redeploy
+11. Go back to **App Settings → Advanced → Security** → re-enable **"Require App Secret"** → Save
+
+**Note:** The token expires every ~60 days. The dashboard will return `"Invalid OAuth 2.0 Access Token"` when it expires — that's the signal to run through this process again.
 
 ---
 
 ## Recent Changes (June 2026)
+
+### June 3, 2026 (session 9)
+
+- No code commits this session — token refresh and architecture planning only.
+
+#### Key decisions and findings this session
+- **Facebook data broke due to expired `META_PAGE_ACCESS_TOKEN`** — confirmed via `curl` against production URL returning `"Invalid OAuth 2.0 Access Token"`. Token expires every ~60 days as expected.
+- **Token refresh workaround documented** — the Graph API Explorer cannot generate Page Tokens when "Require App Secret" is ON. Workaround: (1) temporarily disable "Require App Secret" in App Settings → Advanced, (2) generate User Token in Explorer, (3) call `142188242493004?fields=access_token` to exchange for Page Token, (4) extend via Access Token Debugger, (5) re-enable "Require App Secret". Instructions updated in "How to Refresh the Meta Token" section above.
+- **Database-backed architecture planned (future session)** — considering migrating from live API calls to a daily cron → Neon Postgres → dashboard read pattern. Benefits: historical post engagement data, faster loads, dashboard stays up even when token expires. Estimate: ~3–5 hours of work. Decision: proceed in a future session.
+- **Neon free tier is sufficient** — ~0.5 GB free storage; at ~200 KB/day ingestion rate that's years of runway.
+- **Meta App Review unaffected** — the DB architecture change is backend-only; the dashboard UI and permissions stay identical, so the pending review is not impacted.
+
+---
 
 ### June 2, 2026 (session 8)
 
