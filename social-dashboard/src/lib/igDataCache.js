@@ -8,7 +8,7 @@ const TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function fetchInstagramData() {
   if (cache && cacheTime && Date.now() - cacheTime < TTL) return cache;
-  const res = await fetch('/api/instagram');
+  const res = await fetch('/api/db/instagram');
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error || `HTTP ${res.status}`);

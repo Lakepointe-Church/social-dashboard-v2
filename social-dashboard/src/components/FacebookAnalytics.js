@@ -331,7 +331,7 @@ export default function FacebookAnalytics() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/facebook');
+      const res = await fetch('/api/db/facebook');
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
       setData(await res.json());
     } catch (err) { setError(err.message); }
