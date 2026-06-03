@@ -58,11 +58,27 @@ async function fetchYTAnalytics(accessToken) {
     }
   } catch (_) { /* impressions unavailable — leave null */ }
 
+  // Per-video avg watch time — best-effort
+  let videoWatchTime = {};
+  try {
+    const pvUrl = new URL(base);
+    pvUrl.searchParams.set('metrics',    'averageViewDuration');
+    pvUrl.searchParams.set('dimensions', 'video');
+    pvUrl.searchParams.set('sort',       '-averageViewDuration');
+    pvUrl.searchParams.set('maxResults', '200');
+    const pvRes  = await fetch(pvUrl.toString(), { headers });
+    const pvData = await pvRes.json();
+    if (!pvData.error && pvData.rows) {
+      pvData.rows.forEach(row => { videoWatchTime[row[0]] = Math.round(row[1]); });
+    }
+  } catch (_) { /* silent */ }
+
   return {
     totalWatchMins: Math.round(watchRow[0] || 0),
     avgWatchSecs:   Math.round(watchRow[1] || 0),
     impressions,
     impressionCtr,
+    videoWatchTime,
   };
 }
 
