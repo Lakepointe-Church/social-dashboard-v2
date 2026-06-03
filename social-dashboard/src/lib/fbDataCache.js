@@ -4,7 +4,7 @@ const TTL = 5 * 60 * 1000;
 
 export async function fetchFacebookData() {
   if (cache && cacheTime && Date.now() - cacheTime < TTL) return cache;
-  const res = await fetch('/api/facebook');
+  const res = await fetch('/api/db/facebook');
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error || `HTTP ${res.status}`);

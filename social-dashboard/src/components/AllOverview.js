@@ -369,7 +369,7 @@ export default function AllOverview({ onNavigate }) {
   // ── KPI totals ─────────────────────────────────────────────────────────────
   const totalFollowers = (fbData?.page?.followersCount    || 0)
                        + (igData?.account?.followersCount  || 0)
-                       + (ytData?.channel?.subscriberCount || 0);
+                       + (ytData?.channelInfo?.subscriberCount || 0);
 
   const totalReach = (fbData?.insights?.reach || 0) + (igData?.insights?.reach || 0);
   const totalNewFollowers = (fbData?.insights?.newFans || 0) + (igData?.insights?.newFollowers || 0);
@@ -395,7 +395,7 @@ export default function AllOverview({ onNavigate }) {
     ...m,
     current: m.platform === 'facebook'  ? (fbData?.page?.followersCount       || 0)
             : m.platform === 'instagram' ? (igData?.account?.followersCount    || 0)
-            : m.platform === 'youtube'   ? (ytData?.channel?.subscriberCount   || 0)
+            : m.platform === 'youtube'   ? (ytData?.channelInfo?.subscriberCount   || 0)
             : 0,
   }));
 
@@ -449,7 +449,7 @@ export default function AllOverview({ onNavigate }) {
         />
         <MetricCard
           label="30-Day Reach" value={fmtBig(totalReach)}
-          subtext={ytData?.channel ? 'FB + IG · YT pending OAuth' : 'Facebook + Instagram'}
+          subtext={ytData?.channelInfo ? 'FB + IG · YT pending OAuth' : 'Facebook + Instagram'}
           icon={<Eye size={20} />} iconBg="bg-purple-100" iconColor="text-purple-600"
         />
         <MetricCard
@@ -488,9 +488,9 @@ export default function AllOverview({ onNavigate }) {
           label="YouTube" color="#FF0000" tabId="youtube-live"
           error={ytError} onNavigate={onNavigate}
           stats={[
-            { label: 'Subscribers',    value: fmtBig(ytData?.channel?.subscriberCount) },
-            { label: 'Total Views',    value: fmtBig(ytData?.channel?.viewCount) },
-            { label: 'Videos (total)', value: ytData?.channel?.videoCount?.toLocaleString() || '—' },
+            { label: 'Subscribers',    value: fmtBig(ytData?.channelInfo?.subscriberCount) },
+            { label: 'Total Views',    value: fmtBig(ytData?.channelInfo?.viewCount) },
+            { label: 'Videos (total)', value: ytData?.channelInfo?.videoCount?.toLocaleString() || '—' },
           ]}
         />
       </div>

@@ -99,14 +99,26 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
   const [slides,        setSlides]        = useState([]);
   const [activeSlide,   setActiveSlide]   = useState(0);
   const [loadingSlides, setLoadingSlides] = useState(false);
+  const [freshMedia,    setFreshMedia]    = useState(null);
 
   useEffect(() => {
     if (post) {
       setImgError(false);
       setSlides([]);
       setActiveSlide(0);
+      setFreshMedia(null);
       requestAnimationFrame(() => setVisible(true));
       document.body.style.overflow = 'hidden';
+
+      const isReel = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
+
+      // For IG reels: fetch fresh CDN URLs (stored URLs expire within hours)
+      if (platform === 'instagram' && isReel && post.id) {
+        fetch(`/api/ig-media?id=${post.id}`)
+          .then(r => r.json())
+          .then(data => { if (!data.error) setFreshMedia(data); })
+          .catch(() => {});
+      }
 
       // Fetch carousel / album children
       if (post.mediaType === 'CAROUSEL_ALBUM') {
@@ -127,8 +139,9 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
     return () => { document.body.style.overflow = ''; };
   }, [post, platform]);
 
-  // Reset imgError when changing slides
+  // Reset imgError when changing slides or when fresh media arrives
   useEffect(() => { setImgError(false); }, [activeSlide]);
+  useEffect(() => { if (freshMedia) setImgError(false); }, [freshMedia]);
 
   const handleClose = useCallback(() => {
     setVisible(false);
@@ -159,10 +172,11 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
     : 'Photo';
 
   // Active slide media (falls back to post's own media when no slides loaded)
-  const hasSlides     = slides.length > 1;
-  const currentSlide  = hasSlides ? slides[activeSlide] : null;
-  const activeMediaUrl = currentSlide?.mediaUrl ?? post.mediaUrl;
-  const activeVideoUrl = currentSlide?.videoUrl ?? post.videoUrl;
+  // For IG reels, prefer freshMedia URLs (fetched live to avoid CDN expiry)
+  const hasSlides      = slides.length > 1;
+  const currentSlide   = hasSlides ? slides[activeSlide] : null;
+  const activeMediaUrl = currentSlide?.mediaUrl ?? freshMedia?.mediaUrl ?? post.mediaUrl;
+  const activeVideoUrl = currentSlide?.videoUrl ?? freshMedia?.videoUrl ?? post.videoUrl;
 
   const engRate  = post.engagementRate ?? 0;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
