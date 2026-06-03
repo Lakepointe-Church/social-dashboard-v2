@@ -112,6 +112,21 @@ export default async function handler(req, res) {
           engaged        = EXCLUDED.engaged,
           snapshotted_at = NOW()
       `;
+
+      const fbDays = Math.floor((Date.now() - new Date(p.created_time).getTime()) / 86400000);
+      await db`
+        INSERT INTO post_metrics_history
+          (post_id, platform, snapshot_date, days_since_published,
+           like_count, comment_count, share_count, total_interactions)
+        VALUES
+          (${p.id}, 'facebook', ${today}, ${fbDays},
+           ${likes}, ${comments}, ${shares}, ${likes + comments + shares})
+        ON CONFLICT (post_id, snapshot_date) DO UPDATE SET
+          like_count         = EXCLUDED.like_count,
+          comment_count      = EXCLUDED.comment_count,
+          share_count        = EXCLUDED.share_count,
+          total_interactions = EXCLUDED.total_interactions
+      `;
     }
     results.facebook_posts = (fbData.data || []).length;
   } catch (e) {
@@ -291,6 +306,29 @@ export default async function handler(req, res) {
           comment_rate       = EXCLUDED.comment_rate,
           snapshotted_at     = NOW()
       `;
+
+      const igDays = Math.floor((Date.now() - new Date(m.timestamp).getTime()) / 86400000);
+      await db`
+        INSERT INTO post_metrics_history
+          (post_id, platform, snapshot_date, days_since_published,
+           like_count, comment_count, share_count, save_count,
+           reach, views, total_interactions, avg_watch_time, engagement_rate)
+        VALUES
+          (${m.id}, 'instagram', ${today}, ${igDays},
+           ${likes}, ${comments}, ${shares}, ${saves},
+           ${reach}, ${stats.views || 0}, ${engaged},
+           ${stats.ig_reels_avg_watch_time || 0}, ${engRate})
+        ON CONFLICT (post_id, snapshot_date) DO UPDATE SET
+          like_count         = EXCLUDED.like_count,
+          comment_count      = EXCLUDED.comment_count,
+          share_count        = EXCLUDED.share_count,
+          save_count         = EXCLUDED.save_count,
+          reach              = EXCLUDED.reach,
+          views              = EXCLUDED.views,
+          total_interactions = EXCLUDED.total_interactions,
+          avg_watch_time     = EXCLUDED.avg_watch_time,
+          engagement_rate    = EXCLUDED.engagement_rate
+      `;
     }
     results.instagram_posts = (mediaData.data || []).length;
 
@@ -455,6 +493,21 @@ export default async function handler(req, res) {
             comment_count   = EXCLUDED.comment_count,
             engagement_rate = EXCLUDED.engagement_rate,
             snapshotted_at  = NOW()
+        `;
+
+        const ytDays = Math.floor((Date.now() - new Date(v.snippet?.publishedAt).getTime()) / 86400000);
+        await db`
+          INSERT INTO post_metrics_history
+            (post_id, platform, snapshot_date, days_since_published,
+             like_count, comment_count, views, engagement_rate)
+          VALUES
+            (${v.id}, 'youtube', ${today}, ${ytDays},
+             ${likes}, ${comments}, ${views}, ${engRate})
+          ON CONFLICT (post_id, snapshot_date) DO UPDATE SET
+            like_count      = EXCLUDED.like_count,
+            comment_count   = EXCLUDED.comment_count,
+            views           = EXCLUDED.views,
+            engagement_rate = EXCLUDED.engagement_rate
         `;
       }
       results.youtube_videos = (detailData.items || []).length;

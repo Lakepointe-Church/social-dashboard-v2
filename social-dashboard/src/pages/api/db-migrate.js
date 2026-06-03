@@ -174,6 +174,26 @@ export default async function handler(req, res) {
       )
     `;
 
+    // ── Post metrics history (daily snapshot per post for velocity tracking) ──
+    await db`
+      CREATE TABLE IF NOT EXISTS post_metrics_history (
+        post_id              TEXT,
+        platform             TEXT,
+        snapshot_date        DATE,
+        days_since_published INTEGER,
+        like_count           INTEGER DEFAULT 0,
+        comment_count        INTEGER DEFAULT 0,
+        share_count          INTEGER DEFAULT 0,
+        save_count           INTEGER DEFAULT 0,
+        reach                INTEGER DEFAULT 0,
+        views                INTEGER DEFAULT 0,
+        total_interactions   INTEGER DEFAULT 0,
+        avg_watch_time       REAL    DEFAULT 0,
+        engagement_rate      REAL    DEFAULT 0,
+        PRIMARY KEY (post_id, snapshot_date)
+      )
+    `;
+
     return res.status(200).json({ ok: true, message: 'Schema ready — all tables and columns created or already exist.' });
   } catch (err) {
     console.error('Migration error:', err);
