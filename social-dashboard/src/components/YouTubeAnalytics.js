@@ -2,10 +2,10 @@
 // YouTubeAnalytics — sticky control bar, date filter, OAuth-pending metrics,
 // content breakdown, top-10 video cards, sortable all-videos table
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   TrendingUp, Eye, ThumbsUp, MessageSquare, RefreshCw, AlertCircle,
-  ChevronDown, Clock, MousePointer, Lock, Activity,
+  ChevronDown, Clock, Lock, Activity,
 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
@@ -184,8 +184,12 @@ function Top10Section({ videos, onVideoClick }) {
     <div className="card text-center py-12 text-slate-400 text-sm">No videos match the current filters.</div>
   );
 
-  const byViews = [...videos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
-  const byEng   = [...videos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
+  const byViews    = [...videos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
+  const byEng      = [...videos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
+  const byWatchTime = [...videos]
+    .filter(v => v.avgWatchSecs !== null)
+    .sort((a, b) => b.avgWatchSecs - a.avgWatchSecs)
+    .slice(0, 10);
 
   function Row({ title, items, metricFn, metricLabel }) {
     return (
@@ -207,8 +211,11 @@ function Top10Section({ videos, onVideoClick }) {
 
   return (
     <div className="space-y-6">
-      <Row title="🏆 Top 10 by Views"           items={byViews} metricFn={v => fmtBig(v.viewCount)}               metricLabel="Views"    />
-      <Row title="❤️ Top 10 by Engagement Rate" items={byEng}   metricFn={v => `${v.engagementRate.toFixed(2)}%`} metricLabel="Eng. Rate" />
+      <Row title="🏆 Top 10 by Views"           items={byViews}     metricFn={v => fmtBig(v.viewCount)}               metricLabel="Views"         />
+      <Row title="❤️ Top 10 by Engagement Rate" items={byEng}       metricFn={v => `${v.engagementRate.toFixed(2)}%`} metricLabel="Eng. Rate"     />
+      {byWatchTime.length > 0 && (
+        <Row title="⏱️ Top 10 by Avg Watch Time" items={byWatchTime} metricFn={v => fmtWatchTime(v.avgWatchSecs)}     metricLabel="Avg Watch Time" />
+      )}
     </div>
   );
 }
@@ -266,6 +273,9 @@ function AllVideosTable({ videos, tableLimit, onLoadMore, onVideoClick }) {
                 <th className={thClass('durationSecs')} onClick={() => toggleSort('durationSecs')}>
                   Duration{arrow('durationSecs')}
                 </th>
+                <th className={thClass('avgWatchSecs')} onClick={() => toggleSort('avgWatchSecs')}>
+                  Avg Watch{arrow('avgWatchSecs')}
+                </th>
                 <th className={thClass('viewCount')} onClick={() => toggleSort('viewCount')}>
                   Views{arrow('viewCount')}
                 </th>
@@ -304,6 +314,7 @@ function AllVideosTable({ videos, tableLimit, onLoadMore, onVideoClick }) {
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap font-mono">{fmtDate(v.publishedAt)}</td>
                     <td className="px-4 py-3 text-right text-slate-500 text-xs font-mono whitespace-nowrap">{v.duration}</td>
+                    <td className="px-4 py-3 text-right text-slate-500 text-xs font-mono whitespace-nowrap">{fmtWatchTime(v.avgWatchSecs)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-700 font-semibold">{v.viewCount.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{v.likeCount.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{v.commentCount.toLocaleString()}</td>
@@ -369,6 +380,7 @@ function OutsideDateRangeNote({ videos }) {
 export default function YouTubeAnalytics() {
   const [channel,       setChannel]       = useState(null);
   const [analytics,     setAnalytics]     = useState(null);
+  const [watchTimeMap,  setWatchTimeMap]  = useState({});
   const [allVideos,     setAllVideos]      = useState([]);
   const [nextPageToken, setNextPageToken]  = useState(null);
   const [loading,       setLoading]        = useState(false);
@@ -411,7 +423,10 @@ export default function YouTubeAnalytics() {
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
       const data = await res.json();
       if (data.channel)   setChannel(data.channel);
-      if (data.analytics) setAnalytics(data.analytics);
+      if (data.analytics) {
+        setAnalytics(data.analytics);
+        if (data.analytics.videoWatchTime) setWatchTimeMap(data.analytics.videoWatchTime);
+      }
       setAllVideos(data.videos || []);
       setNextPageToken(data.nextPageToken || null);
       setFetchedAt(data.fetchedAt);
@@ -457,8 +472,14 @@ export default function YouTubeAnalytics() {
     ? (customStart && customEnd ? `${customStart} – ${customEnd}` : 'Custom range')
     : `Last ${datePreset} days`;
 
+  // ── Merge per-video watch time into video objects ─────────────────────────
+  const videosWithWatchTime = useMemo(
+    () => allVideos.map(v => ({ ...v, avgWatchSecs: watchTimeMap[v.id] ?? null })),
+    [allVideos, watchTimeMap]
+  );
+
   // ── Filtering ──────────────────────────────────────────────────────────────
-  const dateFilteredVideos = allVideos.filter(v => {
+  const dateFilteredVideos = videosWithWatchTime.filter(v => {
     const d = new Date(v.publishedAt);
     if (rangeStart && d < rangeStart) return false;
     if (rangeEnd   && d > rangeEnd)   return false;
@@ -483,7 +504,7 @@ export default function YouTubeAnalytics() {
 
   // Videos loaded but outside the current date range
   const dateFilteredIds    = new Set(dateFilteredVideos.map(v => v.id));
-  const outsideDateRange   = allVideos.filter(v => !dateFilteredIds.has(v.id));
+  const outsideDateRange   = videosWithWatchTime.filter(v => !dateFilteredIds.has(v.id));
 
   // ── Per-type breakdown ─────────────────────────────────────────────────────
   const typeBreakdown = CONTENT_FILTERS.map(f => {
@@ -635,7 +656,7 @@ export default function YouTubeAnalytics() {
               </span>
           }
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {analytics ? (
             <>
               <StatCard
@@ -652,23 +673,11 @@ export default function YouTubeAnalytics() {
                 icon={<Activity size={20}/>}
                 iconBg="bg-orange-100" iconColor="text-orange-600"
               />
-              {analytics.impressionCtr !== null ? (
-                <StatCard
-                  label="Impression CTR"
-                  value={`${(analytics.impressionCtr * 100).toFixed(2)}%`}
-                  subtext="Thumbnail click-through rate"
-                  icon={<MousePointer size={20}/>}
-                  iconBg="bg-pink-100" iconColor="text-pink-600"
-                />
-              ) : (
-                <PendingCard label="Impression CTR" icon={<MousePointer size={20}/>} />
-              )}
             </>
           ) : (
             <>
-              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}        />
-              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>}     />
-              <PendingCard label="Impression CTR"         icon={<MousePointer size={20}/>} />
+              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}    />
+              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>} />
             </>
           )}
         </div>

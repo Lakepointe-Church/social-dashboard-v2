@@ -388,7 +388,7 @@ function CommentSearch() {
               <div className="text-3xl font-bold tabular-nums" style={{ color: IG_PINK }}>
                 {results.totalMatches.toLocaleString()}
               </div>
-              <div className="text-xs text-slate-500 mt-1 font-medium">"{results.phrase}" comments</div>
+              <div className="text-xs text-slate-500 mt-1 font-medium">&ldquo;{results.phrase}&rdquo; comments</div>
               <div className="text-xs text-slate-400 mt-0.5 font-mono">{results.since} – {results.until}</div>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">

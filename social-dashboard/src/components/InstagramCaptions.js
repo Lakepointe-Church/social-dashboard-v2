@@ -638,7 +638,7 @@ export default function InstagramCaptions() {
                       Felt-need openers drive {feltNeedMultiplier}× more engagement
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      Captions that open with human struggle or tension ("pain", "broken", "lost") average {feltNeedEngAvg.toFixed(1)}% engagement vs. {nonFeltNeedEngAvg.toFixed(1)}% for other openers. ({feltNeedPosts.length} posts detected)
+                      Captions that open with human struggle or tension (&ldquo;pain&rdquo;, &ldquo;broken&rdquo;, &ldquo;lost&rdquo;) average {feltNeedEngAvg.toFixed(1)}% engagement vs. {nonFeltNeedEngAvg.toFixed(1)}% for other openers. ({feltNeedPosts.length} posts detected)
                     </p>
                   </div>
                 </div>

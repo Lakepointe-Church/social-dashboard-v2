@@ -66,6 +66,29 @@ async function fetchYTAnalytics(accessToken) {
   };
 }
 
+// ── Per-video avg watch time ─────────────────────────────────────────────────
+async function fetchPerVideoWatchTime(accessToken, videoIdArray) {
+  if (!videoIdArray.length) return {};
+  const end   = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+
+  const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
+  url.searchParams.set('ids',        `channel==${CHANNEL_ID}`);
+  url.searchParams.set('startDate',  start);
+  url.searchParams.set('endDate',    end);
+  url.searchParams.set('metrics',    'averageViewDuration');
+  url.searchParams.set('dimensions', 'video');
+  url.searchParams.set('filters',    `video==${videoIdArray.join(',')}`);
+
+  const res  = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await res.json();
+  if (data.error || !data.rows) return {};
+
+  const map = {};
+  data.rows.forEach(row => { map[row[0]] = Math.round(row[1]); });
+  return map;
+}
+
 // ── Duration helpers ──────────────────────────────────────────────────────────
 function parseDurationSeconds(iso8601) {
   const match = iso8601?.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -151,11 +174,10 @@ export default async function handler(req, res) {
 
     // ── 3. Per-video stats + duration ─────────────────────────────────────────
     let videos = [];
+    let videoIdArray = [];
     if (searchData.items?.length) {
-      const videoIds = searchData.items
-        .map(v => v.id.videoId)
-        .filter(Boolean)
-        .join(',');
+      videoIdArray    = searchData.items.map(v => v.id.videoId).filter(Boolean);
+      const videoIds  = videoIdArray.join(',');
 
       const videoRes  = await fetch(
         `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails&id=${videoIds}&key=${apiKey}`
@@ -199,6 +221,7 @@ export default async function handler(req, res) {
       try {
         const token = await getAccessToken();
         analytics   = await fetchYTAnalytics(token);
+        analytics.videoWatchTime = await fetchPerVideoWatchTime(token, videoIdArray);
       } catch (err) {
         console.warn('YouTube Analytics (non-fatal):', err.message);
         analyticsError = err.message;
