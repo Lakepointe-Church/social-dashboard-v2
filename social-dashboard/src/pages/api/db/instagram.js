@@ -69,11 +69,12 @@ export default async function handler(req, res) {
       WHERE date = (SELECT MAX(date) FROM ig_demographics)
       ORDER BY age_group
     `;
+    const demoTotal = demoRows.reduce((s, d) => s + (d.male_count || 0) + (d.female_count || 0) + (d.unknown_count || 0), 0);
     const demographics = demoRows.map(d => ({
-      age: d.age_group,
-      M:   d.male_count    || 0,
-      F:   d.female_count  || 0,
-      U:   d.unknown_count || 0,
+      age:     d.age_group,
+      male:    demoTotal > 0 ? parseFloat(((d.male_count    / demoTotal) * 100).toFixed(1)) : 0,
+      female:  demoTotal > 0 ? parseFloat(((d.female_count  / demoTotal) * 100).toFixed(1)) : 0,
+      unknown: demoTotal > 0 ? parseFloat(((d.unknown_count / demoTotal) * 100).toFixed(1)) : 0,
     }));
 
     // ── Geo ───────────────────────────────────────────────────────────────────
@@ -83,8 +84,8 @@ export default async function handler(req, res) {
       ORDER BY value DESC
     `;
     const geo = {
-      cities:    geoRows.filter(r => r.geo_type === 'city').slice(0, 10).map(r => ({ name: r.name, value: r.value, pct: r.pct })),
-      countries: geoRows.filter(r => r.geo_type === 'country').slice(0, 8).map(r => ({ name: r.name, value: r.value, pct: r.pct })),
+      cities:    geoRows.filter(r => r.geo_type === 'city').slice(0, 10).map(r => ({ name: r.name, value: r.pct, followers: r.value })),
+      countries: geoRows.filter(r => r.geo_type === 'country').slice(0, 8).map(r => ({ name: r.name, value: r.pct, followers: r.value })),
     };
 
     return res.status(200).json({

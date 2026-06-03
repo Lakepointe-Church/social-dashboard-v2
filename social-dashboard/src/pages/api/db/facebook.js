@@ -71,8 +71,8 @@ export default async function handler(req, res) {
       ORDER BY value DESC
     `;
     const geo = {
-      cities:    geoRows.filter(r => r.geo_type === 'city').slice(0, 10).map(r => ({ name: r.name, value: r.value, pct: r.pct })),
-      countries: geoRows.filter(r => r.geo_type === 'country').slice(0, 8).map(r => ({ name: r.name, value: r.value, pct: r.pct })),
+      cities:    geoRows.filter(r => r.geo_type === 'city').slice(0, 10).map(r => ({ name: r.name, value: r.pct, followers: r.value })),
+      countries: geoRows.filter(r => r.geo_type === 'country').slice(0, 8).map(r => ({ name: r.name, value: r.pct, followers: r.value })),
     };
 
     return res.status(200).json({ page, insights, posts, demographics, geo, fetchedAt: new Date().toISOString() });
