@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     const fbRes  = await fetch(
       `${META_BASE}/${process.env.META_PAGE_ID}/posts` +
       `?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,permalink_url` +
-      `&limit=50&access_token=${token}&appsecret_proof=${ap}`
+      `&limit=25&access_token=${token}&appsecret_proof=${ap}`
     );
     const fbData = await fbRes.json();
     if (fbData.error) throw new Error(fbData.error.message);
