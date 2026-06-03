@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       id:             p.id,
       caption:        p.caption        || '',
       mediaType:      p.media_type,
-      mediaUrl:       p.media_url,
+      mediaUrl:       p.media_url || p.thumbnail_url || null,
       videoUrl:       p.video_url,
       thumbnail_url:  p.thumbnail_url,
       permalink:      p.permalink,
