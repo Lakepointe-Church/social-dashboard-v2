@@ -13,7 +13,7 @@ A live social media analytics dashboard for **Lakepointe Church** (@lpconnect). 
 
 **GitHub repo:** `github.com/Lakepointe-Church/social-dashboard-v2`
 **Live URL:** `social-dashboard-v2.vercel.app`
-**Stack:** Next.js 14, React 18, Tailwind CSS, Recharts, Lucide React, Upstash Redis (`@upstash/redis`)
+**Stack:** Next.js 14, React 18, Tailwind CSS, Recharts, Lucide React, Upstash Redis (`@upstash/redis`), Neon Postgres (`@neondatabase/serverless`)
 
 ---
 
@@ -30,7 +30,14 @@ social-dashboard/
 │       ├── chat.js                   ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
 │       ├── ig-carousel-children.js   ← Fetches IG carousel slide media URLs
 │       ├── ig-comment-search.js      ← Comment phrase search: scans all posts in a date range, counts phrase matches per post
-│       └── fb-album-photos.js        ← Fetches FB album photo attachments
+│       ├── ig-media.js               ← Returns fresh media_url + thumbnail_url for a single IG post (bypasses DB for expired CDN URLs)
+│       ├── fb-album-photos.js        ← Fetches FB album photo attachments
+│       ├── db-migrate.js             ← One-time schema migration: creates/updates all Neon tables
+│       ├── db-sync.js                ← Daily cron (06:30 UTC): fetches all platforms, upserts to Neon + post_metrics_history
+│       └── db/
+│           ├── facebook.js           ← DB-read endpoint: serves FacebookAnalytics from Neon
+│           ├── instagram.js          ← DB-read endpoint: serves InstagramAnalytics from Neon
+│           └── youtube.js            ← DB-read endpoint: serves YouTubeAnalytics from Neon
 ├── src/
 │   ├── components/
 │   │   ├── AllOverview.js        ← Cross-platform Overview tab (live)
@@ -55,13 +62,14 @@ social-dashboard/
 │   │   ├── DynamicViz.js         ← Renders AI Analyst chart/table responses (unused — see AIChatPanel note)
 │   │   └── CustomViewBuilder.js  ← Widget toggle UI
 │   ├── lib/
-│   │   ├── igDataCache.js        ← 5-min client-side cache for /api/instagram
-│   │   ├── fbDataCache.js        ← 5-min client-side cache for /api/facebook
-│   │   ├── ytDataCache.js        ← 5-min client-side cache for /api/youtube
+│   │   ├── igDataCache.js        ← 5-min client-side cache for /api/db/instagram
+│   │   ├── fbDataCache.js        ← 5-min client-side cache for /api/db/facebook
+│   │   ├── ytDataCache.js        ← 5-min client-side cache for /api/db/youtube
+│   │   ├── db.js                 ← Neon Postgres singleton client (uses DATABASE_URL)
 │   │   └── redis.js              ← Upstash Redis client singleton (supports KV_REST_API_* and UPSTASH_REDIS_REST_*)
 │   └── data/
 │       └── demoData.js           ← Hardcoded demo data + getDataContext() for AI Analyst fallback
-├── vercel.json               ← Cron job: /api/snapshots/save at 06:00 UTC daily
+├── vercel.json               ← Cron jobs: /api/snapshots/save at 06:00 UTC + /api/db-sync at 06:30 UTC daily
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
@@ -92,6 +100,7 @@ social-dashboard/
 | `KV_REST_API_URL`        | Upstash Redis REST URL — auto-set by Vercel when Upstash integration is connected |
 | `KV_REST_API_TOKEN`      | Upstash Redis REST token — auto-set by Vercel when Upstash integration is connected |
 | `CRON_SECRET`            | Auto-set by Vercel for cron job auth; injected as `Authorization: Bearer` header on cron calls |
+| `DATABASE_URL`           | Neon Postgres connection string — auto-set by Vercel when Neon integration is connected         |
 
 ---
 
@@ -287,11 +296,14 @@ This is expected. The app needs to be submitted for App Review and published bef
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
 - [ ] **Token refresh automation** — currently manual every 60 days. Could automate with a cron job that uses the App Secret to refresh.
 - [ ] **TikTok integration** — pending TikTok for Business API access approval
+- [x] **Database-backed data layer (Neon Postgres)** — live as of June 3, 2026. Daily cron syncs all platforms at 6:30 AM UTC. Dashboard reads from DB via `/api/db/*` endpoints. Post metrics history accumulating daily for future velocity charts. See session 10 notes.
 - [x] **Overview tab** — live cross-platform overview is complete (KPIs, per-platform cards, best post by channel, milestones, top content, content type performance, best time to post)
 - [x] **YouTube tab** — fully built out: sticky filter bar, content type chips, date filter, channel KPIs, content breakdown (single row), top-10 horizontal scroll rows, sortable All Videos table, OutsideDateRangeNote, pending OAuth placeholders
 - [x] **AI Analyst** — built and wired to live data; floating button and UI removed June 2026 (components still in repo — see AIChatPanel section)
 - [x] **Follower growth over time** — Redis snapshot infrastructure live. Cron runs daily at 6 AM UTC. Chart shown on Overview (all platforms), Facebook, Instagram, YouTube tabs. First snapshot stored June 2, 2026.
-- [ ] **Follower growth chart — backfill** — APIs don't provide historical data so the chart starts from June 2, 2026 and builds one point per day. No action needed; just patience.
+- [ ] **Follower growth chart — migrate to DB** — `daily_insights` now stores daily follower counts. Once the DB has enough history, migrate `GrowthChartSection` to read from `daily_insights` instead of Redis.
+- [ ] **Post velocity / benchmark charts (2.0 feature)** — `post_metrics_history` table accumulates daily snapshots per post. Build day-1/day-7/day-30 performance comparison (similar to YouTube Studio benchmarks) once ~3–4 weeks of data has accumulated.
+- [ ] **Follower growth chart — backfill** — APIs don't provide historical data so the Redis chart starts from June 2, 2026 and builds one point per day. No action needed; just patience.
 - [ ] **Remove remaining demo tabs** — TikTok demo tab and `demoData.js` can be removed once TikTok has live data (`getDataContext()` fallback in `/api/chat.js` can be removed too if AI Analyst stays off)
 
 ---
@@ -366,6 +378,33 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 3, 2026 (session 10)
+
+- `bf2eb12` — Add Neon Postgres data layer: `src/lib/db.js` singleton; `/api/db-migrate` (schema creation); `/api/db-sync` (daily cron, fetches all platforms, upserts posts + insights)
+- `4c88ed3` — Expand DB schema: full post data, demographics, geo, embed URLs across all tables; add `fb_demographics`, `fb_geo`, `ig_demographics`, `ig_geo` tables
+- `4875b7d` — Fix: reduce Facebook posts limit to 25 in db-sync (API overload error)
+- `b46fac2` — Wire dashboard to DB: `/api/db/facebook`, `/api/db/instagram`, `/api/db/youtube` read endpoints; `fbDataCache`, `igDataCache`, `ytDataCache` now point at `/api/db/*`; `FacebookAnalytics` direct fetch updated
+- `b7d633f` — Fix Overview YouTube KPIs (`channel` → `channelInfo`); fix Instagram thumbnail fallback
+- `99efbff` — Add `post_metrics_history` table: daily snapshot per post (days_since_published, all engagement metrics) for future velocity/benchmark charts
+- `4a66337` — Fix geo value/pct swap; fix IG demographics field names (`male`/`female` for AgeBreakdown chart)
+- `c6ab954` — Fix reel thumbnails: remove `crossOrigin="anonymous"`; add `/api/ig-media` endpoint for fresh CDN URLs; PostSpotlight fetches fresh reel URLs on open
+- `22964f1` — Auto-refresh expired reel thumbnails: `handleImgError` in PostCard/RateInsightsRow lazy-fetches fresh URL via `/api/ig-media` on failure
+- `120588a` — Fix spotlight: reset `imgError` when `freshMedia` arrives (was locking in clapperboard before async fetch completed)
+- PR #6 opened: `database-structure` → `main`
+
+#### Key decisions this session
+- **Dashboard now reads from Neon, not live APIs.** `/api/facebook`, `/api/instagram`, `/api/youtube` are still live proxies — used only by `db-sync` as data sources. The dashboard reads from `/api/db/*` endpoints which query Neon.
+- **Instagram signed CDN URLs expire** (video URLs in ~1–2 hours, thumbnails in several hours). The DB stores them at sync time (6:30 AM UTC). Grid thumbnails lazy-refresh via `/api/ig-media` on `onError`. Spotlight reel player always fetches fresh on open. Photos have longer-lived URLs and don't need this treatment.
+- **FB video embeds only work on approved domains** — the Facebook embed iframe only loads on `social-dashboard-v2.vercel.app`. Preview deployment URLs will show a broken embed; this is expected.
+- **`post_metrics_history` is the foundation for 2.0 velocity charts** — one row per post per day. Primary key `(post_id, snapshot_date)`. Accumulates starting June 3, 2026. Build the comparison UI in 3–4 weeks when enough data exists.
+- **After merging PR #6 to main**: hit `/api/db-migrate` then `/api/db-sync` manually on the production URL before the next morning cron fires.
+- **Neon free tier (0.5 GB) is sufficient** — ~200 KB/day ingestion rate, years of runway.
+- **`GeoBreakdown` component expects `value` = percentage, `followers` = count** — the live API's `parseGeo` function already returns this format. Our DB endpoints must match it (pct → value, count → followers).
+- **`AgeBreakdown` chart uses `dataKey="male"` / `dataKey="female"`** — not `M`/`F`. DB endpoint must return lowercase `male`/`female` as percentages (not counts).
+- **Profile visits / engagement / shares showing 0** — App Review gated. Will populate once Meta approves.
+
+---
 
 ### June 2, 2026 (session 8)
 
