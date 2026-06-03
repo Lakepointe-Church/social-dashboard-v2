@@ -139,8 +139,9 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
     return () => { document.body.style.overflow = ''; };
   }, [post, platform]);
 
-  // Reset imgError when changing slides
+  // Reset imgError when changing slides or when fresh media arrives
   useEffect(() => { setImgError(false); }, [activeSlide]);
+  useEffect(() => { if (freshMedia) setImgError(false); }, [freshMedia]);
 
   const handleClose = useCallback(() => {
     setVisible(false);
