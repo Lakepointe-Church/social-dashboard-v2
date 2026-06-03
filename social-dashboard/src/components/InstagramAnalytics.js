@@ -71,10 +71,28 @@ function StatCard({ label, value, subtext, icon, iconBg, iconColor }) {
 
 // ── Post grid card ────────────────────────────────────────────────────────────
 function PostCard({ post, rank, metric, metricLabel, onPostClick }) {
-  const [imgError, setImgError] = useState(false);
+  const [imgError,  setImgError]  = useState(false);
+  const [freshUrl,  setFreshUrl]  = useState(null);
   const rankColors = ['#E1306C', '#833AB4', '#f59e0b', '#3b82f6'];
   const emoji = post.mediaType === 'REELS' || post.mediaType === 'VIDEO' ? '🎬'
               : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
+
+  const handleImgError = () => {
+    const isReel = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
+    if (!freshUrl && isReel && post.id) {
+      fetch(`/api/ig-media?id=${post.id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.mediaUrl) { setFreshUrl(data.mediaUrl); setImgError(false); }
+          else setImgError(true);
+        })
+        .catch(() => setImgError(true));
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const displayUrl = freshUrl || post.mediaUrl;
 
   return (
     <div
@@ -82,12 +100,12 @@ function PostCard({ post, rank, metric, metricLabel, onPostClick }) {
       className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group block cursor-pointer">
       {/* Image */}
       <div className="relative bg-slate-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
-        {post.mediaUrl && !imgError ? (
+        {displayUrl && !imgError ? (
           <img
-            src={post.mediaUrl}
+            src={displayUrl}
             alt={truncate(post.caption, 40)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => setImgError(true)}
+            onError={handleImgError}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2"
@@ -178,8 +196,24 @@ function RateBar({ value, color, maxValue }) {
 // ── Per-post rate insights table ──────────────────────────────────────────────
 function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment, onPostClick }) {
   const [imgError, setImgError] = useState(false);
+  const [freshUrl, setFreshUrl] = useState(null);
   const emoji = p.mediaType === 'REELS' || p.mediaType === 'VIDEO' ? '🎬'
               : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
+
+  const handleImgError = () => {
+    const isReelPost = p.mediaType === 'REELS' || p.mediaType === 'VIDEO';
+    if (!freshUrl && isReelPost && p.id) {
+      fetch(`/api/ig-media?id=${p.id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.mediaUrl) { setFreshUrl(data.mediaUrl); setImgError(false); }
+          else setImgError(true);
+        })
+        .catch(() => setImgError(true));
+    } else {
+      setImgError(true);
+    }
+  };
 
   return (
     <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onPostClick?.(p)}>
@@ -187,9 +221,9 @@ function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment,
         <div className="flex items-center gap-2.5">
           <span className="text-slate-400 font-mono font-bold w-4 text-center flex-shrink-0">{i + 1}</span>
           <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
-            {p.mediaUrl && !imgError ? (
-              <img src={p.mediaUrl} alt="" className="w-full h-full object-cover"
-                onError={() => setImgError(true)} />
+            {(freshUrl || p.mediaUrl) && !imgError ? (
+              <img src={freshUrl || p.mediaUrl} alt="" className="w-full h-full object-cover"
+                onError={handleImgError} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-lg"
                 style={{ background: 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>{emoji}</div>
