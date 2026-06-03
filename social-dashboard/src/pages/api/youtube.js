@@ -60,6 +60,7 @@ async function fetchYTAnalytics(accessToken) {
 
   // Per-video avg watch time — best-effort
   let videoWatchTime = {};
+  let videoWatchTimeError = null;
   try {
     const pvUrl = new URL(base);
     pvUrl.searchParams.set('metrics',    'averageViewDuration');
@@ -68,10 +69,12 @@ async function fetchYTAnalytics(accessToken) {
     pvUrl.searchParams.set('maxResults', '200');
     const pvRes  = await fetch(pvUrl.toString(), { headers });
     const pvData = await pvRes.json();
-    if (!pvData.error && pvData.rows) {
+    if (pvData.error) {
+      videoWatchTimeError = pvData.error.message || JSON.stringify(pvData.error);
+    } else if (pvData.rows) {
       pvData.rows.forEach(row => { videoWatchTime[row[0]] = Math.round(row[1]); });
     }
-  } catch (_) { /* silent */ }
+  } catch (e) { videoWatchTimeError = e.message; }
 
   return {
     totalWatchMins: Math.round(watchRow[0] || 0),
@@ -79,6 +82,7 @@ async function fetchYTAnalytics(accessToken) {
     impressions,
     impressionCtr,
     videoWatchTime,
+    videoWatchTimeError,
   };
 }
 
