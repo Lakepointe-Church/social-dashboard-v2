@@ -244,10 +244,28 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
           {platform === 'facebook' && isReel && post.id ? (() => {
-            // Use /videos/ URL — FB's plugin requires this format; permalink.php is not recognized
+            // Some FB "video" posts are actually YouTube links shared to Facebook.
+            // Detect those by extracting a YouTube ID from the caption and embed YouTube instead.
+            // For actual native FB videos/streams (no YouTube URL), use the FB video plugin.
+            const ytMatch = (post.caption || '').match(
+              /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/
+            );
+            if (ytMatch) {
+              return (
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytMatch[1]}`}
+                  className="absolute inset-0 w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  title={post.caption?.slice(0, 60) || 'YouTube video'}
+                />
+              );
+            }
+            // Native FB video — split pageId_videoId and use plugins/video.php
             const parts = post.id.split('_');
-            const href = parts.length === 2
-              ? `https://www.facebook.com/${parts[0]}/videos/${parts[1]}`
+            const href = parts.length >= 2
+              ? `https://www.facebook.com/${parts[0]}/videos/${parts.slice(1).join('_')}`
               : post.permalink;
             return (
               <iframe
