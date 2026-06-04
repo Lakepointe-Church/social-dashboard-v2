@@ -114,6 +114,11 @@ export default async function handler(req, res) {
           comment_count  = EXCLUDED.comment_count,
           share_count    = EXCLUDED.share_count,
           engaged        = EXCLUDED.engaged,
+          content_type   = EXCLUDED.content_type,
+          type           = EXCLUDED.type,
+          thumbnail      = COALESCE(EXCLUDED.thumbnail, fb_posts.thumbnail),
+          embed_url      = COALESCE(EXCLUDED.embed_url, fb_posts.embed_url),
+          permalink      = COALESCE(EXCLUDED.permalink, fb_posts.permalink),
           snapshotted_at = NOW()
       `;
 
@@ -386,11 +391,16 @@ export default async function handler(req, res) {
     );
     const demoData = await demoRes.json();
     if (!demoData.error && demoData.data) {
-      const metric = demoData.data.find(d => d.name === 'follower_demographics');
-      const breakdown = metric?.total_value?.breakdowns?.[0]?.results || [];
+      const metric       = demoData.data.find(d => d.name === 'follower_demographics');
+      const breakdownObj = metric?.total_value?.breakdowns?.[0];
+      const dimKeys      = breakdownObj?.dimension_keys || [];
+      const ageIdx       = dimKeys.indexOf('age');
+      const genderIdx    = dimKeys.indexOf('gender');
+      const breakdown    = breakdownObj?.results || [];
       const groups = {};
       breakdown.forEach(({ dimension_values, value }) => {
-        const [age, gender] = dimension_values; // API returns [age, gender] for breakdown=age,gender
+        const age    = dimension_values[ageIdx    >= 0 ? ageIdx    : 0];
+        const gender = dimension_values[genderIdx >= 0 ? genderIdx : 1];
         if (!groups[age]) groups[age] = { M: 0, F: 0, U: 0 };
         if (gender === 'M') groups[age].M += value;
         else if (gender === 'F') groups[age].F += value;
