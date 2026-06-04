@@ -13,7 +13,7 @@ import SyncNow from './SyncNow';
 import { Users, Eye, Heart, RefreshCw, AlertCircle, TrendingUp, BarChart2 } from 'lucide-react';
 
 const MILESTONES = [
-  { platform: 'facebook',  label: 'Reach 250K Followers',   target: 250000, color: '#1877F2' },
+  { platform: 'facebook',  label: 'Reach 300K Followers',   target: 300000, color: '#1877F2' },
   { platform: 'instagram', label: 'Reach 500K Followers',   target: 500000, color: '#E1306C' },
   { platform: 'youtube',   label: 'Reach 1.5M Subscribers', target: 1500000, color: '#FF0000' },
 ];

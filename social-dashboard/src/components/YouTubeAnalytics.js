@@ -499,6 +499,12 @@ export default function YouTubeAnalytics() {
     counts[f.id] = dateFilteredVideos.filter(v => v.contentType === f.id).length;
   });
 
+  // ── Per-type avg watch time (from per-video watch time data) ──────────────
+  const shortVideosWT    = videosWithWatchTime.filter(v => v.contentType === 'short'  && v.avgWatchSecs !== null);
+  const longformVideosWT = videosWithWatchTime.filter(v => v.contentType !== 'short'  && v.avgWatchSecs !== null);
+  const avgWatchShortsSecs   = shortVideosWT.length    ? Math.round(shortVideosWT.reduce((s, v)    => s + v.avgWatchSecs, 0) / shortVideosWT.length)    : null;
+  const avgWatchLongformSecs = longformVideosWT.length ? Math.round(longformVideosWT.reduce((s, v) => s + v.avgWatchSecs, 0) / longformVideosWT.length) : null;
+
   // ── Filtered-view KPIs ─────────────────────────────────────────────────────
   const totalViews = filteredVideos.reduce((s, v) => s + v.viewCount, 0);
   const avgViews   = Math.round(avg(filteredVideos, 'viewCount'));
@@ -661,7 +667,7 @@ export default function YouTubeAnalytics() {
               </span>
           }
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {analytics ? (
             <>
               <StatCard
@@ -672,17 +678,25 @@ export default function YouTubeAnalytics() {
                 iconBg="bg-red-100" iconColor="text-red-600"
               />
               <StatCard
-                label="Avg Watch Time / Video"
-                value={fmtWatchTime(analytics.avgWatchSecs)}
-                subtext="Minutes:seconds"
+                label="Avg Watch Time / Short"
+                value={avgWatchShortsSecs !== null ? fmtWatchTime(avgWatchShortsSecs) : '—'}
+                subtext="Shorts only · excludes long-form"
+                icon={<Activity size={20}/>}
+                iconBg="bg-amber-100" iconColor="text-amber-600"
+              />
+              <StatCard
+                label="Avg Watch Time / Long-form"
+                value={avgWatchLongformSecs !== null ? fmtWatchTime(avgWatchLongformSecs) : '—'}
+                subtext="Sermons + Podcasts · excludes Shorts"
                 icon={<Activity size={20}/>}
                 iconBg="bg-orange-100" iconColor="text-orange-600"
               />
             </>
           ) : (
             <>
-              <PendingCard label="Total Watch Time (hrs)" icon={<Clock size={20}/>}    />
-              <PendingCard label="Avg Watch Time / Video" icon={<Activity size={20}/>} />
+              <PendingCard label="Total Watch Time (hrs)"       icon={<Clock size={20}/>}    />
+              <PendingCard label="Avg Watch Time / Short"       icon={<Activity size={20}/>} />
+              <PendingCard label="Avg Watch Time / Long-form"   icon={<Activity size={20}/>} />
             </>
           )}
         </div>

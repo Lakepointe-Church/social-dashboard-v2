@@ -8,6 +8,7 @@ import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
 import SyncNow from './SyncNow';
+import BestTimeToPost from './BestTimeToPost';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -484,6 +485,34 @@ function CommentSearch() {
   );
 }
 
+function computeIgBestTimeData(media) {
+  const DAY_NAMES     = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const byDayMap      = Object.fromEntries(DAY_NAMES.map(d => [d, []]));
+  const byHourBuckets = Array.from({ length: 24 }, () => []);
+  const byDayHourMap  = Object.fromEntries(DAY_NAMES.map(d => [d, Array.from({ length: 24 }, () => [])]));
+  const fmtH = h => h === 0 ? '12am' : h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`;
+
+  media.forEach(m => {
+    const d       = new Date(m.timestamp);
+    const dayName = DAY_NAMES[d.getDay()];
+    const hour    = d.getHours();
+    const val     = m.engagement ?? (m.likeCount + (m.commentsCount || 0));
+    byDayMap[dayName].push(val);
+    byHourBuckets[hour].push(val);
+    byDayHourMap[dayName][hour].push(val);
+  });
+
+  const avgVals = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  return {
+    byDay:     DAY_NAMES.map(day => ({ day, engagement: avgVals(byDayMap[day]), posts: byDayMap[day].length })),
+    byHour:    byHourBuckets.map((vals, i) => ({ hour: fmtH(i), engagement: avgVals(vals), posts: vals.length })),
+    byDayHour: Object.fromEntries(DAY_NAMES.map(day => [
+      day,
+      byDayHourMap[day].map((vals, i) => ({ hour: fmtH(i), engagement: avgVals(vals), posts: vals.length })),
+    ])),
+  };
+}
+
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -705,6 +734,9 @@ export default function InstagramAnalytics() {
 
 {/* ── Comment Phrase Search ───────────────────────────────────────────── */}
       <CommentSearch />
+
+      {/* ── Best Time to Post ────────────────────────────────────────────────── */}
+      {media.length > 0 && <BestTimeToPost data={computeIgBestTimeData(media)} />}
 
 {/* ── Empty state ────────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (

@@ -8,6 +8,7 @@ import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, M
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
 import SyncNow from './SyncNow';
+import BestTimeToPost from './BestTimeToPost';
 
 const FB_BLUE = '#1877F2';
 
@@ -17,6 +18,34 @@ const CONTENT_FILTERS = [
   { id: 'other',  label: '📝 Text & Links',    color: '#64748b' },
   { id: 'stream', label: '📺 Service Streams', color: '#f59e0b' },
 ];
+
+function computeFbBestTimeData(posts) {
+  const DAY_NAMES     = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const byDayMap      = Object.fromEntries(DAY_NAMES.map(d => [d, []]));
+  const byHourBuckets = Array.from({ length: 24 }, () => []);
+  const byDayHourMap  = Object.fromEntries(DAY_NAMES.map(d => [d, Array.from({ length: 24 }, () => [])]));
+  const fmtH = h => h === 0 ? '12am' : h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`;
+
+  posts.forEach(p => {
+    const d       = new Date(p.createdTime);
+    const dayName = DAY_NAMES[d.getDay()];
+    const hour    = d.getHours();
+    const val     = p.engaged ?? (p.likeCount + p.commentCount + p.shareCount);
+    byDayMap[dayName].push(val);
+    byHourBuckets[hour].push(val);
+    byDayHourMap[dayName][hour].push(val);
+  });
+
+  const avgVals = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  return {
+    byDay:     DAY_NAMES.map(day => ({ day, engagement: avgVals(byDayMap[day]), posts: byDayMap[day].length })),
+    byHour:    byHourBuckets.map((vals, i) => ({ hour: fmtH(i), engagement: avgVals(vals), posts: vals.length })),
+    byDayHour: Object.fromEntries(DAY_NAMES.map(day => [
+      day,
+      byDayHourMap[day].map((vals, i) => ({ hour: fmtH(i), engagement: avgVals(vals), posts: vals.length })),
+    ])),
+  };
+}
 
 function fmtIsoDate(iso) {
   const [y, m, d] = (iso || '').split('-');
@@ -540,6 +569,9 @@ export default function FacebookAnalytics() {
       {/* ── Follower Growth ──────────────────────────────────────────────────── */}
       <GrowthChartSection snapshots={snapshots} growthDays={growthDays} snapshotsLoading={snapshotsLoading}
         onDaysChange={handleGrowthDaysChange} activePlatform="Facebook" title="Follower Growth" />
+
+      {/* ── Best Time to Post ────────────────────────────────────────────────── */}
+      {posts.length > 0 && <BestTimeToPost data={computeFbBestTimeData(posts)} />}
 
       {/* ── Empty state ────────────────────────────────────────────────────── */}
       {activeFilters.length === 0 && (
