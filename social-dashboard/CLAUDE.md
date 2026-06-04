@@ -188,7 +188,7 @@ social-dashboard/
 
 - **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips (Podcast, Sermon, Short with emoji + color), date range presets (7d/30d/90d + custom), Refresh button. Multi-select: deselecting all shows empty state with reset.
 - **Channel Overview KPIs** — Subscribers, Total Views, Total Videos, Avg Views/Video. Labeled "Channel-wide · not affected by filters" since these are lifetime channel stats.
-- **Advanced Metrics** — Total Watch Time, Avg Watch Time/Video, Impression CTR. Renders as real `StatCard` values when `analytics` state is populated; falls back to `PendingCard` (`0 🔒`) if `analytics` is null. Currently showing pending — blocked on YouTube Analytics API owner-level OAuth (see API route note above).
+- **Advanced Metrics** — Total Watch Time, Avg Watch Time / Short (Shorts only), Avg Watch Time / Long-form (Sermons + Podcasts). Three-column grid. Short and Long-form averages are computed client-side from per-video `avgWatchSecs` in `watchTimeMap` — so they are split by content type, not a single channel-wide average. Renders real `StatCard` values when `analytics` state is populated; falls back to `PendingCard` if `analytics` is null. Currently showing pending — blocked on YouTube Analytics API owner-level OAuth (see API route note above).
 - **Content Breakdown** — `grid-cols-3` inside each content type card: Total Views, Avg Views, Avg Engagement Rate all in one row.
 - **Top 10 sections** — Two side-by-side horizontal scroll rows: "Top 10 by Views" and "Top 10 by Engagement". Cards are `w-56 flex-shrink-0` in a `flex gap-3 overflow-x-auto pb-2` row. Each card shows thumbnail (16:9 via `aspect-video`, using `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` — public, no API key needed), title, rank badge, and primary metric.
 - **All Videos table** — sortable by all columns including Type. Self-contained `sort` state `{ key, dir }`. Uses `durationSecs` (numeric) for duration sorting instead of the display string. Colored pill for Type column (green=short, blue=podcast, violet=sermon). Paginated with "Load More" button.
@@ -259,6 +259,7 @@ If re-enabling: add back the `AIChatPanel` import, `showAI`/`liveContext` state,
 - **All Posts table** — numbered rows, sortable columns including Type (click header to toggle asc/desc, active column highlighted pink), paginated 20 at a time with "Load More" button showing remaining count.
 - **Demographics & geo removed** — Age & Gender chart, Top Cities, and Top Countries were removed from the Instagram tab (May 2026) to revisit later.
 - **Comment Phrase Search card** — `CommentSearch` component rendered below Follower Growth chart. Text input (defaults to "sermon") + preset date range buttons (This year / Last year / Last 90d / Last 30d) + custom start/end date pickers. On submit, calls `/api/ig-comment-search` and displays: total match count, posts scanned, posts with matches, and a per-post breakdown table sorted by match count. Each row links to the post's Instagram permalink.
+- **Best Time to Post** — `computeIgBestTimeData(media)` function uses IG `m.timestamp` + `m.engagement` exclusively. Card rendered after Comment Phrase Search. Same By Day / By Hour drill-down as the Overview version, but based solely on Instagram post timing and engagement.
 
 ---
 
@@ -379,6 +380,22 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 4, 2026 (session 11)
+
+- `13ca138` — Update milestones, split YT watch time by type, add Best Time to Post to FB and IG tabs:
+  - Bump Facebook milestone target from 250K → 300K followers (`AllOverview.js`)
+  - Split YouTube "Avg Watch Time / Video" into two cards: **Avg Watch Time / Short** (Shorts only) and **Avg Watch Time / Long-form** (Sermons + Podcasts); Advanced Metrics grid widened to 3 columns (`YouTubeAnalytics.js`)
+  - Add `computeFbBestTimeData(posts)` + `<BestTimeToPost>` to `FacebookAnalytics.js` — uses FB `p.createdTime` + `p.engaged`, rendered after Follower Growth chart
+  - Add `computeIgBestTimeData(media)` + `<BestTimeToPost>` to `InstagramAnalytics.js` — uses IG `m.timestamp` + `m.engagement`, rendered after Comment Phrase Search
+
+#### Key decisions this session
+- **Watch time split rationale** — a single channel-wide average was skewed by Shorts (which have much shorter durations). Splitting by content type gives a more useful signal: Shorts vs. Long-form (Sermons + Podcasts) are compared separately.
+- **Per-type watch time source** — computed client-side from `watchTimeMap` (the per-video watch time data already fetched by the Analytics API). The `analytics.avgWatchSecs` channel-wide value is no longer shown as a standalone card; the two split cards replace it.
+- **Best Time to Post — platform isolation** — each tab's chart uses only that platform's post data, not the cross-platform blend used on the Overview tab. This gives accurate per-platform timing signals (e.g., Instagram's best hour may differ from Facebook's).
+- **Best Time to Post — data source** — uses the full `posts` / `media` array (all posts fetched, not date-filtered) to maximize the sample size for timing patterns.
+
+---
 
 ### June 4, 2026 (session 10)
 
@@ -550,7 +567,7 @@ If Vercel doesn't auto-deploy or you need to force it:
 - Data fetched in parallel via `Promise.allSettled` from all 3 platform caches (`fbDataCache`, `igDataCache`, `ytDataCache`). Partial failures show error badges without blocking the rest of the page.
 - `normalizePosts()` merges FB/IG/YT posts to a common shape sorted by engagement descending
 - `computeContentTypeData()` groups into 9 buckets: FB Sermon/Photo/Video, IG Reel/Photo+Carousel/Collab, YT Short/Podcast/Sermon. `avgEngagement` = `totalEng / totalReach * 100` (rate, not count). FB buckets show `null` for `avgEngagement` since FB reach is 0 pre-App Review.
-- Milestones: FB 250K followers, IG 500K followers, YT 1.5M subscribers
+- Milestones: FB 300K followers, IG 500K followers, YT 1.5M subscribers
 - Best Time to Post uses FB + IG post timestamps only (YT excluded — algorithmic reach)
 
 ### May 22, 2026 (session 2)
