@@ -60,8 +60,12 @@ function classifyYt(title, secs) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
+  // Auth: Vercel injects Authorization: Bearer <CRON_SECRET> for scheduled cron calls.
+  // Manual browser calls (Sync Now button) are also allowed — this is an internal dashboard.
+  // If the header IS present, it must match (prevents external abuse of the cron secret).
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

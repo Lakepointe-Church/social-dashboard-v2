@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, Eye, Heart, TrendingUp, Share2, UserPlus, RefreshCw, AlertCircle, MessageCircle, Search } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
-import LiveCheck from './LiveCheck';
+import SyncNow from './SyncNow';
 
 const IG_PINK   = '#E1306C';
 const IG_PURPLE = '#833AB4';
@@ -677,7 +677,7 @@ export default function InstagramAnalytics() {
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
-            <LiveCheck platform="instagram" recentPosts={filteredMedia} />
+            <SyncNow onSyncComplete={() => fetchData(true)} color="#E1306C" />
           </div>
         </div>
       </div>

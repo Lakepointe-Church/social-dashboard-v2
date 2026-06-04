@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
-import LiveCheck from './LiveCheck';
+import SyncNow from './SyncNow';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtIsoDate(iso) {
@@ -627,7 +627,7 @@ export default function YouTubeAnalytics() {
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
-            <LiveCheck platform="youtube" recentPosts={allVideos} />
+            <SyncNow onSyncComplete={fetchData} color="#FF0000" />
           </div>
         </div>
       </div>
