@@ -205,6 +205,28 @@ function computeBestTimeData(fbData, igData) {
 }
 
 function ChannelHighlight({ label, color, tabId, post, error, onNavigate, onPostClick }) {
+  const [imgError,   setImgError]   = useState(false);
+  const [freshThumb, setFreshThumb] = useState(null);
+
+  const handleImgError = () => {
+    const isIgReel = post?.platform === 'instagram' &&
+      (post?.spotlightPost?.mediaType === 'REELS' || post?.spotlightPost?.mediaType === 'VIDEO');
+    const postId = post?.spotlightPost?.id;
+    if (!freshThumb && isIgReel && postId) {
+      fetch(`/api/ig-media?id=${postId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.mediaUrl) { setFreshThumb(data.mediaUrl); setImgError(false); }
+          else setImgError(true);
+        })
+        .catch(() => setImgError(true));
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const displayThumb = freshThumb || post?.thumbnail;
+
   const body = error ? (
     <div className="h-32 flex items-center justify-center rounded-xl bg-slate-50">
       <p className="text-slate-400 text-xs">Data unavailable</p>
@@ -219,8 +241,8 @@ function ChannelHighlight({ label, color, tabId, post, error, onNavigate, onPost
         className="relative rounded-xl overflow-hidden mb-3 group cursor-pointer"
         onClick={() => onPostClick?.(post)}
       >
-        {post.thumbnail ? (
-          <img src={post.thumbnail} alt="" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" />
+        {displayThumb && !imgError ? (
+          <img src={displayThumb} alt="" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" onError={handleImgError} />
         ) : (
           <div className="w-full aspect-square flex items-center justify-center text-white text-2xl font-bold rounded-xl"
                style={{ background: color }}>

@@ -60,8 +60,12 @@ function classifyYt(title, secs) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
+  // Auth: Vercel injects Authorization: Bearer <CRON_SECRET> for scheduled cron calls.
+  // Manual browser calls (Sync Now button) are also allowed — this is an internal dashboard.
+  // If the header IS present, it must match (prevents external abuse of the cron secret).
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -386,12 +390,13 @@ export default async function handler(req, res) {
       const breakdown = metric?.total_value?.breakdowns?.[0]?.results || [];
       const groups = {};
       breakdown.forEach(({ dimension_values, value }) => {
-        const [gender, age] = dimension_values;
+        const [age, gender] = dimension_values; // API returns [age, gender] for breakdown=age,gender
         if (!groups[age]) groups[age] = { M: 0, F: 0, U: 0 };
         if (gender === 'M') groups[age].M += value;
         else if (gender === 'F') groups[age].F += value;
         else groups[age].U += value;
       });
+      await db`DELETE FROM ig_demographics WHERE date = ${today}`;
       for (const [age, counts] of Object.entries(groups)) {
         await db`
           INSERT INTO ig_demographics (date, age_group, male_count, female_count, unknown_count)

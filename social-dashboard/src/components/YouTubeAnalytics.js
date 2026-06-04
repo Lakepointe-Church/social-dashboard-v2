@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
+import SyncNow from './SyncNow';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtIsoDate(iso) {
@@ -147,9 +148,12 @@ function VideoCard({ video, rank, metricValue, metricLabel, onVideoClick }) {
         </div>
       </div>
 
-      {/* Title + date */}
+      {/* Title + description + date */}
       <div className="px-3 pt-2.5 pb-1">
         <p className="text-slate-700 text-xs leading-snug line-clamp-2 min-h-[32px]">{video.title}</p>
+        {video.description && (
+          <p className="text-slate-400 text-[10px] leading-snug line-clamp-2 mt-1">{video.description}</p>
+        )}
         <p className="text-slate-400 text-[10px] mt-1 font-mono">{fmtDate(video.publishedAt)}</p>
       </div>
 
@@ -623,6 +627,7 @@ export default function YouTubeAnalytics() {
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
+            <SyncNow onSyncComplete={fetchData} color="#FF0000" />
           </div>
         </div>
       </div>
