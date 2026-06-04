@@ -90,11 +90,19 @@ export default async function handler(req, res) {
       const likes    = p.likes?.summary?.total_count || 0;
       const comments = p.comments?.summary?.total_count || 0;
       const shares   = p.shares?.count || 0;
-      const type     = p.attachments?.data?.[0]?.type || 'status';
-      const message  = p.message || p.story || '';
-      const parts    = p.id?.split('_');
-      const embedUrl = (type === 'video_inline' || type === 'video') && parts?.length === 2
-        ? `https://www.facebook.com/${parts[0]}/videos/${parts[1]}`
+      const type      = p.attachments?.data?.[0]?.type || 'status';
+      const message   = p.message || p.story || '';
+      const thumbnail = p.attachments?.data?.[0]?.media?.image?.src || null;
+      const parts     = p.id?.split('_');
+      const isVideo   = type === 'video_inline' || type === 'video';
+      // YouTube-link posts have ytimg.com thumbnails; native FB videos have fbcdn.net thumbnails
+      const ytMatch   = thumbnail?.match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+      const embedUrl  = isVideo
+        ? (ytMatch
+            ? `https://www.youtube.com/embed/${ytMatch[1]}`
+            : parts?.length >= 2
+              ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(`https://www.facebook.com/${parts[0]}/videos/${parts.slice(1).join('_')}`)}&show_text=false`
+              : null)
         : null;
 
       await db`
@@ -104,7 +112,7 @@ export default async function handler(req, res) {
         VALUES (
           ${p.id}, ${message}, ${p.story || null}, ${p.created_time},
           ${classifyFb(message, type)}, ${type},
-          ${p.attachments?.data?.[0]?.media?.image?.src || null},
+          ${thumbnail},
           ${p.permalink_url || null}, ${embedUrl},
           ${likes}, ${comments}, ${shares}, ${likes + comments + shares},
           0, NOW()

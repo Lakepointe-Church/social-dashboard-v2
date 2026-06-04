@@ -100,7 +100,6 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
   const [activeSlide,   setActiveSlide]   = useState(0);
   const [loadingSlides, setLoadingSlides] = useState(false);
   const [freshMedia,    setFreshMedia]    = useState(null);
-  const [freshFbMedia,  setFreshFbMedia]  = useState(null);
 
   useEffect(() => {
     if (post) {
@@ -108,7 +107,6 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
       setSlides([]);
       setActiveSlide(0);
       setFreshMedia(null);
-      setFreshFbMedia(null);
       requestAnimationFrame(() => setVisible(true));
       document.body.style.overflow = 'hidden';
 
@@ -119,14 +117,6 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
         fetch(`/api/ig-media?id=${post.id}`)
           .then(r => r.json())
           .then(data => { if (!data.error) setFreshMedia(data); })
-          .catch(() => {});
-      }
-
-      // For FB videos: fetch the direct video source so it plays like an IG reel
-      if (platform === 'facebook' && isReel && post.id) {
-        fetch(`/api/fb-media?id=${post.id}`)
-          .then(r => r.json())
-          .then(data => { if (data.videoUrl) setFreshFbMedia(data); })
           .catch(() => {});
       }
 
@@ -255,45 +245,19 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
           {(() => {
             // ── Facebook video ────────────────────────────────────────────────
-            if (platform === 'facebook' && isReel && post.id) {
-              // Native FB video: play directly as a video element (like IG reels)
-              if (freshFbMedia?.videoUrl) {
-                return (
-                  <video
-                    src={freshFbMedia.videoUrl}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    controls
-                    playsInline
-                    onError={() => setImgError(true)}
-                  />
-                );
-              }
-              // YouTube-link post: thumbnail domain is ytimg.com — embed the YouTube video
-              const ytThumbMatch = (post.mediaUrl || '').match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
-              if (ytThumbMatch) {
-                return (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${ytThumbMatch[1]}`}
-                    className="absolute inset-0 w-full h-full"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    title={post.caption?.slice(0, 60) || 'YouTube video'}
-                  />
-                );
-              }
-              // Still fetching video URL — show thumbnail while loading
-              if (activeMediaUrl && !imgError) {
-                return (
-                  <img
-                    src={activeMediaUrl}
-                    alt={post.caption?.slice(0, 60) || 'Post image'}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={() => setImgError(true)}
-                    crossOrigin="anonymous"
-                  />
-                );
-              }
+            // embed_url is set at sync time: FB plugin URL for native videos,
+            // YouTube embed URL for YouTube-link posts. Just use it directly.
+            if (platform === 'facebook' && isReel && post.embedUrl) {
+              return (
+                <iframe
+                  src={post.embedUrl}
+                  className="absolute inset-0 w-full h-full"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              );
             }
             // ── YouTube ───────────────────────────────────────────────────────
             if (platform === 'youtube' && post.id) {
@@ -387,7 +351,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
           )}
 
           {/* Content type badge — hide when any native player is active */}
-          {!(platform === 'facebook' && isReel && freshFbMedia?.videoUrl) && !(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
+          {!(platform === 'facebook' && isReel && post.embedUrl) && !(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
               {platform === 'youtube' ? '▶ Video' : hasSlides ? `🖼️ ${activeSlide + 1} / ${slides.length}` : `${typeEmoji} ${typeLabel}`}
             </div>
