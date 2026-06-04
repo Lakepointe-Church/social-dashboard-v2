@@ -30,7 +30,13 @@ social-dashboard/
 │       ├── chat.js                   ← AI Analyst endpoint (Anthropic claude-sonnet-4-6)
 │       ├── ig-carousel-children.js   ← Fetches IG carousel slide media URLs
 │       ├── ig-comment-search.js      ← Comment phrase search: scans all posts in a date range, counts phrase matches per post
-│       └── fb-album-photos.js        ← Fetches FB album photo attachments
+│       ├── fb-album-photos.js        ← Fetches FB album photo attachments
+│       ├── ig-media.js               ← Returns fresh media_url + thumbnail_url for a single IG post (reel CDN URLs expire in ~1hr)
+│       ├── fb-media.js               ← Returns direct video source URL for a FB post (currently unused — embed_url approach used instead)
+│       ├── db-sync.js                ← Daily sync: fetches all platform data and upserts into Neon Postgres. Also callable via Sync Now button.
+│       └── db/
+│           ├── facebook.js           ← DB-backed Facebook endpoint (reads from Neon, same shape as /api/facebook)
+│           └── instagram.js          ← DB-backed Instagram endpoint (reads from Neon, same shape as /api/instagram)
 ├── src/
 │   ├── components/
 │   │   ├── AllOverview.js        ← Cross-platform Overview tab (live)
@@ -51,6 +57,8 @@ social-dashboard/
 │   │   ├── AgeBreakdown.js
 │   │   ├── MilestoneTracker.js   ← Follower milestone progress bars
 │   │   ├── BestTimeToPost.js
+│   │   ├── SyncNow.js            ← Sync Now button: calls /api/db-sync, shows Syncing/Updated/error states, triggers onSyncComplete
+│   │   ├── LiveCheck.js          ← Per-post live metric checker (built but replaced by SyncNow — unused)
 │   │   ├── AIChatPanel.js        ← AI Analyst slide-up chat panel (built but removed from UI — June 2026)
 │   │   ├── DynamicViz.js         ← Renders AI Analyst chart/table responses (unused — see AIChatPanel note)
 │   │   └── CustomViewBuilder.js  ← Widget toggle UI
@@ -189,7 +197,7 @@ social-dashboard/
 
 ---
 
-## PostSpotlight.js — Multi-Platform Post Detail Modal (as of May 2026)
+## PostSpotlight.js — Multi-Platform Post Detail Modal (as of June 2026)
 
 A full-screen overlay that opens when any post/video card is clicked across the dashboard (Facebook, Instagram, YouTube, Overview tabs). Platform-aware: accent colors, gradient, icon, and metric labels all adapt based on `platform` prop.
 
@@ -199,18 +207,23 @@ A full-screen overlay that opens when any post/video card is clicked across the 
 - `caption`, `mediaUrl`, `permalink`, `timestamp`, `mediaType`
 - `reach`, `likeCount`, `commentCount`, `commentsCount`, `shares`
 - `engagementRate`, `saved`, `saveRate`, `shareRate`, `avgWatchTime`
-- `videoUrl` (IG reels), `id` (used for FB video embed and carousel fetch)
+- `videoUrl` (IG reels), `embedUrl` (FB video/YouTube-link posts), `id`
 
 **Layout:** Fixed overlay with enter animation (`requestAnimationFrame` RAF for CSS transition), body scroll lock, Escape + backdrop-click to close.
 - **Left column:** media (image, video, embed, or gradient placeholder)
 - **Right column:** platform badge, caption, 3×2 metric grid, rate pills (Save %, Share %, Avg Watch), timestamp, CTA link
 
-**Media rendering priority (left column):**
-1. Facebook video → `<iframe>` using `facebook.com/{pageId}/videos/{videoId}` — `post.id` is `{pageId}_{videoId}`, split on `_` to build the URL. **Important:** `plugins/video.php` does NOT accept `permalink.php` URLs.
+**Media rendering priority (left column) — single IIFE with if/returns:**
+1. Facebook video → `<iframe src={post.embedUrl}>` — `embedUrl` is computed at sync time and stored in DB. Native FB videos use `plugins/video.php?href={permalink_url}` (must use the actual `permalink_url` from Graph API, NOT a reconstructed URL from the compound post ID — they differ). YouTube-link posts use `youtube.com/embed/{id}` (video ID extracted from ytimg.com thumbnail URL).
 2. YouTube video → `<iframe>` using `youtube.com/embed/{videoId}` — works for all videos and Shorts without OAuth.
-3. IG reel → `<video>` using `videoUrl` (mp4)
+3. IG reel → `<video>` using fresh CDN URL from `/api/ig-media` (stored URLs expire in ~1 hour; fetched live on spotlight open)
 4. Image → `<img>` using `mediaUrl`
 5. Fallback gradient div
+
+**FB video embed key decisions:**
+- `embed_url` is computed during `db-sync` and stored in `fb_posts`. Use `permalink_url` from the Graph API as the `href` for `plugins/video.php` — the second segment of the compound post ID (`pageId_postId`) is a story ID, **not** a video object ID, so constructing the URL from it gives the wrong video.
+- YouTube-link posts shared to Facebook have `type = video_inline` (same as native FB videos) but their thumbnail comes from `ytimg.com`. Detect them by checking the thumbnail URL and emit a YouTube embed instead.
+- After any change to embed URL logic, a **Sync Now** is required to re-populate `embed_url` for all posts in the DB.
 
 **Carousel / album slides:**
 - When spotlight opens and `post.mediaType === 'CAROUSEL_ALBUM'`, fetches slides lazily on demand
@@ -281,7 +294,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 ## Pending Work
 
 - [ ] **YouTube Analytics OAuth** — OAuth infrastructure is fully built (Client ID, Secret, refresh token in Vercel; `getAccessToken()` + `fetchYTAnalytics()` in `/api/youtube.js`). Blocked because the refresh token must come from the channel **owner** Google account, not a manager. Jolie is a manager — need to find whose Google account originally created the Lakepointe YouTube brand account and redo the OAuth Playground flow with that account. Once fixed, Advanced Metrics (watch time, avg watch time) will populate automatically. Impression CTR is separately blocked — not available in basic channel reports regardless of access level.
-- [ ] **Meta App Review** — **SUBMITTED May 28, 2026. Pending approval (typically 1–5 business days).** Submitted 8 permissions across two use cases: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Once approved: add `post_video_views` to the Facebook posts query; the `collaborators` field on Instagram posts will auto-activate (collab detection already wired up). Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
+- [ ] **Meta App Review** — **SUBMITTED May 28, 2026. Status as of June 4, 2026: unknown — check Meta Developer Console.** Submitted 8 permissions across two use cases: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Once approved: add `post_video_views` to the Facebook posts query; the `collaborators` field on Instagram posts will auto-activate (collab detection already wired up). Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Second Meta App Review (future)** — submit `pages_manage_posts` + `instagram_content_publish` once a post scheduling feature is built. Do NOT request these until the feature exists — Meta will reject if they can't find it in the demo.
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
 - [ ] **Facebook tab updates** — sticky bar, top-post cards (icons, Reach/Engagement/Shares breakdown), and numbered+sortable+paginated All Posts table are done. Still needed: per-post insights table (Engagement Rates section matching Instagram's Reel & Photo tables)
@@ -366,6 +379,26 @@ If Vercel doesn't auto-deploy or you need to force it:
 ---
 
 ## Recent Changes (June 2026)
+
+### June 4, 2026 (session 10)
+
+- `9729dc2` — 1.0 cleanup: IG demographics dimension fix, LiveCheck component + `/api/live-post`, emoji metric on InstagramCaptions, YT description snippet on VideoCard, lazy IG reel thumbnail refresh in AllOverview
+- `8cd0484` — Replace Live Check with Sync Now: `/api/db-sync` now allows unauthenticated browser calls (auth header optional but must match if present); `SyncNow.js` component calls db-sync, shows Syncing/Updated/error, triggers `onSyncComplete` to refresh tab data; all three platform tabs and Overview wired up
+- `7f79eb6` — Fix IG demographics: parse `dimension_values` using `dimension_keys` index lookup (API dimension order is not guaranteed); fix fb_posts ON CONFLICT to also update `content_type`, `type`, `thumbnail`, `embed_url`, `permalink`
+- `83f41e9` / `61e0f56` / `84ecd19` / `b60a3fb` / `ff8cd69` — FB video embed iterations (see key decisions below)
+- `fa26075` — Fix FB embed URL: use `permalink_url` from Graph API as the `href` for `plugins/video.php`, not a URL reconstructed from the compound post ID
+- `f65712f` — Add Sync Now button to Overview tab
+
+#### Key decisions this session
+
+- **IG demographics dimension order** — The `follower_demographics` API response includes a `dimension_keys` array that tells you which dimension is at which index in `dimension_values`. The code now uses `indexOf('age')` and `indexOf('gender')` on `dimension_keys` instead of hard-coding positions. Old stale data (wrong dimension order) is not deleted, but `WHERE date = MAX(date)` means a fresh Sync Now overwrites it. After deploying a fix to this logic, always run Sync Now.
+- **FB video embed — `permalink_url` vs compound post ID** — The `postId` segment of `pageId_postId` is a feed story ID, **not** the video object ID. `facebook.com/pageId/videos/postId` is often the wrong URL and shows "Video Unavailable." The correct approach: use the `permalink_url` field returned by the Graph API (e.g. `facebook.com/LakepointeChurch/videos/REAL_VIDEO_ID`), which Facebook computed correctly.
+- **FB YouTube-link posts** — Facebook classifies YouTube links shared as posts with `type = video_inline`, making them look like native videos. Detect them by checking if the attachment thumbnail URL contains `ytimg.com`. If yes, extract the YouTube video ID from the thumbnail URL and store `youtube.com/embed/{id}` as `embed_url` instead.
+- **`embed_url` lifecycle** — Computed at sync time in `db-sync.js` and stored in `fb_posts.embed_url`. The ON CONFLICT clause now updates it on every sync so fixes propagate automatically. PostSpotlight reads `post.embedUrl` directly — no live API call at view time. Whenever embed URL logic changes, a Sync Now is required to re-populate existing rows.
+- **Sync Now auth model** — `/api/db-sync` accepts calls with no `Authorization` header (internal dashboard use). If a header IS present, it must match `CRON_SECRET`. This allows the browser Sync Now button to work without exposing credentials.
+- **`LiveCheck.js` and `/api/live-post`** — Built in this session but immediately replaced by SyncNow. Files still exist in the repo but are not wired to any UI. Can be deleted in a future cleanup.
+
+---
 
 ### June 2, 2026 (session 8)
 
