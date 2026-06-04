@@ -97,11 +97,14 @@ export default async function handler(req, res) {
       const isVideo   = type === 'video_inline' || type === 'video';
       // YouTube-link posts have ytimg.com thumbnails; native FB videos have fbcdn.net thumbnails
       const ytMatch   = thumbnail?.match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+      // Use permalink_url (the real Facebook URL) not a reconstructed one — the post ID
+      // segment of the compound feed ID is a story ID, not necessarily the video object ID.
+      const fbPermalink = p.permalink_url || null;
       const embedUrl  = isVideo
         ? (ytMatch
             ? `https://www.youtube.com/embed/${ytMatch[1]}`
-            : parts?.length >= 2
-              ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(`https://www.facebook.com/${parts[0]}/videos/${parts.slice(1).join('_')}`)}&show_text=false`
+            : fbPermalink
+              ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbPermalink)}&show_text=false`
               : null)
         : null;
 
