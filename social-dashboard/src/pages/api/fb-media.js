@@ -17,15 +17,14 @@ export default async function handler(req, res) {
 
   const ap = crypto.createHmac('sha256', secret).update(token).digest('hex');
 
-  // The compound post ID is pageId_videoId. The video ID is the last segment.
-  const parts   = id.split('_');
-  const videoId = parts.length >= 2 ? parts[parts.length - 1] : id;
-
   try {
-    const r    = await fetch(`${META_BASE}/${videoId}?fields=source&access_token=${token}&appsecret_proof=${ap}`);
+    // Fetch via the post's attachment — the compound post ID (pageId_postId) works here.
+    // attachments{media{source}} gives the direct video file URL for native FB videos.
+    // YouTube-link posts return a YouTube URL or no source at all.
+    const r    = await fetch(`${META_BASE}/${id}?fields=attachments{media{source}}&access_token=${token}&appsecret_proof=${ap}`);
     const data = await r.json();
 
-    const source    = data.source || null;
+    const source     = data.attachments?.data?.[0]?.media?.source || null;
     const isNativeFb = source && !source.includes('youtube.com') && !source.includes('youtu.be');
 
     return res.status(200).json({ videoUrl: isNativeFb ? source : null });
