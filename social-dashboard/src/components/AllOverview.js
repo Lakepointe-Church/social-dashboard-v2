@@ -9,6 +9,7 @@ import TopContent from './TopContent';
 import ContentTypeChart from './ContentTypeChart';
 import BestTimeToPost from './BestTimeToPost';
 import PostSpotlight from './PostSpotlight';
+import SyncNow from './SyncNow';
 import { Users, Eye, Heart, RefreshCw, AlertCircle, TrendingUp, BarChart2 } from 'lucide-react';
 
 const MILESTONES = [
@@ -456,10 +457,13 @@ export default function AllOverview({ onNavigate }) {
             <PlatformErrorBadge platform="YouTube"   error={ytError} />
           </div>
         </div>
-        <button onClick={() => fetchAll(true)} disabled={loading}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <SyncNow onSyncComplete={() => fetchAll(true)} />
+          <button onClick={() => fetchAll(true)} disabled={loading}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-all disabled:opacity-50">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* ── Cross-platform KPI cards ─────────────────────────────────────────── */}
