@@ -244,16 +244,14 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
           {platform === 'facebook' && isReel && post.id ? (() => {
-            // Some FB "video" posts are actually YouTube links shared to Facebook.
-            // Detect those by extracting a YouTube ID from the caption and embed YouTube instead.
-            // For actual native FB videos/streams (no YouTube URL), use the FB video plugin.
-            const ytMatch = (post.caption || '').match(
-              /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/
-            );
-            if (ytMatch) {
+            // When Facebook displays a YouTube link, the attachment thumbnail comes from
+            // ytimg.com. Native FB videos have fbcdn.net thumbnails. Use the thumbnail URL
+            // to distinguish — and pull the video ID directly out of the ytimg URL.
+            const ytThumbMatch = (post.mediaUrl || '').match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+            if (ytThumbMatch) {
               return (
                 <iframe
-                  src={`https://www.youtube.com/embed/${ytMatch[1]}`}
+                  src={`https://www.youtube.com/embed/${ytThumbMatch[1]}`}
                   className="absolute inset-0 w-full h-full"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -262,7 +260,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
                 />
               );
             }
-            // Native FB video — split pageId_videoId and use plugins/video.php
+            // Native FB video/stream — use plugins/video.php with pageId_videoId
             const parts = post.id.split('_');
             const href = parts.length >= 2
               ? `https://www.facebook.com/${parts[0]}/videos/${parts.slice(1).join('_')}`
