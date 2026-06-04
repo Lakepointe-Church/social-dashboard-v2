@@ -277,6 +277,11 @@ export default function InstagramCaptions() {
     ? Math.round(questionPosts.length / captionData.length * 100)
     : 0;
 
+  const emojiPosts = captionData.filter(m => /\p{Emoji_Presentation}/u.test(m.caption || ''));
+  const emojiPct   = captionData.length
+    ? Math.round(emojiPosts.length / captionData.length * 100)
+    : 0;
+
   const avgWordCount = captionData.length
     ? Math.round(avg(captionData.map(m => m.wordCount)))
     : 0;
@@ -478,12 +483,12 @@ export default function InstagramCaptions() {
               iconColor="text-pink-600"
             />
             <StatCard
-              label="Captions w/ a Question"
-              value={`${questionPct}%`}
-              subtext={`${questionPosts.length} of ${captionData.length} posts`}
-              icon={<HelpCircle size={20} />}
-              iconBg="bg-violet-50"
-              iconColor="text-violet-600"
+              label="Captions with an Emoji"
+              value={`${emojiPct}%`}
+              subtext={`${emojiPosts.length} of ${captionData.length} posts`}
+              icon={<span className="text-lg">😊</span>}
+              iconBg="bg-amber-50"
+              iconColor="text-amber-500"
             />
             <StatCard
               label="Avg Caption Length"

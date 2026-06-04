@@ -386,12 +386,13 @@ export default async function handler(req, res) {
       const breakdown = metric?.total_value?.breakdowns?.[0]?.results || [];
       const groups = {};
       breakdown.forEach(({ dimension_values, value }) => {
-        const [gender, age] = dimension_values;
+        const [age, gender] = dimension_values; // API returns [age, gender] for breakdown=age,gender
         if (!groups[age]) groups[age] = { M: 0, F: 0, U: 0 };
         if (gender === 'M') groups[age].M += value;
         else if (gender === 'F') groups[age].F += value;
         else groups[age].U += value;
       });
+      await db`DELETE FROM ig_demographics WHERE date = ${today}`;
       for (const [age, counts] of Object.entries(groups)) {
         await db`
           INSERT INTO ig_demographics (date, age_group, male_count, female_count, unknown_count)
