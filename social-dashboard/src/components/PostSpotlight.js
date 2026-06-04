@@ -243,60 +243,73 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
         {/* ── Left column: post image / video ───────────────────────────── */}
         <div className="relative bg-slate-100 h-60 sm:h-auto sm:w-2/5 flex-shrink-0 overflow-hidden">
-          {platform === 'facebook' && isReel && post.id ? (() => {
-            // Use /videos/ URL — FB's plugin requires this format; permalink.php is not recognized
-            const parts = post.id.split('_');
-            const href = parts.length === 2
-              ? `https://www.facebook.com/${parts[0]}/videos/${parts[1]}`
-              : post.permalink;
+          {(() => {
+            // ── Facebook video ────────────────────────────────────────────────
+            // embed_url is set at sync time: FB plugin URL for native videos,
+            // YouTube embed URL for YouTube-link posts. Just use it directly.
+            if (platform === 'facebook' && isReel && post.embedUrl) {
+              return (
+                <iframe
+                  src={post.embedUrl}
+                  className="absolute inset-0 w-full h-full"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              );
+            }
+            // ── YouTube ───────────────────────────────────────────────────────
+            if (platform === 'youtube' && post.id) {
+              return (
+                <iframe
+                  src={`https://www.youtube.com/embed/${post.id}`}
+                  className="absolute inset-0 w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  title={post.caption || 'YouTube video'}
+                />
+              );
+            }
+            // ── IG reel ───────────────────────────────────────────────────────
+            if (isReel && activeVideoUrl && !imgError) {
+              return (
+                <video
+                  src={activeVideoUrl}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  controls
+                  playsInline
+                  loop
+                  onError={() => setImgError(true)}
+                />
+              );
+            }
+            // ── Image ─────────────────────────────────────────────────────────
+            if (activeMediaUrl && !imgError) {
+              return (
+                <img
+                  src={activeMediaUrl}
+                  alt={post.caption?.slice(0, 60) || 'Post image'}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                  crossOrigin="anonymous"
+                />
+              );
+            }
+            // ── Gradient fallback ─────────────────────────────────────────────
             return (
-              <iframe
-                src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=500`}
-                className="absolute inset-0 w-full h-full"
-                scrolling="no"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                style={{ background: platform === 'facebook' ? 'linear-gradient(135deg,#e0f2fe,#f0f4ff)' : platform === 'youtube' ? 'linear-gradient(135deg,#fff1f2,#ffe4e6)' : 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
+                <span className="text-5xl">{platform === 'youtube' ? '▶️' : typeEmoji}</span>
+                {post.caption && (
+                  <span className="text-xs text-slate-400 px-6 text-center line-clamp-3">
+                    {post.caption.slice(0, 100)}
+                  </span>
+                )}
+              </div>
             );
-          })()
-          : platform === 'youtube' && post.id ? (
-            <iframe
-              src={`https://www.youtube.com/embed/${post.id}`}
-              className="absolute inset-0 w-full h-full"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              title={post.caption || 'YouTube video'}
-            />
-          ) : isReel && activeVideoUrl && !imgError ? (
-            <video
-              src={activeVideoUrl}
-              className="absolute inset-0 w-full h-full object-cover"
-              controls
-              playsInline
-              loop
-              onError={() => setImgError(true)}
-            />
-          ) : activeMediaUrl && !imgError ? (
-            <img
-              src={activeMediaUrl}
-              alt={post.caption?.slice(0, 60) || 'Post image'}
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={() => setImgError(true)}
-              crossOrigin="anonymous"
-            />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-              style={{ background: platform === 'facebook' ? 'linear-gradient(135deg,#e0f2fe,#f0f4ff)' : platform === 'youtube' ? 'linear-gradient(135deg,#fff1f2,#ffe4e6)' : 'linear-gradient(135deg,#fdf2f8,#f5f3ff)' }}>
-              <span className="text-5xl">{platform === 'youtube' ? '▶️' : typeEmoji}</span>
-              {post.caption && (
-                <span className="text-xs text-slate-400 px-6 text-center line-clamp-3">
-                  {post.caption.slice(0, 100)}
-                </span>
-              )}
-            </div>
-          )}
+          })()}
 
           {/* Loading spinner while fetching slides */}
           {loadingSlides && (
@@ -338,7 +351,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
           )}
 
           {/* Content type badge — hide when any native player is active */}
-          {!(platform === 'facebook' && isReel && post.id) && !(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
+          {!(platform === 'facebook' && isReel && post.embedUrl) && !(platform === 'youtube' && post.id) && !(isReel && activeVideoUrl && !imgError) && (
             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
               {platform === 'youtube' ? '▶ Video' : hasSlides ? `🖼️ ${activeSlide + 1} / ${slides.length}` : `${typeEmoji} ${typeLabel}`}
             </div>

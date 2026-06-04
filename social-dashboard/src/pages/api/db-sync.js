@@ -90,11 +90,19 @@ export default async function handler(req, res) {
       const likes    = p.likes?.summary?.total_count || 0;
       const comments = p.comments?.summary?.total_count || 0;
       const shares   = p.shares?.count || 0;
-      const type     = p.attachments?.data?.[0]?.type || 'status';
-      const message  = p.message || p.story || '';
-      const parts    = p.id?.split('_');
-      const embedUrl = (type === 'video_inline' || type === 'video') && parts?.length === 2
-        ? `https://www.facebook.com/${parts[0]}/videos/${parts[1]}`
+      const type      = p.attachments?.data?.[0]?.type || 'status';
+      const message   = p.message || p.story || '';
+      const thumbnail = p.attachments?.data?.[0]?.media?.image?.src || null;
+      const parts     = p.id?.split('_');
+      const isVideo   = type === 'video_inline' || type === 'video';
+      // YouTube-link posts have ytimg.com thumbnails; native FB videos have fbcdn.net thumbnails
+      const ytMatch   = thumbnail?.match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+      const embedUrl  = isVideo
+        ? (ytMatch
+            ? `https://www.youtube.com/embed/${ytMatch[1]}`
+            : parts?.length >= 2
+              ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(`https://www.facebook.com/${parts[0]}/videos/${parts.slice(1).join('_')}`)}&show_text=false`
+              : null)
         : null;
 
       await db`
@@ -104,7 +112,7 @@ export default async function handler(req, res) {
         VALUES (
           ${p.id}, ${message}, ${p.story || null}, ${p.created_time},
           ${classifyFb(message, type)}, ${type},
-          ${p.attachments?.data?.[0]?.media?.image?.src || null},
+          ${thumbnail},
           ${p.permalink_url || null}, ${embedUrl},
           ${likes}, ${comments}, ${shares}, ${likes + comments + shares},
           0, NOW()
@@ -114,6 +122,11 @@ export default async function handler(req, res) {
           comment_count  = EXCLUDED.comment_count,
           share_count    = EXCLUDED.share_count,
           engaged        = EXCLUDED.engaged,
+          content_type   = EXCLUDED.content_type,
+          type           = EXCLUDED.type,
+          thumbnail      = COALESCE(EXCLUDED.thumbnail, fb_posts.thumbnail),
+          embed_url      = COALESCE(EXCLUDED.embed_url, fb_posts.embed_url),
+          permalink      = COALESCE(EXCLUDED.permalink, fb_posts.permalink),
           snapshotted_at = NOW()
       `;
 
@@ -386,11 +399,16 @@ export default async function handler(req, res) {
     );
     const demoData = await demoRes.json();
     if (!demoData.error && demoData.data) {
-      const metric = demoData.data.find(d => d.name === 'follower_demographics');
-      const breakdown = metric?.total_value?.breakdowns?.[0]?.results || [];
+      const metric       = demoData.data.find(d => d.name === 'follower_demographics');
+      const breakdownObj = metric?.total_value?.breakdowns?.[0];
+      const dimKeys      = breakdownObj?.dimension_keys || [];
+      const ageIdx       = dimKeys.indexOf('age');
+      const genderIdx    = dimKeys.indexOf('gender');
+      const breakdown    = breakdownObj?.results || [];
       const groups = {};
       breakdown.forEach(({ dimension_values, value }) => {
-        const [age, gender] = dimension_values; // API returns [age, gender] for breakdown=age,gender
+        const age    = dimension_values[ageIdx    >= 0 ? ageIdx    : 0];
+        const gender = dimension_values[genderIdx >= 0 ? genderIdx : 1];
         if (!groups[age]) groups[age] = { M: 0, F: 0, U: 0 };
         if (gender === 'M') groups[age].M += value;
         else if (gender === 'F') groups[age].F += value;
