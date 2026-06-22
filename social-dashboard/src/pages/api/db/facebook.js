@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       commentCount: p.comment_count || 0,
       shareCount:   p.share_count   || 0,
       engaged:      p.engaged       || 0,
-      reach:        null,              // post_impressions_unique deprecated June 2026
+      reach:        p.reach ?? null,   // post_video_views for video posts; null for photos
       engagement:   p.engaged       || 0,
     }));
 

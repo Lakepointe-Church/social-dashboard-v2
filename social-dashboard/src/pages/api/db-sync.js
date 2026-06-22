@@ -108,6 +108,17 @@ export default async function handler(req, res) {
               : null)
         : null;
 
+      // post_video_views confirmed working for video posts (probe June 2026)
+      let videoViews = null;
+      if (isVideo && !ytMatch) {
+        try {
+          const pvRes  = await fetch(`${META_BASE}/${p.id}/insights?metric=post_video_views&access_token=${token}&appsecret_proof=${ap}`);
+          const pvData = await pvRes.json();
+          const val = pvData.data?.[0]?.values?.[0]?.value;
+          if (!pvData.error && val != null && val > 0) videoViews = val;
+        } catch (_) {}
+      }
+
       await db`
         INSERT INTO fb_posts
           (id, message, story, created_time, content_type, type, thumbnail, permalink, embed_url,
@@ -118,14 +129,14 @@ export default async function handler(req, res) {
           ${thumbnail},
           ${p.permalink_url || null}, ${embedUrl},
           ${likes}, ${comments}, ${shares}, ${likes + comments + shares},
-          null, NOW()
+          ${videoViews}, NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
           like_count     = EXCLUDED.like_count,
           comment_count  = EXCLUDED.comment_count,
           share_count    = EXCLUDED.share_count,
           engaged        = EXCLUDED.engaged,
-          reach          = NULL,
+          reach          = EXCLUDED.reach,
           content_type   = EXCLUDED.content_type,
           type           = EXCLUDED.type,
           thumbnail      = COALESCE(EXCLUDED.thumbnail, fb_posts.thumbnail),
