@@ -352,23 +352,35 @@ export default async function handler(req, res) {
     }
     results.instagram_posts = (mediaData.data || []).length;
 
-    // Account-level insights
-    const acctMetrics = ['reach', 'impressions', 'profile_visits', 'accounts_engaged'];
+    // Account-level insights — mirrors /api/instagram.js split by response format
+    const tsMetrics = ['reach'];  // time-series: values[] format
+    const tvMetrics = ['views', 'profile_views', 'total_interactions', 'accounts_engaged', 'shares'];  // metric_type=total_value
     const since = Math.floor((Date.now() - 28 * 86400 * 1000) / 1000);
     const until = Math.floor(Date.now() / 1000);
-    const aRes  = await Promise.allSettled(
-      acctMetrics.map(m =>
-        fetch(`${META_BASE}/${process.env.META_INSTAGRAM_ID}/insights?metric=${m}&period=day&since=${since}&until=${until}&access_token=${token}&appsecret_proof=${ap}`)
+    const igId  = process.env.META_INSTAGRAM_ID;
+    const [tsRes, tvRes] = await Promise.all([
+      Promise.allSettled(tsMetrics.map(m =>
+        fetch(`${META_BASE}/${igId}/insights?metric=${m}&period=day&since=${since}&until=${until}&access_token=${token}&appsecret_proof=${ap}`)
           .then(r => r.json())
-      )
-    );
+      )),
+      Promise.allSettled(tvMetrics.map(m =>
+        fetch(`${META_BASE}/${igId}/insights?metric=${m}&period=day&since=${since}&until=${until}&metric_type=total_value&access_token=${token}&appsecret_proof=${ap}`)
+          .then(r => r.json())
+      )),
+    ]);
     const aTotals = {};
-    aRes.forEach(r => {
-      if (r.status === 'fulfilled' && !r.value.error && r.value.data) {
-        r.value.data.forEach(metric => {
-          aTotals[metric.name] = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
-        });
-      }
+    [[tsRes, tsMetrics], [tvRes, tvMetrics]].forEach(([results, metrics]) => {
+      results.forEach((r, i) => {
+        if (r.status !== 'fulfilled' || r.value.error) {
+          console.error(`[db-sync IG acct] ${metrics[i]}: ${r.value?.error?.message || r.reason}`);
+          return;
+        }
+        const d = r.value.data?.[0];
+        if (!d) return;
+        aTotals[d.name] = d.total_value !== undefined
+          ? (d.total_value?.value ?? 0)
+          : (d.values || []).reduce((s, v) => s + (v.value || 0), 0);
+      });
     });
 
     // New followers
@@ -382,12 +394,14 @@ export default async function handler(req, res) {
     } catch (_) {}
 
     igInsights = {
-      ig_followers:        acctData.followers_count || 0,
-      ig_reach:            aTotals.reach || 0,
-      ig_impressions:      aTotals.impressions || 0,
-      ig_profile_views:    aTotals.profile_visits || 0,
-      ig_accounts_engaged: aTotals.accounts_engaged || 0,
-      ig_new_followers:    newFollowers,
+      ig_followers:           acctData.followers_count    || 0,
+      ig_reach:               aTotals.reach               || 0,
+      ig_impressions:         aTotals.views               || 0,  // views replaces deprecated impressions
+      ig_profile_views:       aTotals.profile_views       || 0,  // profile_views replaces deprecated profile_visits
+      ig_accounts_engaged:    aTotals.accounts_engaged    || 0,
+      ig_total_interactions:  aTotals.total_interactions  || 0,
+      ig_shares:              aTotals.shares              || 0,
+      ig_new_followers:       newFollowers,
     };
     results.instagram_insights = 'ok';
   } catch (e) {
@@ -543,13 +557,22 @@ export default async function handler(req, res) {
   }
 
   // ── 9. Upsert daily_insights row ───────────────────────────────────────────
+  // Ensure new columns exist (idempotent — safe to run on every sync)
+  try {
+    await db`ALTER TABLE daily_insights ADD COLUMN IF NOT EXISTS ig_total_interactions INTEGER`;
+    await db`ALTER TABLE daily_insights ADD COLUMN IF NOT EXISTS ig_shares INTEGER`;
+  } catch (e) {
+    console.error('[db-sync] migration error:', e.message);
+  }
+
   try {
     const ins = { ...fbInsights, ...igInsights, ...ytInsights };
     await db`
       INSERT INTO daily_insights (
         date,
         fb_followers, fb_reach, fb_impressions, fb_engaged_users, fb_page_views, fb_new_fans,
-        ig_followers, ig_reach, ig_impressions, ig_profile_views, ig_accounts_engaged, ig_new_followers,
+        ig_followers, ig_reach, ig_impressions, ig_profile_views, ig_accounts_engaged,
+        ig_total_interactions, ig_shares, ig_new_followers,
         yt_subscribers, yt_total_views, yt_total_videos,
         snapshotted_at
       ) VALUES (
@@ -557,27 +580,30 @@ export default async function handler(req, res) {
         ${ins.fb_followers ?? null}, ${ins.fb_reach ?? null}, ${ins.fb_impressions ?? null},
         ${ins.fb_engaged_users ?? null}, ${ins.fb_page_views ?? null}, ${ins.fb_new_fans ?? null},
         ${ins.ig_followers ?? null}, ${ins.ig_reach ?? null}, ${ins.ig_impressions ?? null},
-        ${ins.ig_profile_views ?? null}, ${ins.ig_accounts_engaged ?? null}, ${ins.ig_new_followers ?? null},
+        ${ins.ig_profile_views ?? null}, ${ins.ig_accounts_engaged ?? null},
+        ${ins.ig_total_interactions ?? null}, ${ins.ig_shares ?? null}, ${ins.ig_new_followers ?? null},
         ${ins.yt_subscribers ?? null}, ${ins.yt_total_views ?? null}, ${ins.yt_total_videos ?? null},
         NOW()
       )
       ON CONFLICT (date) DO UPDATE SET
-        fb_followers        = EXCLUDED.fb_followers,
-        fb_reach            = EXCLUDED.fb_reach,
-        fb_impressions      = EXCLUDED.fb_impressions,
-        fb_engaged_users    = EXCLUDED.fb_engaged_users,
-        fb_page_views       = EXCLUDED.fb_page_views,
-        fb_new_fans         = EXCLUDED.fb_new_fans,
-        ig_followers        = EXCLUDED.ig_followers,
-        ig_reach            = EXCLUDED.ig_reach,
-        ig_impressions      = EXCLUDED.ig_impressions,
-        ig_profile_views    = EXCLUDED.ig_profile_views,
-        ig_accounts_engaged = EXCLUDED.ig_accounts_engaged,
-        ig_new_followers    = EXCLUDED.ig_new_followers,
-        yt_subscribers      = EXCLUDED.yt_subscribers,
-        yt_total_views      = EXCLUDED.yt_total_views,
-        yt_total_videos     = EXCLUDED.yt_total_videos,
-        snapshotted_at      = NOW()
+        fb_followers           = EXCLUDED.fb_followers,
+        fb_reach               = EXCLUDED.fb_reach,
+        fb_impressions         = EXCLUDED.fb_impressions,
+        fb_engaged_users       = EXCLUDED.fb_engaged_users,
+        fb_page_views          = EXCLUDED.fb_page_views,
+        fb_new_fans            = EXCLUDED.fb_new_fans,
+        ig_followers           = EXCLUDED.ig_followers,
+        ig_reach               = EXCLUDED.ig_reach,
+        ig_impressions         = EXCLUDED.ig_impressions,
+        ig_profile_views       = EXCLUDED.ig_profile_views,
+        ig_accounts_engaged    = EXCLUDED.ig_accounts_engaged,
+        ig_total_interactions  = EXCLUDED.ig_total_interactions,
+        ig_shares              = EXCLUDED.ig_shares,
+        ig_new_followers       = EXCLUDED.ig_new_followers,
+        yt_subscribers         = EXCLUDED.yt_subscribers,
+        yt_total_views         = EXCLUDED.yt_total_views,
+        yt_total_videos        = EXCLUDED.yt_total_videos,
+        snapshotted_at         = NOW()
     `;
     results.daily_insights = ins;
   } catch (e) {

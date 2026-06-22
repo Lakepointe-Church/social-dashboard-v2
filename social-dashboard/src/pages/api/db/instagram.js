@@ -24,13 +24,13 @@ export default async function handler(req, res) {
     };
 
     const insights = {
-      reach:           ins?.ig_reach            || 0,
-      impressions:     ins?.ig_impressions       || 0,
-      profileVisits:   ins?.ig_profile_views     || 0,
-      accountsEngaged: ins?.ig_accounts_engaged  || 0,
-      totalInteractions: 0,
-      shares:          0,
-      newFollowers:    ins?.ig_new_followers     || 0,
+      reach:        ins?.ig_reach                ?? null,
+      impressions:  ins?.ig_impressions           ?? null,
+      profileViews: ins?.ig_profile_views         ?? null,
+      engaged:      ins?.ig_accounts_engaged      ?? null,
+      interactions: ins?.ig_total_interactions    ?? null,
+      shares:       ins?.ig_shares                ?? null,
+      newFollowers: ins?.ig_new_followers         || 0,
     };
 
     // ── Posts ─────────────────────────────────────────────────────────────────
