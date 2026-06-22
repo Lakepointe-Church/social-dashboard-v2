@@ -47,10 +47,18 @@ export default async function handler(req, res) {
           .then(r => r.json())
       )
     );
+    const insightErrors = {};
     const allInsightData = [];
-    insightResults.forEach(r => {
-      if (r.status === 'fulfilled' && !r.value.error && r.value.data) {
+    insightResults.forEach((r, i) => {
+      const metricName = accountMetrics[i];
+      if (r.status === 'fulfilled' && r.value.error) {
+        insightErrors[metricName] = r.value.error.message;
+        console.error(`[IG insights] ${metricName}: ${r.value.error.message}`);
+      } else if (r.status === 'fulfilled' && r.value.data) {
         allInsightData.push(...r.value.data);
+      } else if (r.status === 'rejected') {
+        insightErrors[metricName] = String(r.reason);
+        console.error(`[IG insights] ${metricName} rejected: ${r.reason}`);
       }
     });
     const insights = parseInsights(allInsightData);
@@ -263,6 +271,7 @@ export default async function handler(req, res) {
         profilePicture: accountData.profile_picture_url || null,
       },
       insights: { ...insights, newFollowers },
+      insightErrors,
       media:    allMedia,
       demographics,
       geo,
@@ -273,6 +282,8 @@ export default async function handler(req, res) {
 
     if (rawMode) {
       payload.raw = {
+        insightErrors,
+        accountInsightsRaw: allInsightData,
         demographicsRaw: demoData,
         geoRaw: geoResults,
       };
@@ -290,17 +301,19 @@ function today()    { return Math.floor(Date.now() / 1000); }
 function daysAgo(n) { return Math.floor((Date.now() - n * 24 * 60 * 60 * 1000) / 1000); }
 
 function parseInsights(data) {
+  const found = new Set(data.map(m => m.name));
   const totals = {};
   data.forEach(metric => {
     totals[metric.name] = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
   });
+  // null = metric errored or was not returned by Meta (deprecated/unavailable); 0 = genuine zero
   return {
-    reach:        totals.reach || 0,
-    impressions:  totals.impressions || 0,
-    profileViews: totals.profile_visits || 0,
-    interactions: totals.total_interactions || 0,
-    engaged:      totals.accounts_engaged || 0,
-    shares:       totals.shares || 0,
+    reach:        found.has('reach')              ? totals.reach              : null,
+    impressions:  found.has('impressions')        ? totals.impressions        : null,
+    profileViews: found.has('profile_visits')     ? totals.profile_visits     : null,
+    interactions: found.has('total_interactions') ? totals.total_interactions : null,
+    engaged:      found.has('accounts_engaged')   ? totals.accounts_engaged   : null,
+    shares:       found.has('shares')             ? totals.shares             : null,
   };
 }
 
