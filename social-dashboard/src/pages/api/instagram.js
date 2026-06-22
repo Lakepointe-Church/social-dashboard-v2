@@ -41,11 +41,11 @@ export default async function handler(req, res) {
 
     // ── 2. Account-level insights ─────────────────────────────────────────────
     // Group 1: standard time-series (period=day, values[] format)
+    const timeSeriesMetrics = ['reach'];
+    // Group 2: require metric_type=total_value; response uses total_value.value, not values[]
     //   - `views` replaces deprecated `impressions` (Meta renamed Nov 2025)
     //   - `profile_views` replaces deprecated `profile_visits`
-    const timeSeriesMetrics = ['reach', 'views', 'profile_views'];
-    // Group 2: require metric_type=total_value; response uses total_value.value, not values[]
-    const totalValueMetrics = ['total_interactions', 'accounts_engaged', 'shares'];
+    const totalValueMetrics = ['views', 'profile_views', 'total_interactions', 'accounts_engaged', 'shares'];
 
     const [tsResults, tvResults] = await Promise.all([
       Promise.allSettled(
