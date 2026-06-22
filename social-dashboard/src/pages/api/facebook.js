@@ -42,10 +42,13 @@ export default async function handler(req, res) {
     if (pageData.error) throw new Error(pageData.error.message);
 
     // ── 2. Page insights ──────────────────────────────────────────────────────
-    const insightMetrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total', 'page_fan_adds'];
+    // page_impressions and page_impressions_unique deprecated June 2026 — no valid replacement found
+    // page_post_engagements: proxy for deprecated page_engaged_users (not identical: counts actions, not unique people)
+    // page_daily_follows_unique: replaces deprecated page_fan_adds
+    const insightMetrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
-        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=week&since=${daysAgo(28)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
+        fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=day&since=${daysAgo(28)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
           .then(r => r.json())
       )
     );
@@ -72,53 +75,31 @@ export default async function handler(req, res) {
     const postsData = await postsRes.json();
     if (postsData.error) throw new Error(postsData.error.message);
 
-    // Candidate post-level metric names — update after Phase 2 verifies against live API
-    const postInsightMetrics = ['post_impressions_unique', 'post_engaged_users'];
-
-    const posts = await Promise.all(
-      (postsData.data || []).map(async p => {
-        const likes    = p.likes?.summary?.total_count || 0;
-        const comments = p.comments?.summary?.total_count || 0;
-        const shares   = p.shares?.count || 0;
-        const engaged  = likes + comments + shares;
-        const type     = p.attachments?.data?.[0]?.type || 'status';
-        const message  = p.message || p.story || '';
-
-        let reach      = null;
-        let engagement = null;
-
-        try {
-          const piRes  = await fetch(`${base}/${p.id}/insights?metric=${postInsightMetrics.join(',')}&access_token=${token}&appsecret_proof=${proof}`);
-          const piData = await piRes.json();
-          if (piData.error) {
-            console.error(`[FB post insights] ${p.id}: ${piData.error.message}`);
-          } else if (piData.data) {
-            const piMap = {};
-            piData.data.forEach(i => { piMap[i.name] = i.values?.[0]?.value ?? i.value ?? null; });
-            reach      = piMap.post_impressions_unique ?? null;
-            engagement = piMap.post_engaged_users ?? null;
-          }
-        } catch (e) {
-          console.error(`[FB post insights] fetch failed for ${p.id}:`, e.message);
-        }
-
-        return {
-          id:           p.id,
-          message,
-          createdTime:  p.created_time,
-          thumbnail:    p.attachments?.data?.[0]?.media?.image?.src || null,
-          type,
-          contentType:  classifyPost(message, type),
-          permalink:    p.permalink_url || null,
-          engaged,
-          likeCount:    likes,
-          commentCount: comments,
-          shareCount:   shares,
-          reach,
-          engagement,
-        };
-      })
-    );
+    // post_impressions_unique, post_engaged_users, and all post reach/impression variants
+    // returned (#100) invalid metric as of June 2026 probe — no per-post reach API exists.
+    // engagement is derived from likes+comments+shares (documented — no single API metric available).
+    const posts = (postsData.data || []).map(p => {
+      const likes    = p.likes?.summary?.total_count || 0;
+      const comments = p.comments?.summary?.total_count || 0;
+      const shares   = p.shares?.count || 0;
+      const type     = p.attachments?.data?.[0]?.type || 'status';
+      const message  = p.message || p.story || '';
+      return {
+        id:           p.id,
+        message,
+        createdTime:  p.created_time,
+        thumbnail:    p.attachments?.data?.[0]?.media?.image?.src || null,
+        type,
+        contentType:  classifyPost(message, type),
+        permalink:    p.permalink_url || null,
+        engaged:      likes + comments + shares,
+        likeCount:    likes,
+        commentCount: comments,
+        shareCount:   shares,
+        reach:        null,
+        engagement:   likes + comments + shares,
+      };
+    });
 
     // ── 4. Demographics ───────────────────────────────────────────────────────
     const demoRes  = await fetch(`${base}/${PAGE_ID}/insights?metric=page_fans_gender_age&period=lifetime&access_token=${token}&appsecret_proof=${proof}`);
@@ -170,13 +151,16 @@ function parseInsights(data) {
       return s + val;
     }, 0);
   });
-  // null = metric errored or was not returned by Meta (deprecated/unavailable); 0 = genuine zero
+  // null = metric deprecated/unavailable; 0 = genuine zero
+  // page_impressions + page_impressions_unique: deprecated June 2026, no valid replacement
+  // page_post_engagements: proxy for deprecated page_engaged_users (actions not unique people)
+  // page_daily_follows_unique: replaces deprecated page_fan_adds
   return {
-    impressions:  found.has('page_impressions')        ? totals.page_impressions        : null,
-    reach:        found.has('page_impressions_unique')  ? totals.page_impressions_unique  : null,
-    engagedUsers: found.has('page_engaged_users')       ? totals.page_engaged_users       : null,
-    pageViews:    found.has('page_views_total')         ? totals.page_views_total         : null,
-    newFans:      found.has('page_fan_adds')            ? totals.page_fan_adds            : null,
+    impressions:  null,
+    reach:        null,
+    engagedUsers: found.has('page_post_engagements')    ? totals.page_post_engagements    : null,
+    pageViews:    found.has('page_views_total')          ? totals.page_views_total          : null,
+    newFans:      found.has('page_daily_follows_unique') ? totals.page_daily_follows_unique : null,
   };
 }
 

@@ -161,12 +161,15 @@ export default async function handler(req, res) {
     );
     const pageData = await pageRes.json();
 
-    const metrics = ['page_impressions', 'page_impressions_unique', 'page_engaged_users', 'page_views_total', 'page_fan_adds'];
+    // page_impressions/page_impressions_unique deprecated June 2026 — no valid replacement
+    // page_post_engagements: proxy for deprecated page_engaged_users (actions not unique people)
+    // page_daily_follows_unique: replaces deprecated page_fan_adds
+    const metrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique'];
     const since   = Math.floor((Date.now() - 28 * 86400 * 1000) / 1000);
     const until   = Math.floor(Date.now() / 1000);
     const iRes = await Promise.allSettled(
       metrics.map(m =>
-        fetch(`${META_BASE}/${process.env.META_PAGE_ID}/insights?metric=${m}&period=week&since=${since}&until=${until}&access_token=${token}&appsecret_proof=${ap}`)
+        fetch(`${META_BASE}/${process.env.META_PAGE_ID}/insights?metric=${m}&period=day&since=${since}&until=${until}&access_token=${token}&appsecret_proof=${ap}`)
           .then(r => r.json())
       )
     );
@@ -179,15 +182,17 @@ export default async function handler(req, res) {
             return s + val;
           }, 0);
         });
+      } else if (r.status === 'fulfilled' && r.value.error) {
+        console.error(`[db-sync FB] ${r.value.error.message}`);
       }
     });
     fbInsights = {
-      fb_followers:     pageData.followers_count || 0,
-      fb_reach:         totals.page_impressions_unique || 0,
-      fb_impressions:   totals.page_impressions || 0,
-      fb_engaged_users: totals.page_engaged_users || 0,
-      fb_page_views:    totals.page_views_total || 0,
-      fb_new_fans:      totals.page_fan_adds || 0,
+      fb_followers:     pageData.followers_count                 || 0,
+      fb_reach:         null,                                          // page_impressions_unique deprecated
+      fb_impressions:   null,                                          // page_impressions deprecated
+      fb_engaged_users: totals.page_post_engagements    ?? null,
+      fb_page_views:    totals.page_views_total          ?? null,
+      fb_new_fans:      totals.page_daily_follows_unique ?? null,
     };
     results.facebook_insights = 'ok';
   } catch (e) {

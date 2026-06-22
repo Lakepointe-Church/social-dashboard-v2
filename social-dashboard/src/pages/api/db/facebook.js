@@ -21,11 +21,11 @@ export default async function handler(req, res) {
     };
 
     const insights = {
-      impressions:  ins?.fb_impressions   || 0,
-      reach:        ins?.fb_reach         || 0,
-      engagedUsers: ins?.fb_engaged_users || 0,
-      pageViews:    ins?.fb_page_views    || 0,
-      newFans:      ins?.fb_new_fans      || 0,
+      impressions:  null,                           // page_impressions deprecated June 2026
+      reach:        null,                           // page_impressions_unique deprecated June 2026
+      engagedUsers: ins?.fb_engaged_users ?? null,
+      pageViews:    ins?.fb_page_views    ?? null,
+      newFans:      ins?.fb_new_fans      ?? null,
     };
 
     // ── Posts ─────────────────────────────────────────────────────────────────
