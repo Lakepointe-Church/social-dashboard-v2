@@ -77,7 +77,7 @@ function getFbPostUrl(postId) {
 
 function toFbSpotlight(post) {
   const engaged = post.engaged ?? (post.likeCount + post.commentCount + post.shareCount);
-  const reach = post.reach ?? 0;
+  const reach = post.reach ?? null;  // null = reach unavailable (deprecated June 2026)
   return {
     ...post,
     caption: post.message || '',
@@ -86,7 +86,7 @@ function toFbSpotlight(post) {
     timestamp: post.createdTime,
     commentsCount: post.commentCount,
     shares: post.shareCount,
-    engagementRate: reach > 0 ? parseFloat((engaged / reach * 100).toFixed(2)) : 0,
+    engagementRate: (reach != null && reach > 0) ? parseFloat((engaged / reach * 100).toFixed(2)) : null,
     saved: null, saveRate: null, shareRate: null, avgWatchTime: null, videoUrl: null,
     mediaType:
       (post.contentType === 'video' || post.contentType === 'stream') ? 'VIDEO' :

@@ -118,13 +118,14 @@ export default async function handler(req, res) {
           ${thumbnail},
           ${p.permalink_url || null}, ${embedUrl},
           ${likes}, ${comments}, ${shares}, ${likes + comments + shares},
-          0, NOW()
+          null, NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
           like_count     = EXCLUDED.like_count,
           comment_count  = EXCLUDED.comment_count,
           share_count    = EXCLUDED.share_count,
           engaged        = EXCLUDED.engaged,
+          reach          = NULL,
           content_type   = EXCLUDED.content_type,
           type           = EXCLUDED.type,
           thumbnail      = COALESCE(EXCLUDED.thumbnail, fb_posts.thumbnail),

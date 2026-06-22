@@ -178,7 +178,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
   const activeMediaUrl = currentSlide?.mediaUrl ?? freshMedia?.mediaUrl ?? post.mediaUrl;
   const activeVideoUrl = currentSlide?.videoUrl ?? freshMedia?.videoUrl ?? post.videoUrl;
 
-  const engRate  = post.engagementRate ?? 0;
+  const engRate  = post.engagementRate ?? null;
   const engColor = engRate > 5 ? '#059669' : engRate > 2 ? '#3b82f6' : '#94a3b8';
 
   // Rate pills — Instagram only
@@ -198,7 +198,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
 
   const baseMetrics = [
     { icon: <Eye size={15} />,           label: reachLabel,   value: fmtBig(post.reach),         color: reachColor },
-    { icon: <TrendingUp size={15} />,    label: 'Eng. Rate',  value: `${engRate.toFixed(2)}%`,   color: engColor   },
+    { icon: <TrendingUp size={15} />,    label: 'Eng. Rate',  value: engRate != null ? `${engRate.toFixed(2)}%` : '—',   color: engColor   },
     { icon: <Heart size={15} />,         label: 'Likes',      value: fmtBig(post.likeCount),     color: likesColor },
     { icon: <MessageCircle size={15} />, label: 'Comments',   value: fmtBig(post.commentsCount), color: '#6366f1'  },
   ];
