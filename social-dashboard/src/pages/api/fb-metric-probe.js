@@ -95,35 +95,54 @@ export default async function handler(req, res) {
     }
   });
 
-  // ── Post-level candidates — test against the most recent post ──────────────
-  const postsRes  = await fetch(`${base}/${PAGE_ID}/posts?fields=id&limit=1&access_token=${token}&appsecret_proof=${proof}`);
+  // ── Post-level candidates ──────────────────────────────────────────────────
+  // Fetch most recent post + most recent video post separately (some metrics only apply to videos)
+  const postsRes  = await fetch(`${base}/${PAGE_ID}/posts?fields=id,attachments{type}&limit=10&access_token=${token}&appsecret_proof=${proof}`);
   const postsData = await postsRes.json();
-  const samplePostId = postsData.data?.[0]?.id || null;
+  const allPosts  = postsData.data || [];
+  const samplePostId  = allPosts[0]?.id || null;
+  const videoPost     = allPosts.find(p => ['video_inline','video'].includes(p.attachments?.data?.[0]?.type));
+  const sampleVideoId = videoPost?.id || null;
 
-  const postReport = { samplePostId, results: {} };
+  // Candidates without metric_type
+  const postCandidates = [
+    'post_impressions_unique',
+    'post_impressions',
+    'post_reach',
+    'post_reach_unique',
+    'post_total_views',
+    'post_views_unique',
+    'post_engaged_users',
+    'post_engagements',
+    'post_total_reactions',
+    'post_reactions_by_type_total',
+    'post_activity',
+    'post_video_views',
+    'post_video_view_time',
+    'post_video_complete_views_30s',
+    'post_clicks',
+    'post_clicks_unique',
+  ];
+
+  // Candidates with metric_type=total_value (same pattern that unlocked IG metrics)
+  const postTotalValueCandidates = [
+    'reach',
+    'impressions',
+    'views',
+    'post_impressions_unique',
+    'post_reach',
+    'post_clicks',
+  ];
+
+  const postReport = { samplePostId, sampleVideoId, results: {}, totalValueResults: {}, videoResults: {} };
 
   if (samplePostId) {
-    const postCandidates = [
-      'post_impressions_unique',
-      'post_impressions',
-      'post_reach',
-      'post_reach_unique',
-      'post_total_views',
-      'post_views_unique',
-      'post_engaged_users',
-      'post_engagements',
-      'post_total_reactions',
-      'post_reactions_by_type_total',
-      'post_activity',
-    ];
-
     const postResults = await Promise.allSettled(
       postCandidates.map(metric =>
         fetch(`${base}/${samplePostId}/insights?metric=${metric}&access_token=${token}&appsecret_proof=${proof}`)
           .then(r => r.json())
       )
     );
-
     postResults.forEach((r, i) => {
       const m = postCandidates[i];
       if (r.status === 'rejected') {
@@ -133,6 +152,47 @@ export default async function handler(req, res) {
       } else {
         const val = r.value.data?.[0]?.values?.[0]?.value ?? r.value.data?.[0]?.value ?? null;
         postReport.results[m] = { status: 'ok', value: val };
+      }
+    });
+
+    // Test with metric_type=total_value
+    const tvResults = await Promise.allSettled(
+      postTotalValueCandidates.map(metric =>
+        fetch(`${base}/${samplePostId}/insights?metric=${metric}&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`)
+          .then(r => r.json())
+      )
+    );
+    tvResults.forEach((r, i) => {
+      const m = postTotalValueCandidates[i];
+      if (r.status === 'rejected') {
+        postReport.totalValueResults[m] = { status: 'network_error', error: String(r.reason) };
+      } else if (r.value.error) {
+        postReport.totalValueResults[m] = { status: 'api_error', error: r.value.error.message };
+      } else {
+        const val = r.value.data?.[0]?.total_value?.value ?? r.value.data?.[0]?.values?.[0]?.value ?? null;
+        postReport.totalValueResults[m] = { status: 'ok', value: val };
+      }
+    });
+  }
+
+  // Test video-specific metrics against a known video post
+  if (sampleVideoId && sampleVideoId !== samplePostId) {
+    const videoMetrics = ['post_video_views', 'post_video_view_time', 'post_video_complete_views_30s', 'post_impressions_unique', 'post_reach'];
+    const videoResults = await Promise.allSettled(
+      videoMetrics.map(metric =>
+        fetch(`${base}/${sampleVideoId}/insights?metric=${metric}&access_token=${token}&appsecret_proof=${proof}`)
+          .then(r => r.json())
+      )
+    );
+    videoResults.forEach((r, i) => {
+      const m = videoMetrics[i];
+      if (r.status === 'rejected') {
+        postReport.videoResults[m] = { status: 'network_error', error: String(r.reason) };
+      } else if (r.value.error) {
+        postReport.videoResults[m] = { status: 'api_error', error: r.value.error.message };
+      } else {
+        const val = r.value.data?.[0]?.values?.[0]?.value ?? r.value.data?.[0]?.value ?? null;
+        postReport.videoResults[m] = { status: 'ok', value: val };
       }
     });
   }
