@@ -40,26 +40,43 @@ export default async function handler(req, res) {
     if (accountData.error) throw new Error(accountData.error.message);
 
     // ── 2. Account-level insights ─────────────────────────────────────────────
-    const accountMetrics = ['reach', 'impressions', 'profile_visits', 'total_interactions', 'accounts_engaged', 'shares'];
-    const insightResults = await Promise.allSettled(
-      accountMetrics.map(metric =>
-        fetch(`${base}/${IG_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
-          .then(r => r.json())
-      )
-    );
+    // Group 1: standard time-series (period=day, values[] format)
+    //   - `views` replaces deprecated `impressions` (Meta renamed Nov 2025)
+    //   - `profile_views` replaces deprecated `profile_visits`
+    const timeSeriesMetrics = ['reach', 'views', 'profile_views'];
+    // Group 2: require metric_type=total_value; response uses total_value.value, not values[]
+    const totalValueMetrics = ['total_interactions', 'accounts_engaged', 'shares'];
+
+    const [tsResults, tvResults] = await Promise.all([
+      Promise.allSettled(
+        timeSeriesMetrics.map(metric =>
+          fetch(`${base}/${IG_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
+            .then(r => r.json())
+        )
+      ),
+      Promise.allSettled(
+        totalValueMetrics.map(metric =>
+          fetch(`${base}/${IG_ID}/insights?metric=${metric}&period=day&since=${daysAgo(30)}&until=${today()}&metric_type=total_value&access_token=${token}&appsecret_proof=${proof}`)
+            .then(r => r.json())
+        )
+      ),
+    ]);
+
     const insightErrors = {};
     const allInsightData = [];
-    insightResults.forEach((r, i) => {
-      const metricName = accountMetrics[i];
-      if (r.status === 'fulfilled' && r.value.error) {
-        insightErrors[metricName] = r.value.error.message;
-        console.error(`[IG insights] ${metricName}: ${r.value.error.message}`);
-      } else if (r.status === 'fulfilled' && r.value.data) {
-        allInsightData.push(...r.value.data);
-      } else if (r.status === 'rejected') {
-        insightErrors[metricName] = String(r.reason);
-        console.error(`[IG insights] ${metricName} rejected: ${r.reason}`);
-      }
+    [[tsResults, timeSeriesMetrics], [tvResults, totalValueMetrics]].forEach(([results, metrics]) => {
+      results.forEach((r, i) => {
+        const metricName = metrics[i];
+        if (r.status === 'fulfilled' && r.value.error) {
+          insightErrors[metricName] = r.value.error.message;
+          console.error(`[IG insights] ${metricName}: ${r.value.error.message}`);
+        } else if (r.status === 'fulfilled' && r.value.data) {
+          allInsightData.push(...r.value.data);
+        } else if (r.status === 'rejected') {
+          insightErrors[metricName] = String(r.reason);
+          console.error(`[IG insights] ${metricName} rejected: ${r.reason}`);
+        }
+      });
     });
     const insights = parseInsights(allInsightData);
 
@@ -304,13 +321,19 @@ function parseInsights(data) {
   const found = new Set(data.map(m => m.name));
   const totals = {};
   data.forEach(metric => {
-    totals[metric.name] = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
+    if (metric.total_value !== undefined) {
+      // metric_type=total_value response: single aggregated value, no values[]
+      totals[metric.name] = metric.total_value?.value ?? 0;
+    } else {
+      totals[metric.name] = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
+    }
   });
   // null = metric errored or was not returned by Meta (deprecated/unavailable); 0 = genuine zero
+  // `views` replaces deprecated `impressions`; `profile_views` replaces `profile_visits`
   return {
     reach:        found.has('reach')              ? totals.reach              : null,
-    impressions:  found.has('impressions')        ? totals.impressions        : null,
-    profileViews: found.has('profile_visits')     ? totals.profile_visits     : null,
+    impressions:  found.has('views')              ? totals.views              : null,
+    profileViews: found.has('profile_views')      ? totals.profile_views      : null,
     interactions: found.has('total_interactions') ? totals.total_interactions : null,
     engaged:      found.has('accounts_engaged')   ? totals.accounts_engaged   : null,
     shares:       found.has('shares')             ? totals.shares             : null,
