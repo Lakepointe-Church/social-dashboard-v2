@@ -110,9 +110,13 @@ social-dashboard/
 - **Auth:** `META_PAGE_ACCESS_TOKEN` (Page token) + `META_APP_SECRET` (required — "Require app secret" is ON in the Meta Developer Console)
 - **Security:** All Graph API calls include `appsecret_proof=HMAC-SHA256(app_secret, access_token)` — computed once per request using Node's `crypto` module
 - **API version:** v25.0
-- **Data:** Page followers, 30-day insights (reach, impressions, engaged users, page views, new fans), recent posts with likes/comments/shares, fan demographics, fan cities/countries
+- **Data:** Page followers, 30-day insights, recent posts with likes/comments/shares, fan demographics, fan cities/countries
 - **Content classification:** `stream` (service streams), `photo`, `video`, `other`
-- **`page_fan_adds`** included in insight metrics — returns new followers in the 28-day window. Exposed as `insights.newFans` in the API response. Shown in the Overview tab FB card as "New Followers (30d)".
+- **Deprecated metrics (June 2026):** `page_impressions`, `page_impressions_unique`, `page_engaged_users`, `page_fan_adds`, and ALL post-level reach/impressions variants (`post_impressions_unique`, `post_engaged_users`, `post_viewers`, `post_views`, etc.) now return `(#100) invalid metric`. No valid page-level reach replacement exists. `reach` and `impressions` are permanently `null` in the response.
+- **Current page-level insight metrics:** `page_post_engagements` (proxy for engaged users — actions not unique people), `page_views_total`, `page_daily_follows_unique` (replaces `page_fan_adds`), `page_video_views`. All fetched with `period=day`.
+- **Current FB KPIs (FacebookAnalytics.js):** New Followers (30d) · Video Views (30d) · Post Engagements (30d) · Page Views (30d). Reach removed — no valid metric exists.
+- **Per-post reach:** `post_video_views` confirmed working for native FB video posts (not YouTube-link posts). `post_clicks` fetched for photo/album posts as "Views" proxy. Both stored in `fb_posts.reach` column. YouTube-link posts (`ytMatch`) get `reach = null`.
+- **`parseInsights` null contract:** `null` = metric deprecated/unavailable; `0` = genuine zero returned by Meta. This distinction must hold end to end.
 - **Date range:** Accepts `?since=UNIX&until=UNIX`
 
 ### `/api/instagram`
@@ -178,9 +182,10 @@ social-dashboard/
 - **Data:** Channel stats, paginated video list (50 per page) with per-video stats; optionally: watch time + avg watch time via YouTube Analytics API
 - **Pagination:** Accepts `?pageToken=TOKEN` for subsequent pages
 - **Content classification:** `short` (≤180s), `podcast` (title contains "Live Free with Josh Howerton" or "Live Free"), `sermon` (everything else)
-- **Analytics OAuth flow:** On first page load, if all 3 OAuth env vars are present, calls `getAccessToken()` (exchanges refresh token for short-lived access token) then `fetchYTAnalytics()`. Returns `analytics: { totalWatchMins, avgWatchSecs, impressions, impressionCtr }` or `null` on failure. `analyticsError` field included for debugging — remove once stable.
+- **Analytics OAuth flow:** On first page load, if all 3 OAuth env vars are present, calls `getAccessToken()` (exchanges refresh token for short-lived access token) then `fetchYTAnalytics()`. Returns `analytics: { totalWatchMins, avgWatchSecs, impressions, impressionCtr }` or `null` on failure. `analyticsError` field included for debugging.
 - **Analytics metrics split:** `estimatedMinutesWatched` + `averageViewDuration` fetched together (always available). `impressions` + `impressionsClickThroughRate` fetched separately as best-effort (not available in basic channel reports — stays `null`).
-- **YouTube Analytics API blocker:** `channel==MINE` returns the personal channel of the authenticated user (not the Lakepointe brand account). `channel==CHANNEL_ID` returns "Forbidden" for manager-level accounts — the Analytics API requires the refresh token to come from the channel **owner** account, not a manager. Need to identify which Google account originally created the Lakepointe YouTube brand account and redo the OAuth Playground flow with that account.
+- **Analytics OAuth status (June 2026):** Working. Refresh token is from the channel owner account. OAuth consent screen is External + Production (token never expires). If `analyticsError` reappears, the format is `token_error:invalid_grant:...` (token revoked — regenerate via OAuth Playground) or `analytics_error:400:Bad Request:reason` (API parameter issue).
+- **OAuth consent screen:** "LP Social Dashboard YouTube" project in Google Cloud Console. User type: External. Publishing status: **In production** (changed from Testing June 22, 2026 — removes 7-day refresh token expiration). The "Make internal" option is greyed out because the project is under a personal Google account (not Google Workspace).
 
 ---
 
@@ -188,7 +193,7 @@ social-dashboard/
 
 - **Sticky control bar** (`sticky top-16 z-20`) — content type filter chips (Podcast, Sermon, Short with emoji + color), date range presets (7d/30d/90d + custom), Refresh button. Multi-select: deselecting all shows empty state with reset.
 - **Channel Overview KPIs** — Subscribers, Total Views, Total Videos, Avg Views/Video. Labeled "Channel-wide · not affected by filters" since these are lifetime channel stats.
-- **Advanced Metrics** — Total Watch Time, Avg Watch Time / Short (Shorts only), Avg Watch Time / Long-form (Sermons + Podcasts). Three-column grid. Short and Long-form averages are computed client-side from per-video `avgWatchSecs` in `watchTimeMap` — so they are split by content type, not a single channel-wide average. Renders real `StatCard` values when `analytics` state is populated; falls back to `PendingCard` if `analytics` is null. Currently showing pending — blocked on YouTube Analytics API owner-level OAuth (see API route note above).
+- **Advanced Metrics** — Total Watch Time, Avg Watch Time / Short (Shorts only), Avg Watch Time / Long-form (Sermons + Podcasts). Three-column grid. Short and Long-form averages are computed client-side from per-video `avgWatchSecs` in `watchTimeMap` — so they are split by content type, not a single channel-wide average. Renders real `StatCard` values when `analytics` state is populated; falls back to `PendingCard` if `analytics` is null. **Now live as of June 22, 2026** — OAuth resolved (see API route notes).
 - **Content Breakdown** — `grid-cols-3` inside each content type card: Total Views, Avg Views, Avg Engagement Rate all in one row.
 - **Top 10 sections** — Two side-by-side horizontal scroll rows: "Top 10 by Views" and "Top 10 by Engagement". Cards are `w-56 flex-shrink-0` in a `flex gap-3 overflow-x-auto pb-2` row. Each card shows thumbnail (16:9 via `aspect-video`, using `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` — public, no API key needed), title, rank badge, and primary metric.
 - **All Videos table** — sortable by all columns including Type. Self-contained `sort` state `{ key, dir }`. Uses `durationSecs` (numeric) for duration sorting instead of the display string. Colored pill for Type column (green=short, blue=podcast, violet=sermon). Paginated with "Load More" button.
@@ -233,8 +238,12 @@ A full-screen overlay that opens when any post/video card is clicked across the 
 - Left/right arrow buttons, keyboard ArrowLeft/ArrowRight, dot indicator row (clickable; active dot = larger + white)
 - Slide counter badge: `🖼️ {n} / {total}` — hidden while a video player is active
 
+**FB spotlight specifics:**
+- `reachLabel` is "Views" for all Facebook posts (not "Reach") — `post_video_views` for native videos, `post_clicks` for photos/albums, both stored in `fb_posts.reach`.
+- Engagement rate in PostSpotlight for FB is **follower-based** (`engaged / followersCount * 100`), not reach-based, because reach is unavailable/unreliable post-deprecation. `followersCount` is passed from `data.page.followersCount` at every call site.
+
 **Normalizer functions** (in consuming components, not in PostSpotlight itself):
-- `toFbSpotlight(post)` in `FacebookAnalytics.js` — maps `contentType === 'video'|'stream'` → `mediaType: 'VIDEO'`, `type === 'album'` → `mediaType: 'CAROUSEL_ALBUM'`
+- `toFbSpotlight(post, followersCount)` in `FacebookAnalytics.js` — maps `contentType === 'video'|'stream'` → `mediaType: 'VIDEO'`, `type === 'album'` → `mediaType: 'CAROUSEL_ALBUM'`; computes follower-based `engagementRate`
 - `toYtSpotlight(video)` in `YouTubeAnalytics.js` — uses `img.youtube.com/vi/{id}/mqdefault.jpg` for thumbnail, `youtube.com/watch?v={id}` for permalink
 - IG posts already match the expected shape and pass through with `{ ...m }`
 - `normalizePosts()` in `AllOverview.js` attaches `spotlightPost` and `spotlightPlatform` to each entry so Overview's `handlePostClick` can dispatch to the right platform
@@ -268,23 +277,30 @@ If re-enabling: add back the `AIChatPanel` import, `showAI`/`liveContext` state,
 ### Token Management
 
 - Facebook/Instagram uses a **long-lived Page Access Token** stored in Vercel env vars. Expires every ~60 days. Manually refresh via: Meta Graph API Explorer → generate token → `142188242493004?fields=name,fan_count,access_token` → Access Token Debugger → Extend Access Token → update `META_PAGE_ACCESS_TOKEN` in Vercel → Redeploy.
-- YouTube uses an **API key** for Data API v3 (channel stats, video list). OAuth infrastructure is built and env vars are in Vercel (`YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN`) but Analytics API returns "Forbidden" because the refresh token must come from the channel **owner** account, not a manager. See `/api/youtube` notes for details.
+- YouTube uses an **API key** for Data API v3 (channel stats, video list) and a **refresh token** for Analytics API (watch time). The refresh token is permanent — the Google Cloud OAuth app is set to External + Production (no 7-day expiration). The token only needs regeneration if the channel owner's Google account password changes or access is manually revoked. See "How to Refresh the YouTube OAuth Token" section below.
 
 ### Content Filters (Instagram & Facebook)
 
 Both live tabs use multi-select filter chips. Deselecting all shows an empty state with a reset button. Filters are client-side only — all posts are fetched then filtered in the browser.
 
-### Meta API Limitations (Development Mode)
+### Meta API Limitations and Deprecated Metrics (June 2026)
 
-Several metrics return 0 until the app completes Meta App Review:
+**Deprecated — permanently gone, no valid replacement:**
+- `page_impressions`, `page_impressions_unique` (Facebook page reach)
+- `page_engaged_users`, `page_fan_adds` (replaced by `page_post_engagements`, `page_daily_follows_unique`)
+- ALL post-level reach/impressions: `post_impressions_unique`, `post_engaged_users`, `post_viewers`, `post_views`, `viewers`, `views` — all return `(#100) invalid metric` at post level
 
-- `page_engaged_users`, `page_video_views` (Facebook)
-- `profile_visits`, `total_interactions`, `shares` (Instagram account-level)
-- Per-reel metrics may also be gated
+**Working replacements (confirmed via probe June 2026):**
+- `page_post_engagements` — total actions on posts (not unique people, unlike old `page_engaged_users`)
+- `page_daily_follows_unique` — new followers per day (replaces `page_fan_adds`)
+- `page_video_views` — total video views on the page
+- `page_views_total` — page view count
+- `post_video_views` — per native video post (NOT YouTube-link posts)
+- `post_clicks` — per post, all types; used as "Views" proxy for photo/album posts
 
-This is expected. The app needs to be submitted for App Review and published before these unlock.
+**Instagram account-level metrics** require `metric_type=total_value` (not the default `values[]` format): `views`, `profile_views`, `total_interactions`, `accounts_engaged`, `shares`. Using the wrong format returns 0 silently.
 
-**Critical:** Do NOT embed `insights.metric(post_impressions_unique, post_engaged_users)` as a sub-field in the `/posts` Graph API query. These metrics are gated behind App Review, and embedding them causes the **entire posts request to fail** (not just return 0s). Fetch per-post insights separately after App Review is approved.
+**Critical:** Do NOT embed `insights.metric(post_impressions_unique, post_engaged_users)` as a sub-field in the `/posts` Graph API query — causes the entire posts request to fail.
 
 ### Demo Data
 
@@ -294,7 +310,7 @@ This is expected. The app needs to be submitted for App Review and published bef
 
 ## Pending Work
 
-- [ ] **YouTube Analytics OAuth** — OAuth infrastructure is fully built (Client ID, Secret, refresh token in Vercel; `getAccessToken()` + `fetchYTAnalytics()` in `/api/youtube.js`). Blocked because the refresh token must come from the channel **owner** Google account, not a manager. Jolie is a manager — need to find whose Google account originally created the Lakepointe YouTube brand account and redo the OAuth Playground flow with that account. Once fixed, Advanced Metrics (watch time, avg watch time) will populate automatically. Impression CTR is separately blocked — not available in basic channel reports regardless of access level.
+- [x] **YouTube Analytics OAuth** — Working as of June 22, 2026. Refresh token from channel owner account stored in Vercel. OAuth consent screen published to Production (no token expiration). Watch time cards live. Impression CTR remains `null` — not available in basic channel reports regardless of access level.
 - [ ] **Meta App Review** — **SUBMITTED May 28, 2026. Status as of June 4, 2026: unknown — check Meta Developer Console.** Submitted 8 permissions across two use cases: `pages_read_user_content`, `read_insights`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_manage_insights`, `business_management`, `public_profile`. Once approved: add `post_video_views` to the Facebook posts query; the `collaborators` field on Instagram posts will auto-activate (collab detection already wired up). Reach and views are distinct on Facebook — reach = unique people who saw it (`post_impressions_unique`), views = times the video was played (`post_video_views`).
 - [ ] **Second Meta App Review (future)** — submit `pages_manage_posts` + `instagram_content_publish` once a post scheduling feature is built. Do NOT request these until the feature exists — Meta will reject if they can't find it in the demo.
 - [ ] **Incoming collab posts** — Josh posts + invites LP as collaborator. Blocked by Meta API permissions (see "Incoming Collab Posts" note above). Unblock via: (a) get Josh's IG ID from his team and test direct media fetch, or (b) Meta App Review.
@@ -379,7 +395,47 @@ If Vercel doesn't auto-deploy or you need to force it:
 
 ---
 
+## How to Refresh the YouTube OAuth Token
+
+Only needed if `analyticsError` returns `token_error:invalid_grant:...` (token was revoked — e.g. channel owner's Google password changed).
+
+1. Go to [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/)
+2. Click the **gear icon** (top-right) → check **"Use your own OAuth credentials"** → enter `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` from Vercel
+3. In Step 1, find **YouTube Analytics API v2** → select `https://www.googleapis.com/auth/yt-analytics.readonly` → click **Authorize APIs**
+4. Sign in with the **channel owner Google account** (the account that originally created the Lakepointe YouTube brand channel)
+5. In Step 2, click **Exchange authorization code for tokens**
+6. Copy the `refresh_token` value — verify the response does **NOT** contain `refresh_token_expires_in` (that field means the app is in Testing mode and the token will expire in 7 days)
+7. In Vercel → Environment Variables → edit `YOUTUBE_REFRESH_TOKEN` → paste → Save → **Redeploy**
+
+**Why tokens expire:** The Google Cloud OAuth app ("LP Social Dashboard YouTube") is External + Production. Tokens issued in Production mode are permanent. If you accidentally see `refresh_token_expires_in: 604799` in Step 6, the app has been moved back to Testing — go to Google Cloud Console → Google Auth Platform → Audience → Publish App before re-running the flow.
+
+---
+
 ## Recent Changes (June 2026)
+
+### June 22, 2026 (session 12)
+
+- `e059d2f` — Fix FB insights: replace all deprecated page metrics (`page_impressions*`, `page_engaged_users`, `page_fan_adds`) with confirmed-working replacements (`page_post_engagements`, `page_daily_follows_unique`, `page_video_views`); null out `reach`/`impressions` permanently
+- `d0ecac2` — Fix IG insights DB layer: correct key names (`profileViews`, `engaged`, `interactions`); add `ig_total_interactions` + `ig_shares` DB columns; fix `db-sync` to use `metric_type=total_value` for IG account metrics
+- `e3a9907` / `a9ca3d9` / `26c68aa` — Phase 1–2 probe work: `insightErrors` diagnostic object, raw mode on FB API, per-probe endpoints (`fb-metric-probe.js`) to confirm which metrics are alive
+- `632d892` — Overhaul FB KPIs: New Followers (30d) · Video Views (30d) · Post Engagements (30d) · Page Views (30d); add `page_video_views` + `fb_video_views` DB column
+- `028a197` / `c37052a` — Fetch `post_video_views` per native FB video post during sync, store in `reach` column; fix response format fallback; increase sync limit 25→50
+- `46a2a2a` — FB post spotlight: "Views" label for all FB posts; fetch `post_clicks` for photo/album posts (stored in `reach`); follower-based engagement rate in `toFbSpotlight(post, followersCount)`
+- `344dd3f` — Fix IG photo/carousel thumbnails: `PostCard` + `RateInsightsRow` now call `/api/ig-media` on image error for ALL media types, not just reels (IG CDN URLs expire for photos too)
+- `1617b86` — Improve YouTube Analytics error detail: `token_error:code:description` format for token exchange failures; `analytics_error:code:message:reason` for Analytics API failures
+- YT OAuth fix (no code commit): published Google Cloud OAuth app from Testing → Production; regenerated refresh token under Production mode (no `refresh_token_expires_in` = permanent); updated `YOUTUBE_REFRESH_TOKEN` in Vercel
+
+#### Key decisions this session
+
+- **FB deprecated metrics (June 2026)** — `page_impressions*`, `page_engaged_users`, `page_fan_adds`, and ALL post-level reach variants (`post_impressions_unique`, `post_viewers`, `post_views`, etc.) now return `(#100) invalid metric`. Meta renamed Reach → Viewers and Impressions → Views in the UI but the new API names are not yet live (also return `#100`). Probe confirmed no valid reach metric exists at the post level without App Review.
+- **null vs 0 contract** — `null` = metric deprecated/unavailable; `0` = genuine zero returned by Meta. This must hold end to end. `toFbSpotlight` uses `?? null` (not `?? 0`) for reach; PostSpotlight renders `—` for null values.
+- **IG metric_type=total_value** — IG account-level metrics `views`, `profile_views`, `total_interactions`, `accounts_engaged`, `shares` require `metric_type=total_value` in the request. Using the default format returns 0 silently. The DB layer bug was that `db-sync` was using deprecated metric names AND the wrong format for the new ones.
+- **FB post "Views"** — `post_video_views` for native video posts; `post_clicks` for photo/album posts. Both stored in `fb_posts.reach` column. PostSpotlight shows "Views" label for all FB posts (not "Reach"). YouTube-link posts (`ytMatch`) get `reach = null` — they're not native FB content.
+- **Follower-based engagement rate** — FB engagement rate in PostSpotlight changed from reach-based to follower-based (`engaged / followersCount * 100`) because reach is unavailable post-deprecation. Consistent denominator across all FB post types.
+- **IG thumbnail expiry** — Instagram CDN URLs (`media_url`) expire for ALL media types, not just reels. The `onError` handler in `PostCard` and `RateInsightsRow` previously only retried `/api/ig-media` for reels; now retries for all types.
+- **YouTube OAuth token expiry root cause** — The Google Cloud OAuth app was in External + Testing mode, which causes refresh tokens to expire after 7 days. The token response in Testing mode includes `refresh_token_expires_in: 604799`. Publishing to Production removes this field and makes tokens permanent. "Make internal" was greyed out because the project is under a personal Google account (not Google Workspace).
+
+---
 
 ### June 4, 2026 (session 11)
 
