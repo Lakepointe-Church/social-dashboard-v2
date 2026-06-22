@@ -165,7 +165,7 @@ export default async function handler(req, res) {
     // page_impressions/page_impressions_unique deprecated June 2026 — no valid replacement
     // page_post_engagements: proxy for deprecated page_engaged_users (actions not unique people)
     // page_daily_follows_unique: replaces deprecated page_fan_adds
-    const metrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique'];
+    const metrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique', 'page_video_views'];
     const since   = Math.floor((Date.now() - 28 * 86400 * 1000) / 1000);
     const until   = Math.floor(Date.now() / 1000);
     const iRes = await Promise.allSettled(
@@ -194,6 +194,7 @@ export default async function handler(req, res) {
       fb_engaged_users: totals.page_post_engagements    ?? null,
       fb_page_views:    totals.page_views_total          ?? null,
       fb_new_fans:      totals.page_daily_follows_unique ?? null,
+      fb_video_views:   totals.page_video_views          ?? null,
     };
     results.facebook_insights = 'ok';
   } catch (e) {
@@ -567,6 +568,7 @@ export default async function handler(req, res) {
   try {
     await db`ALTER TABLE daily_insights ADD COLUMN IF NOT EXISTS ig_total_interactions INTEGER`;
     await db`ALTER TABLE daily_insights ADD COLUMN IF NOT EXISTS ig_shares INTEGER`;
+    await db`ALTER TABLE daily_insights ADD COLUMN IF NOT EXISTS fb_video_views INTEGER`;
   } catch (e) {
     console.error('[db-sync] migration error:', e.message);
   }
@@ -576,7 +578,7 @@ export default async function handler(req, res) {
     await db`
       INSERT INTO daily_insights (
         date,
-        fb_followers, fb_reach, fb_impressions, fb_engaged_users, fb_page_views, fb_new_fans,
+        fb_followers, fb_reach, fb_impressions, fb_engaged_users, fb_page_views, fb_new_fans, fb_video_views,
         ig_followers, ig_reach, ig_impressions, ig_profile_views, ig_accounts_engaged,
         ig_total_interactions, ig_shares, ig_new_followers,
         yt_subscribers, yt_total_views, yt_total_videos,
@@ -584,7 +586,7 @@ export default async function handler(req, res) {
       ) VALUES (
         ${today},
         ${ins.fb_followers ?? null}, ${ins.fb_reach ?? null}, ${ins.fb_impressions ?? null},
-        ${ins.fb_engaged_users ?? null}, ${ins.fb_page_views ?? null}, ${ins.fb_new_fans ?? null},
+        ${ins.fb_engaged_users ?? null}, ${ins.fb_page_views ?? null}, ${ins.fb_new_fans ?? null}, ${ins.fb_video_views ?? null},
         ${ins.ig_followers ?? null}, ${ins.ig_reach ?? null}, ${ins.ig_impressions ?? null},
         ${ins.ig_profile_views ?? null}, ${ins.ig_accounts_engaged ?? null},
         ${ins.ig_total_interactions ?? null}, ${ins.ig_shares ?? null}, ${ins.ig_new_followers ?? null},
@@ -598,6 +600,7 @@ export default async function handler(req, res) {
         fb_engaged_users       = EXCLUDED.fb_engaged_users,
         fb_page_views          = EXCLUDED.fb_page_views,
         fb_new_fans            = EXCLUDED.fb_new_fans,
+        fb_video_views         = EXCLUDED.fb_video_views,
         ig_followers           = EXCLUDED.ig_followers,
         ig_reach               = EXCLUDED.ig_reach,
         ig_impressions         = EXCLUDED.ig_impressions,

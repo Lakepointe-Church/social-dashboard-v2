@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       engagedUsers: ins?.fb_engaged_users ?? null,
       pageViews:    ins?.fb_page_views    ?? null,
       newFans:      ins?.fb_new_fans      ?? null,
+      videoViews:   ins?.fb_video_views   ?? null,
     };
 
     // ── Posts ─────────────────────────────────────────────────────────────────

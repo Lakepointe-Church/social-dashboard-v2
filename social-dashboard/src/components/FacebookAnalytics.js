@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle, Share2 } from 'lucide-react';
+import { Users, Eye, Heart, TrendingUp, RefreshCw, AlertCircle, MapPin, Globe, MessageCircle, Share2, UserPlus, Play } from 'lucide-react';
 import PostSpotlight from './PostSpotlight';
 import GrowthChartSection from './GrowthChartSection';
 import SyncNow from './SyncNow';
@@ -560,10 +560,10 @@ export default function FacebookAnalytics() {
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Page Followers"   value={fmtBig(page?.followersCount)} subtext="Facebook Page"           icon={<Users size={20}/>}      iconBg="bg-blue-100"   iconColor="text-blue-600"   />
-        <StatCard label="Reach (30d)"      value={fmtBig(insights?.reach)}      subtext="Unique accounts reached"  icon={<Eye size={20}/>}        iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard label="Engaged Users (30d)" value={fmtBig(insights?.engagedUsers)} subtext="Unique people who took action" icon={<Heart size={20}/>} iconBg="bg-pink-100" iconColor="text-pink-600" />
-        <StatCard label="Page Views (30d)" value={fmtBig(insights?.pageViews)}  subtext="All page views"           icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard label="New Followers (30d)"    value={fmtBig(insights?.newFans)}      subtext="New page followers"        icon={<UserPlus size={20}/>}   iconBg="bg-green-100"  iconColor="text-green-600"  />
+        <StatCard label="Video Views (30d)"      value={fmtBig(insights?.videoViews)}   subtext="Total video plays"         icon={<Play size={20}/>}       iconBg="bg-blue-100"   iconColor="text-blue-600"   />
+        <StatCard label="Post Engagements (30d)" value={fmtBig(insights?.engagedUsers)} subtext="Likes, comments & shares"  icon={<Heart size={20}/>}      iconBg="bg-pink-100"   iconColor="text-pink-600"   />
+        <StatCard label="Page Views (30d)"       value={fmtBig(insights?.pageViews)}    subtext="All page views"            icon={<TrendingUp size={20}/>} iconBg="bg-purple-100" iconColor="text-purple-600" />
       </div>
 
       {/* ── Follower Growth ──────────────────────────────────────────────────── */}

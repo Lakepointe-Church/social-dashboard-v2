@@ -43,9 +43,9 @@ export default async function handler(req, res) {
 
     // ── 2. Page insights ──────────────────────────────────────────────────────
     // page_impressions and page_impressions_unique deprecated June 2026 — no valid replacement found
-    // page_post_engagements: proxy for deprecated page_engaged_users (not identical: counts actions, not unique people)
+    // page_post_engagements: proxy for deprecated page_engaged_users (counts actions, not unique people)
     // page_daily_follows_unique: replaces deprecated page_fan_adds
-    const insightMetrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique'];
+    const insightMetrics = ['page_post_engagements', 'page_views_total', 'page_daily_follows_unique', 'page_video_views'];
     const insightResults = await Promise.allSettled(
       insightMetrics.map(metric =>
         fetch(`${base}/${PAGE_ID}/insights?metric=${metric}&period=day&since=${daysAgo(28)}&until=${today()}&access_token=${token}&appsecret_proof=${proof}`)
@@ -161,6 +161,7 @@ function parseInsights(data) {
     engagedUsers: found.has('page_post_engagements')    ? totals.page_post_engagements    : null,
     pageViews:    found.has('page_views_total')          ? totals.page_views_total          : null,
     newFans:      found.has('page_daily_follows_unique') ? totals.page_daily_follows_unique : null,
+    videoViews:   found.has('page_video_views')          ? totals.page_video_views          : null,
   };
 }
 
