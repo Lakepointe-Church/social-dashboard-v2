@@ -21,7 +21,7 @@ async function getAccessToken() {
     }).toString(),
   });
   const data = await res.json();
-  if (data.error) throw new Error(data.error_description || data.error);
+  if (data.error) throw new Error(`token_error:${data.error}:${data.error_description || ''}`);
   return data.access_token;
 }
 
@@ -40,7 +40,11 @@ async function fetchYTAnalytics(accessToken) {
   watchUrl.searchParams.set('metrics', 'estimatedMinutesWatched,averageViewDuration');
   const watchRes  = await fetch(watchUrl.toString(), { headers });
   const watchData = await watchRes.json();
-  if (watchData.error) throw new Error(watchData.error.message || 'Analytics API error');
+  if (watchData.error) {
+    const e = watchData.error;
+    const reason = e.errors?.[0]?.reason || e.status || '';
+    throw new Error(`analytics_error:${e.code}:${e.message}${reason ? ':' + reason : ''}`);
+  }
   const watchRow = watchData.rows?.[0] || [0, 0];
 
   // Impressions — best-effort, may not be available on all channels
