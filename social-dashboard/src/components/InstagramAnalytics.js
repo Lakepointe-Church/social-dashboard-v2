@@ -80,8 +80,7 @@ function PostCard({ post, rank, metric, metricLabel, onPostClick }) {
               : post.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
 
   const handleImgError = () => {
-    const isReel = post.mediaType === 'REELS' || post.mediaType === 'VIDEO';
-    if (!freshUrl && isReel && post.id) {
+    if (!freshUrl && post.id) {
       fetch(`/api/ig-media?id=${post.id}`)
         .then(r => r.json())
         .then(data => {
@@ -203,8 +202,7 @@ function RateInsightsRow({ p, i, isReel, maxShare, maxLike, maxSave, maxComment,
               : p.mediaType === 'CAROUSEL_ALBUM' ? '🖼️' : '📷';
 
   const handleImgError = () => {
-    const isReelPost = p.mediaType === 'REELS' || p.mediaType === 'VIDEO';
-    if (!freshUrl && isReelPost && p.id) {
+    if (!freshUrl && p.id) {
       fetch(`/api/ig-media?id=${p.id}`)
         .then(r => r.json())
         .then(data => {
