@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     const fbRes  = await fetch(
       `${META_BASE}/${process.env.META_PAGE_ID}/posts` +
       `?fields=id,message,story,created_time,attachments,likes.summary(true),comments.summary(true),shares,permalink_url` +
-      `&limit=25&access_token=${token}&appsecret_proof=${ap}`
+      `&limit=50&access_token=${token}&appsecret_proof=${ap}`
     );
     const fbData = await fbRes.json();
     if (fbData.error) throw new Error(fbData.error.message);
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
         try {
           const pvRes  = await fetch(`${META_BASE}/${p.id}/insights?metric=post_video_views&access_token=${token}&appsecret_proof=${ap}`);
           const pvData = await pvRes.json();
-          const val = pvData.data?.[0]?.values?.[0]?.value;
+          const val = pvData.data?.[0]?.values?.[0]?.value ?? pvData.data?.[0]?.value ?? null;
           if (!pvData.error && val != null && val > 0) videoViews = val;
         } catch (_) {}
       }
