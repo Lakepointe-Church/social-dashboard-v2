@@ -21,23 +21,17 @@ export default async function handler(req, res) {
 
   // ── Page-level candidates (period=week) ────────────────────────────────────
   const pageWeekCandidates = [
-    // reach / impressions replacements
-    'page_reach',
-    'page_total_actions',
-    'page_total_views',
-    'page_content_activity',
+    // New names: viewers = unique accounts (reach), views = total appearances (impressions)
+    'page_viewers',
+    'page_views',
+    // Already confirmed working
     'page_video_views',
     'page_post_engagements',
-    // engaged users replacements
-    'page_actions_post_reactions_total',
-    'page_posts_activity',
-    // fan adds replacements
-    'page_fan_adds_unique',
-    'page_daily_follows',
     'page_daily_follows_unique',
-    'page_follows',
-    'page_fans_adds',
-    'page_fans_adds_unique',
+    // Old names to confirm still dead
+    'page_reach',
+    'page_impressions_unique',
+    'page_impressions',
   ];
 
   const pageWeekResults = await Promise.allSettled(
@@ -104,34 +98,34 @@ export default async function handler(req, res) {
   const videoPost     = allPosts.find(p => ['video_inline','video'].includes(p.attachments?.data?.[0]?.type));
   const sampleVideoId = videoPost?.id || null;
 
+  // Meta renamed metrics Jun 2026: reach→viewers, impressions→views
   // Candidates without metric_type
   const postCandidates = [
+    // New names (viewers = unique accounts, views = total appearances)
+    'post_viewers',
+    'post_views',
+    'viewers',
+    'views',
+    // Still testing old names to confirm dead
     'post_impressions_unique',
-    'post_impressions',
     'post_reach',
-    'post_reach_unique',
-    'post_total_views',
-    'post_views_unique',
-    'post_engaged_users',
-    'post_engagements',
-    'post_total_reactions',
-    'post_reactions_by_type_total',
-    'post_activity',
+    // Video-specific
     'post_video_views',
-    'post_video_view_time',
-    'post_video_complete_views_30s',
+    'post_video_viewers',
+    // Other working metrics from previous run
+    'post_reactions_by_type_total',
     'post_clicks',
-    'post_clicks_unique',
   ];
 
-  // Candidates with metric_type=total_value (same pattern that unlocked IG metrics)
+  // Candidates with metric_type=total_value
   const postTotalValueCandidates = [
+    'viewers',
+    'views',
+    'post_viewers',
+    'post_views',
+    'post_clicks',
     'reach',
     'impressions',
-    'views',
-    'post_impressions_unique',
-    'post_reach',
-    'post_clicks',
   ];
 
   const postReport = { samplePostId, sampleVideoId, results: {}, totalValueResults: {}, videoResults: {} };
@@ -177,7 +171,7 @@ export default async function handler(req, res) {
 
   // Test video-specific metrics against a known video post
   if (sampleVideoId && sampleVideoId !== samplePostId) {
-    const videoMetrics = ['post_video_views', 'post_video_view_time', 'post_video_complete_views_30s', 'post_impressions_unique', 'post_reach'];
+    const videoMetrics = ['post_viewers', 'post_views', 'post_video_views', 'post_video_viewers', 'post_video_view_time', 'post_video_complete_views_30s'];
     const videoResults = await Promise.allSettled(
       videoMetrics.map(metric =>
         fetch(`${base}/${sampleVideoId}/insights?metric=${metric}&access_token=${token}&appsecret_proof=${proof}`)
