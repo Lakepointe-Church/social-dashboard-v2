@@ -192,7 +192,7 @@ export default function PostSpotlight({ post, onClose, accountName = 'lpconnect'
   ] : [];
 
   // Metric grid — varies by platform
-  const reachLabel = platform === 'youtube' ? 'Views' : isReel ? 'Views' : 'Reach';
+  const reachLabel = platform === 'youtube' || platform === 'facebook' ? 'Views' : isReel ? 'Views' : 'Reach';
   const reachColor = platform === 'youtube' ? YT_RED : '#8b5cf6';
   const likesColor = platform === 'facebook' ? FB_BLUE : platform === 'youtube' ? '#f59e0b' : IG_PINK;
 

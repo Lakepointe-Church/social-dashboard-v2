@@ -75,9 +75,13 @@ function getFbPostUrl(postId) {
   return `https://www.facebook.com/${postId}`;
 }
 
-function toFbSpotlight(post) {
+function toFbSpotlight(post, followersCount = 0) {
   const engaged = post.engaged ?? (post.likeCount + post.commentCount + post.shareCount);
-  const reach = post.reach ?? null;  // null = reach unavailable (deprecated June 2026)
+  const reach = post.reach ?? null;
+  // Follower engagement rate — consistent denominator across video and photo posts
+  const engagementRate = followersCount > 0
+    ? parseFloat((engaged / followersCount * 100).toFixed(2))
+    : null;
   return {
     ...post,
     caption: post.message || '',
@@ -86,7 +90,7 @@ function toFbSpotlight(post) {
     timestamp: post.createdTime,
     commentsCount: post.commentCount,
     shares: post.shareCount,
-    engagementRate: (reach != null && reach > 0) ? parseFloat((engaged / reach * 100).toFixed(2)) : null,
+    engagementRate,
     saved: null, saveRate: null, shareRate: null, avgWatchTime: null, videoUrl: null,
     mediaType:
       (post.contentType === 'video' || post.contentType === 'stream') ? 'VIDEO' :
@@ -589,10 +593,10 @@ export default function FacebookAnalytics() {
       {/* ── Top posts 2×2 grid ───────────────────────────────────────────────── */}
       {filteredPosts.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Top4Section title="🏆 Top Posts by Likes"      posts={filteredPosts} metric="likeCount"    metricLabel="Likes"    onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
-          <Top4Section title="💬 Top Posts by Comments"  posts={filteredPosts} metric="commentCount" metricLabel="Comments" onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
-          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredPosts} metric="shareCount"   metricLabel="Shares"   onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
-          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredPosts} metric="engaged"      metricLabel="Engaged"  onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+          <Top4Section title="🏆 Top Posts by Likes"      posts={filteredPosts} metric="likeCount"    metricLabel="Likes"    onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
+          <Top4Section title="💬 Top Posts by Comments"  posts={filteredPosts} metric="commentCount" metricLabel="Comments" onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
+          <Top4Section title="🔗 Top Posts by Shares"     posts={filteredPosts} metric="shareCount"   metricLabel="Shares"   onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
+          <Top4Section title="❤️ Top Posts by Engagement" posts={filteredPosts} metric="engaged"      metricLabel="Engaged"  onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
         </div>
       )}
 
@@ -613,7 +617,7 @@ export default function FacebookAnalytics() {
                   <span className="text-xs text-slate-400 font-mono">Top {Math.min(videoPosts.length, 10)} by engagement</span>
                 </div>
                 <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for videos &amp; reels</p>
-                <RateInsightsTable posts={videoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+                <RateInsightsTable posts={videoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
               </div>
             )}
             {hasPhotos && (
@@ -624,7 +628,7 @@ export default function FacebookAnalytics() {
                   <span className="text-xs text-slate-400 font-mono">Top {Math.min(photoPosts.length, 10)} by engagement</span>
                 </div>
                 <p className="text-slate-500 text-sm">Likes, comments, and shares breakdown for photos &amp; carousels</p>
-                <RateInsightsTable posts={photoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p))} />
+                <RateInsightsTable posts={photoPosts} onPostClick={p => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))} />
               </div>
             )}
           </>
@@ -759,7 +763,7 @@ export default function FacebookAnalytics() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {visiblePosts.map((p, idx) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedPost(toFbSpotlight(p))}>
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedPost(toFbSpotlight(p, data?.page?.followersCount))}>
                     <td className="px-3 py-3 text-center text-slate-400 text-xs font-mono font-bold">{idx + 1}</td>
                     <td className="px-6 py-3 max-w-xs">
                       <span className="text-slate-700 text-sm line-clamp-2 block">

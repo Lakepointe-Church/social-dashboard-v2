@@ -108,14 +108,23 @@ export default async function handler(req, res) {
               : null)
         : null;
 
-      // post_video_views confirmed working for video posts (probe June 2026)
+      // post_video_views confirmed working for native video posts (probe June 2026)
+      // post_clicks used as "Views" proxy for photo/album posts
       let videoViews = null;
+      let postClicks = null;
       if (isVideo && !ytMatch) {
         try {
           const pvRes  = await fetch(`${META_BASE}/${p.id}/insights?metric=post_video_views&access_token=${token}&appsecret_proof=${ap}`);
           const pvData = await pvRes.json();
           const val = pvData.data?.[0]?.values?.[0]?.value ?? pvData.data?.[0]?.value ?? null;
           if (!pvData.error && val != null && val > 0) videoViews = val;
+        } catch (_) {}
+      } else if (!isVideo) {
+        try {
+          const pcRes  = await fetch(`${META_BASE}/${p.id}/insights?metric=post_clicks&access_token=${token}&appsecret_proof=${ap}`);
+          const pcData = await pcRes.json();
+          const val = pcData.data?.[0]?.values?.[0]?.value ?? pcData.data?.[0]?.value ?? null;
+          if (!pcData.error && val != null) postClicks = val;
         } catch (_) {}
       }
 
@@ -129,7 +138,7 @@ export default async function handler(req, res) {
           ${thumbnail},
           ${p.permalink_url || null}, ${embedUrl},
           ${likes}, ${comments}, ${shares}, ${likes + comments + shares},
-          ${videoViews}, NOW()
+          ${isVideo ? videoViews : postClicks}, NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
           like_count     = EXCLUDED.like_count,
